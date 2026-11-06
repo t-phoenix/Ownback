@@ -167,6 +167,8 @@ contract OwnbackVault is EIP712, ReentrancyGuard {
     error BadDeposit();
     error TimelockNotReady();
     error NothingPending();
+    error ZeroAddress();
+    error InvalidConfig();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -193,6 +195,11 @@ contract OwnbackVault is EIP712, ReentrancyGuard {
         DomainValue[] memory relays_,
         DomainValue[] memory forwarders_
     ) EIP712("OwnbackVault", "1") {
+        if (
+            address(usdc_) == address(0) || address(tokenMessenger_) == address(0)
+                || address(messageTransmitter_) == address(0) || owner_ == address(0) || keeper_ == address(0)
+        ) revert ZeroAddress();
+        if (maxBatchUsd6_ == 0) revert InvalidConfig();
         usdc = usdc_;
         tokenMessenger = tokenMessenger_;
         messageTransmitter = messageTransmitter_;

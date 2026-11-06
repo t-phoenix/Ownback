@@ -34,6 +34,7 @@ contract OwnbackDepositForwarder {
     error FeeTooHigh();
     error TimelockNotReady();
     error NothingPending();
+    error ZeroAddress();
 
     constructor(
         IERC20 usdc_,
@@ -42,6 +43,10 @@ contract OwnbackDepositForwarder {
         address owner_,
         address relayer_
     ) {
+        if (
+            address(usdc_) == address(0) || address(tokenMessenger_) == address(0) || vaultOnArc_ == bytes32(0)
+                || owner_ == address(0) || relayer_ == address(0)
+        ) revert ZeroAddress();
         usdc = usdc_;
         tokenMessenger = tokenMessenger_;
         vaultOnArc = vaultOnArc_;
