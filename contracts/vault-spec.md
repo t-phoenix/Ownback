@@ -21,8 +21,8 @@ This version includes:
 
 | Role | Who | Can |
 |---|---|---|
-| User | Any address (EOA or Circle SCA) | Own rules, deposit, allocate, cancel own jars, withdraw own free balance to own address, sign BuyApprovals |
-| Keeper | Circle developer-controlled wallet | `execute` **only with a valid user BuyApproval**; `returnToJar`; `receiveDeposit` (anyone may call it) |
+| User | Any address (EOA or ERC-1271 smart wallet, e.g. Privy) | Own rules, deposit, allocate, cancel own jars, withdraw own free balance to own address, sign BuyApprovals |
+| Keeper | Funded EOA (`KEEPER_*`) | `execute` **only with a valid user BuyApproval**; `returnToJar`; `receiveDeposit` (anyone may call it) |
 | Owner | Safe (2-of-3) if available on Arc, else a hardware EOA | `pause`/`unpause`; propose + activate relay, keeper and forwarder (48 h timelock); 2-step ownership. **Cannot move user money** |
 
 ## Storage
@@ -74,7 +74,7 @@ struct Item { bytes32 asset; uint256 amount; uint32 domain; uint256 maxPriceUsd6
 struct BuyApproval { address user; Item[] items; uint256 maxFeeUsd6; uint256 nonce; uint64 deadline; }
 ```
 
-- The user signs once per Buy review. Circle SCAs sign through Circle's typed-data challenge (verified with **ERC-1271**). Seed EOAs sign locally (`ecrecover`). Use OpenZeppelin `SignatureChecker`.
+- The user signs once per Buy review. Privy smart wallets sign typed data (verified with **ERC-1271**). Seed EOAs sign locally (`ecrecover`). Use OpenZeppelin `SignatureChecker`.
 - `approvalHash = _hashTypedDataV4(hash(BuyApproval))`.
 - Each item can be executed up to its `amount` in total, across any number of batches, until `deadline`. The demo deadline is now + 30 min.
 - `maxPriceUsd6` and `maxFeeUsd6` can't be checked on Arc, because the swap happens on another chain. They're emitted in `Executed`, so anyone can compare them with the venue tx (G2 in [docs/10](../docs/10-security-audit.md)). The keeper must honour them.
@@ -96,7 +96,7 @@ struct BuyApproval { address user; Item[] items; uint256 maxFeeUsd6; uint256 non
 | `withdraw(uint256 amount)` | `0 < amount ≤ free` | `free -=`; `transfer(msg.sender)` | `Withdrawn(user, amount, 26, msg.sender)` | allowed |
 | `withdrawCrossChain(uint256 amount, uint32 domain, uint256 maxFee)` | `withdrawDomain[domain]` · Solana needs `solanaRecipient[user] ≠ 0` · `maxFee ≤ amount × 10 / 10000` (0.1%) | `free -=`; `depositForBurn(amount, domain, recipient, usdc, 0, maxFee, minFinality)` with recipient = Solana ATA or `bytes32(msg.sender)` | `Withdrawn` | allowed |
 
-**S20:** Prefer EIP-712 + ERC-1271. If Circle SCA cannot sign typed data with arrays on Arc, the PWA builds a `SignableAction` that calls `approveBuy` instead; `execute` then accepts either a valid off-chain signature **or** `onchainApproval[hash]`.
+**S20:** Prefer EIP-712 + ERC-1271. If the Privy smart wallet cannot sign typed data with arrays on Arc, the PWA builds a `SignableAction` that calls `approveBuy` instead; `execute` then accepts either a valid off-chain signature **or** `onchainApproval[hash]`.
 
 ## Keeper functions
 
@@ -145,7 +145,7 @@ A message from any other sender reverts. The USDC still mints (to the vault) and
 contract OwnbackDepositForwarder {
     IERC20 public immutable usdc; ITokenMessengerV2 public immutable tokenMessenger;
     bytes32 public immutable vaultOnArc;          // mintRecipient AND destinationCaller
-    address public relayer;                       // Circle dev wallet; change via 48 h timelock by owner
+    address public relayer;                       // EOA relayer; change via 48 h timelock by owner
     uint256 public constant MAX_FEE_BPS = 10;     // 0.1%
     function forward(address user, uint256 amount, uint256 maxFee) external onlyRelayer {
         require(amount > 0 && maxFee * 10_000 <= amount * MAX_FEE_BPS);

@@ -28,6 +28,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey(),
   authKind: text('auth_kind').notNull(),
   circleUserId: text('circle_user_id'),
+  privyDid: text('privy_did'),
   email: text('email'),
   displayName: text('display_name').notNull(),
   evmAddress: text('evm_address'),

@@ -180,7 +180,22 @@ function SettingRow({ title, value, icon }: { title: string; value?: string; ico
 function ToggleRow({ title, value, onChange }: { title: string; value: boolean; onChange: () => void }) { return <div className="row"><span className="row-main row-title">{title}</span><button className={`switch ${value ? "on" : ""}`} role="switch" aria-checked={value} onClick={onChange}><span /></button></div>; }
 
 function SignIn({ navigate }: { navigate: Navigate }) {
-  return <div className="page flow welcome"><Logo /><div className="welcome-art"><div className="welcome-card"><span className="eyebrow">Croma · iPhone</span><strong style={{ display: "block", margin: "8px 0" }}>₹79,900 → $47.75</strong><div className="splitbar"><span style={{ width: "70%", background: "var(--primary)" }} /><span style={{ width: "20%", background: "#75b89b" }} /><span style={{ width: "10%", background: "var(--accent)" }} /></div><span className="tiny muted">Apple · TSMC · Corning · Gold</span></div></div><span className="eyebrow">Own what you buy.</span><h1 className="headline">Own a piece of what you buy.</h1><p className="muted" style={{ fontSize: 17, lineHeight: 1.45 }}>A small share of every purchase goes into the companies behind it.</p><div style={{ marginTop: "auto" }}><button className="button primary full" onClick={() => navigate("/onboarding/rules")}><Mail size={18} /> Continue with Google</button><button className="button ghost full" style={{ marginTop: 10 }} onClick={() => navigate("/onboarding/rules")}><LockKeyhole size={18} /> Use a seed phrase</button><p className="privacy-note">By continuing you accept the Terms · Risks</p></div></div>;
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const continueGoogle = async () => {
+    setBusy(true); setErr("");
+    try {
+      // MOCKS / no Privy dashboard yet: API MOCK_CHAIN derives wallets from the token (Q9).
+      const { authPrivy } = await import("../lib/api");
+      await authPrivy(`mock_${Date.now()}`);
+      navigate("/onboarding/rules");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "AUTH_INVALID");
+      // Offline / API down: still allow wireframe walkthrough
+      if (process.env.NEXT_PUBLIC_MOCKS !== "0") navigate("/onboarding/rules");
+    } finally { setBusy(false); }
+  };
+  return <div className="page flow welcome"><Logo /><div className="welcome-art"><div className="welcome-card"><span className="eyebrow">Croma · iPhone</span><strong style={{ display: "block", margin: "8px 0" }}>₹79,900 → $47.75</strong><div className="splitbar"><span style={{ width: "70%", background: "var(--primary)" }} /><span style={{ width: "20%", background: "#75b89b" }} /><span style={{ width: "10%", background: "var(--accent)" }} /></div><span className="tiny muted">Apple · TSMC · Corning · Gold</span></div></div><span className="eyebrow">Own what you buy.</span><h1 className="headline">Own a piece of what you buy.</h1><p className="muted" style={{ fontSize: 17, lineHeight: 1.45 }}>A small share of every purchase goes into the companies behind it.</p><div style={{ marginTop: "auto" }}><button className="button primary full" disabled={busy} onClick={continueGoogle}><Mail size={18} /> {busy ? "Signing in…" : "Continue with Google"}</button><button className="button ghost full" style={{ marginTop: 10 }} onClick={() => navigate("/onboarding/rules")}><LockKeyhole size={18} /> Use a seed phrase</button>{err && <p className="tiny muted" style={{ marginTop: 8 }}>{err}</p>}<p className="privacy-note">By continuing you accept the Terms · Risks</p></div></div>;
 }
 
 function Rules({ navigate }: { navigate: Navigate }) {

@@ -4,6 +4,7 @@ import { ApiError } from '../shared/errors.js';
 import { envFlag, requireCron } from '../lib/env.js';
 import { jsonError } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
+import { autoAddEvmEnabled, getKeeperAccount, keeperEnabled, relaySolAddress } from '../lib/keeper.js';
 
 export const jobRoutes = new Hono();
 
@@ -18,9 +19,10 @@ function cronAuth(c: { req: { header: (n: string) => string | undefined } }) {
 jobRoutes.post('/jobs/keeper/run', async (c) => {
   try {
     cronAuth(c);
-    if (!envFlag('KEEPER_ENABLED', false)) {
+    if (!keeperEnabled()) {
       return c.json({ ok: true, skipped: 'KEEPER_DISABLED' });
     }
+    const keeper = getKeeperAccount();
     const sql = getSql();
     // Lock + execute path (keeper-and-jobs.md). Without chain clients, only claim lock.
     const locked = await sql<{ held_by: string | null }[]>`
@@ -35,8 +37,15 @@ jobRoutes.post('/jobs/keeper/run', async (c) => {
         WHERE status = 'signed' AND deadline > now()
         LIMIT 20
       `;
-      // Real execute needs vault + venues (spikes). Do not invent buys.
-      return c.json({ ok: true, pendingApprovals: pending.length });
+      // Real execute needs vault + venues (spikes). Solana venue: Jupiter payer = RELAY_SOL (D26).
+      return c.json({
+        ok: true,
+        pendingApprovals: pending.length,
+        keeperAddress: keeper?.address ?? process.env.KEEPER_ADDRESS ?? null,
+        relaySolAddress: relaySolAddress(),
+        // Jupiter: taker=relay, payer=relay, destination=user ATA — never fund user SOL for buys.
+        solanaBuyPayer: 'relay',
+      });
     } finally {
       await sql`UPDATE keeper_lock SET held_by = NULL, held_at = NULL WHERE id = 1`;
     }
@@ -66,7 +75,10 @@ jobRoutes.post('/jobs/buy-reminder', async (c) => {
 jobRoutes.post('/jobs/deposits/forward', async (c) => {
   try {
     cronAuth(c);
-    // Forwarder + CCTP path (Q3); needs RELAYER_WALLET_IDS + verified forwarder address.
+    // Forwarder + CCTP (Q3); D27: Google auto-add off until AUTO_ADD_EVM.
+    if (!autoAddEvmEnabled()) {
+      return c.json({ ok: true, skipped: 'AUTO_ADD_EVM_OFF', forwarded: 0 });
+    }
     return c.json({ ok: true, forwarded: 0 });
   } catch (e) {
     return jsonError(c, e);

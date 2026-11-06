@@ -37,14 +37,15 @@ APPROVE (POST /api/buys {approval, signature})
 EXECUTE (keeper/run)
  7. Lock (keeper_lock, SKIP LOCKED). One batch per venue domain.
  8. Re-simulate the whole route. If price > item max or fee > approval max → item 'waiting' (not executed). Stop here if nothing is left.
- 9. vault.execute(batchId, domain, orders) from the keeper dev wallet. Read Executed + BatchSent. Status 'bridging'.
-10. Poll Iris /v2/messages for the attestation (5 s; slow after 3 min). receiveMessage on the venue chain (relay pays).
+ 9. vault.execute(batchId, domain, orders) from the keeper EOA (`KEEPER_*`). Read Executed + BatchSent. Status 'bridging'.
+10. Poll Iris /v2/messages for the attestation (5 s; slow after 3 min). receiveMessage on the venue chain (Solana: buy relay pays SOL, D26).
     Check the relay's USDC went up by the batch total. Status 'swapping'.
 11. Per item:
     a. Mint == Arkiv (createdBy+ownedBy our writer) == assets.ts, else 'paused' → step 13.
     b. Fresh quote + reference check + fee re-simulation. Over max price or max fee → step 13.
     c. Swap with MEV protection (Jupiter protected send / Jito bundle; Uniswap with a private RPC on EVM),
        destination = the user's own address, slippage ≤ 1%, split if price impact needs it.
+       Solana: Jupiter `payer` = relay, destination = user ATA (never fund user SOL for buys).
        BNB route: Base relay → audited bridge (capped) → swap on PancakeSwap → user's EVM address.
     d. Read the user's token balance before and after → qty, fill = spent ÷ qty. Fill > max → alert + pause the asset.
     e. Fee for this item = its pro-rata share (by item amount) of the batch's actual route costs; deducted from the amount swapped; must be ≤ its pro-rata share of maxFeeUsd6 (docs/05).
@@ -73,7 +74,7 @@ EXECUTE (keeper/run)
 2. **Checks.** Auto-add must be on, with allowance ≥ amount. Then simulate `forward(user, amount, maxFee)`. The fee is the CCTP fast fee (≤ 0.1%), shown to the user in the deposit steps.
 3. **Forward.** The relayer calls `forward`, then Iris attestation, then the keeper calls `vault.receiveDeposit`. The deposit becomes `added`, with the push "$20.00 added".
 4. **Not turned on, or allowance too low:** the deposit becomes `needs_approval`, with the push "tap to add it".
-5. **Solana, Google users (A15):** one tap does an SPL transfer to the deposit relay. The relay then does a CCTP burn with `hookData = user`, followed by `receiveDeposit`. The limit is $500 per deposit.
+5. **Solana, Google users (A15):** one tap does an SPL transfer from the Privy Solana wallet to the deposit relay (Kora/deposit-relay fee payer). The relay then does a CCTP burn with `hookData = user`, followed by `receiveDeposit`. The limit is $500 per deposit.
 
 ## Gmail scan
 

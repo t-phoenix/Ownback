@@ -14,9 +14,10 @@ Conventions:
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
-| auth_kind | text CHECK in (`google`,`seed`) | |
-| circle_user_id | text UNIQUE NULL | Google only |
-| email | text NULL | Google only |
+| auth_kind | text CHECK in (`privy`,`seed`,`google`) | `privy` is Google via Privy (Q9); `google` legacy |
+| privy_did | text UNIQUE NULL | Privy DID (Q9) |
+| circle_user_id | text UNIQUE NULL | Legacy Circle user id; may mirror privy_did during migration |
+| email | text NULL | Privy / Google |
 | display_name | text | First name or "You" |
 | evm_address | text UNIQUE NULL | Checksummed. Same on Arc, Base, Ethereum, Arbitrum (S6) |
 | sol_address | text UNIQUE NULL | |

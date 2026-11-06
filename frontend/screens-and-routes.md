@@ -9,7 +9,7 @@ Tab bar (on Home, Holdings, + Add, Receipts, Settings): **Home `/` · Holdings `
 | Board | Route | Data (API) | Links / actions | States |
 |---|---|---|---|---|
 | Shared link (web) | `/r/[code]` (public, SSR, OG tags) | Server: owner's display name, card image, company count | "Start owning what you buy" → `/signin` (sets `ob_ref`) | Unknown code → plain landing with no inviter |
-| Sign in | `/signin` | `POST /api/auth/google/device-token`, `POST /api/auth/google` | "Continue with Google" → Circle login → setup challenge → `/onboarding/rules`; "Use a seed phrase" → `/signin/seed`; Terms · Risks links | Loading on the button; `AUTH_INVALID`; `GEO_BLOCKED` |
+| Sign in | `/signin` | `POST /api/auth/privy` | "Continue with Google" → Privy (smart wallet + Solana) → session → `/onboarding/rules`; "Use a seed phrase" → `/signin/seed`; Terms · Risks links | Loading on the button; `AUTH_INVALID`; `GEO_BLOCKED` |
 | Seed phrase | `/signin/seed` | `GET /api/auth/seed/nonce`, `POST /api/auth/seed` | Tabs Create new / Import mine; "Tap to reveal"; checkbox "I wrote them down"; Continue → set PIN → `/onboarding/rules` | Invalid words; wrong word count; PIN mismatch |
 | Set your rules | `/onboarding/rules` | `GET/PUT /api/rules` | Slider 2–10% with live example "$955 iPhone → $47.75 into Apple"; monthly limit; Max fees 5%; Ready when $5 (reminder threshold); fallback chips; "Add $20 to start" → `/funds` | Saving |
 | Home, first time | `/` when the user has no receipts | `GET /api/home` | Balance card → `/holdings`; "Add a purchase" → `/add` | — |

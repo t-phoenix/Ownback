@@ -7,7 +7,7 @@ import { sessionId } from './ids.js';
 
 export type AuthedUser = {
   id: string;
-  authKind: 'google' | 'seed';
+  authKind: 'privy' | 'seed' | 'google';
   email: string | null;
   displayName: string;
   evmAddress: string | null;
@@ -69,7 +69,7 @@ export async function requireUser(c: Context): Promise<AuthedUser> {
   const sql = getSql();
   const rows = await sql<{
     id: string;
-    auth_kind: 'google' | 'seed';
+    auth_kind: 'privy' | 'seed' | 'google';
     email: string | null;
     display_name: string;
     evm_address: string | null;
@@ -99,7 +99,7 @@ export async function requireUser(c: Context): Promise<AuthedUser> {
 
   return {
     id: row.id,
-    authKind: row.auth_kind,
+    authKind: row.auth_kind === 'google' ? 'privy' : row.auth_kind,
     email: row.email,
     displayName: row.display_name,
     evmAddress: row.evm_address,
@@ -155,7 +155,7 @@ export async function withIdempotency<T>(
 export function mePayload(u: AuthedUser, onboarded: boolean) {
   return {
     id: u.id,
-    authKind: u.authKind,
+    authKind: u.authKind === 'google' ? 'privy' : u.authKind,
     ...(u.email ? { email: u.email } : {}),
     displayName: u.displayName,
     ...(u.evmAddress ? { evmAddress: u.evmAddress } : {}),

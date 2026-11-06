@@ -13,7 +13,7 @@ Due Sat 7 Nov 09:00 IST. Draft from 03:00, freeze at 07:00, submit by 08:30.
 | ☐ | Working frontend and backend (live URL) | README |
 | ☐ | Architecture diagram | `docs/architecture.svg` (export from the architecture doc) |
 | ☐ | Bounty stated: DeFi / Onchain Finance (backup: Advanced Stablecoin Logic) | Form |
-| ☐ | Circle tools used: Wallets (user + developer-controlled), Gas Station, Gateway, CCTP V2 via App Kit, USDC, Paymaster | README "Partner tech" |
+| ☐ | Partner stack: Arc Studio + vault, native USDC, CCTP V2 (TokenMessenger + Iris), Privy (Google smart wallet + Solana). Circle Console wallets/Gas Station/Gateway only if verification worked | README "Partner tech" |
 | ☐ | Vault address on Arc mainnet, verified | README |
 | ☐ | GitHub repo | Form |
 
@@ -59,7 +59,7 @@ The sentence: *"Without 0G, Ownback can't read a receipt or an invoice, or tell 
 2. **Try it**: live URL, demo video, and test Google account instructions (or seed phrase import).
 3. **How it works**: 5 steps with a screenshot each.
 4. **Architecture**: diagram + the parts table from [02](02-system-overview.md).
-5. **Partner tech**: Arc/Circle (each tool and where it's used), 0G (models, private mode, request IDs, the sentence), Arkiv (entities, writer addresses, a runnable query).
+5. **Partner tech**: Arc (Studio, vault, USDC) + CCTP V2 + Privy wallets; 0G (models, private mode, request IDs, the sentence); Arkiv (entities, writer addresses, a runnable query).
 6. **Contracts**: vault address, explorer link, Arc Studio URL, the 7 invariants.
 7. **Security and privacy**: the 5 promises from [06](06-security.md).
 8. **Run locally**: `pnpm i`, `.env.example`, `pnpm dev`, `forge test`.

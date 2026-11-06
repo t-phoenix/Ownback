@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
 import { ApiError } from '../shared/errors.js';
@@ -8,112 +8,108 @@ import {
   createSession,
   jsonError,
   mePayload,
-  mockEvmAction,
   requireCsrf,
   requireUser,
   setSessionCookies,
+  type AuthedUser,
 } from '../lib/http.js';
 import { mockChain } from '../lib/env.js';
 import { newId, referralCode } from '../lib/ids.js';
+import { resolvePrivyIdentity } from '../lib/privy.js';
 
 export const authRoutes = new Hono();
 
-authRoutes.post('/auth/google/device-token', async (c) => {
-  try {
-    const body = z.object({ deviceId: z.string().min(1) }).parse(await c.req.json());
-    if (!process.env.CIRCLE_APP_ID && !mockChain()) throw new ApiError('UPSTREAM');
-    // MOCK: Circle device token; real Circle call when CIRCLE_APP_ID + keys set
-    const deviceToken = `mock_device_${createHash('sha256').update(body.deviceId).digest('hex').slice(0, 24)}`;
-    return c.json({
-      deviceToken,
-      deviceEncryptionKey: randomBytes(32).toString('base64'),
-      appId: process.env.CIRCLE_APP_ID || process.env.NEXT_PUBLIC_CIRCLE_APP_ID || 'mock-app',
-    });
-  } catch (e) {
-    return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
-  }
-});
+type AuthKind = AuthedUser['authKind'];
 
-authRoutes.post('/auth/google', async (c) => {
+async function loadUserRow(userId: string): Promise<AuthedUser> {
+  const sql = getSql();
+  const urows = await sql<{
+    id: string;
+    auth_kind: AuthKind;
+    email: string | null;
+    display_name: string;
+    evm_address: string | null;
+    sol_address: string | null;
+    referral_code: string;
+  }[]>`SELECT id, auth_kind, email, display_name, evm_address, sol_address, referral_code FROM users WHERE id = ${userId}::uuid`;
+  const row = urows[0]!;
+  return {
+    id: row.id,
+    authKind: row.auth_kind === 'google' ? 'privy' : row.auth_kind,
+    email: row.email,
+    displayName: row.display_name,
+    evmAddress: row.evm_address,
+    solAddress: row.sol_address,
+    referralCode: row.referral_code,
+    sessionId: '',
+  };
+}
+
+authRoutes.post('/auth/privy', async (c) => {
   try {
     const body = z
-      .object({ userToken: z.string().min(1), encryptionKey: z.string().min(1) })
+      .object({
+        accessToken: z.string().min(1),
+        // Allowed under MOCK_CHAIN so wireframes can pass addresses without Privy dashboard.
+        evmAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+        solAddress: z.string().min(32).optional(),
+        email: z.string().email().optional(),
+      })
       .parse(await c.req.json());
+
     const country = c.req.header('x-vercel-ip-country') || c.req.header('cf-ipcountry');
     if (country === 'US') throw new ApiError('GEO_BLOCKED');
 
+    const identity = await resolvePrivyIdentity(body.accessToken, {
+      evmAddress: body.evmAddress,
+      solAddress: body.solAddress,
+      email: body.email,
+    });
+
     const sql = getSql();
-    // Without Circle API: derive a stable mock circle_user_id from the token (MOCK_CHAIN / missing keys).
-    const circleUserId = `g_${createHash('sha256').update(body.userToken).digest('hex').slice(0, 32)}`;
     const existing = await sql<{ id: string }[]>`
-      SELECT id FROM users WHERE circle_user_id = ${circleUserId} LIMIT 1
+      SELECT id FROM users
+      WHERE privy_did = ${identity.did}
+         OR circle_user_id = ${identity.did}
+      LIMIT 1
     `;
 
     let userId: string;
-    let setup: ReturnType<typeof mockEvmAction> | undefined;
     if (existing[0]) {
       userId = existing[0].id;
+      await sql`
+        UPDATE users SET
+          auth_kind = 'privy',
+          privy_did = ${identity.did},
+          email = COALESCE(${identity.email}, email),
+          display_name = COALESCE(${identity.displayName}, display_name),
+          evm_address = COALESCE(${identity.evmAddress}, evm_address),
+          sol_address = COALESCE(${identity.solAddress}, sol_address)
+        WHERE id = ${userId}::uuid
+      `;
     } else {
       userId = newId();
-      const name = 'You';
+      const name = identity.displayName || 'You';
       await sql`
-        INSERT INTO users (id, auth_kind, circle_user_id, email, display_name, referral_code, country, created_at)
-        VALUES (
-          ${userId}::uuid, 'google', ${circleUserId}, NULL, ${name},
+        INSERT INTO users (
+          id, auth_kind, privy_did, circle_user_id, email, display_name,
+          evm_address, sol_address, referral_code, country, created_at
+        ) VALUES (
+          ${userId}::uuid, 'privy', ${identity.did}, ${identity.did},
+          ${identity.email}, ${name},
+          ${identity.evmAddress}, ${identity.solAddress},
           ${referralCode(name)}, ${country ?? null}, now()
         )
       `;
-      await sql`
-        INSERT INTO rules (user_id, updated_at) VALUES (${userId}::uuid, now())
-      `;
-      setup = mockEvmAction('Create your Ownback wallets');
+      await sql`INSERT INTO rules (user_id, updated_at) VALUES (${userId}::uuid, now())`;
     }
 
     const sid = await createSession(userId, c.req.header('user-agent') ?? undefined);
     setSessionCookies(c, sid);
-    const urows = await sql<{
-      id: string;
-      auth_kind: 'google' | 'seed';
-      email: string | null;
-      display_name: string;
-      evm_address: string | null;
-      sol_address: string | null;
-      referral_code: string;
-    }[]>`SELECT id, auth_kind, email, display_name, evm_address, sol_address, referral_code FROM users WHERE id = ${userId}::uuid`;
-    const row = urows[0]!;
-    const u = {
-      id: row.id,
-      authKind: row.auth_kind,
-      email: row.email,
-      displayName: row.display_name,
-      evmAddress: row.evm_address,
-      solAddress: row.sol_address,
-      referralCode: row.referral_code,
-      sessionId: sid,
-    };
-    const rules = await sql`SELECT 1 FROM rules WHERE user_id = ${userId}::uuid AND onchain_synced_at IS NOT NULL`;
-    return c.json({ user: mePayload(u, rules.length > 0), ...(setup ? { setup } : {}) });
-  } catch (e) {
-    return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
-  }
-});
-
-authRoutes.post('/auth/google/setup/submitted', async (c) => {
-  try {
-    requireCsrf(c);
-    const user = await requireUser(c);
-    z.object({ challengeIds: z.array(z.string()).min(1) }).parse(await c.req.json());
-    const sql = getSql();
-    // MOCK_CHAIN: inventing addresses is forbidden for production; placeholder only when mock.
-    if (!mockChain()) throw new ApiError('UPSTREAM');
-    const evm = `0x${createHash('sha256').update(user.id + 'evm').digest('hex').slice(0, 40)}`;
-    const sol = createHash('sha256').update(user.id + 'sol').digest('base64url').slice(0, 44);
-    await sql`
-      UPDATE users SET evm_address = ${evm}, sol_address = ${sol}
-      WHERE id = ${user.id}::uuid
-    `;
-    const u = await requireUser(c);
-    return c.json({ user: mePayload({ ...u, evmAddress: evm, solAddress: sol }, false) });
+    const u = await loadUserRow(userId);
+    u.sessionId = sid;
+    const rules = await sql`SELECT onchain_synced_at FROM rules WHERE user_id = ${userId}::uuid`;
+    return c.json({ user: mePayload(u, !!rules[0]?.onchain_synced_at) });
   } catch (e) {
     return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
   }
@@ -174,26 +170,8 @@ authRoutes.post('/auth/seed', async (c) => {
 
     const sid = await createSession(userId, c.req.header('user-agent') ?? undefined);
     setSessionCookies(c, sid);
-    const urows = await sql<{
-      id: string;
-      auth_kind: 'google' | 'seed';
-      email: string | null;
-      display_name: string;
-      evm_address: string | null;
-      sol_address: string | null;
-      referral_code: string;
-    }[]>`SELECT id, auth_kind, email, display_name, evm_address, sol_address, referral_code FROM users WHERE id = ${userId}::uuid`;
-    const row = urows[0]!;
-    const u = {
-      id: row.id,
-      authKind: row.auth_kind,
-      email: row.email,
-      displayName: row.display_name,
-      evmAddress: row.evm_address,
-      solAddress: row.sol_address,
-      referralCode: row.referral_code,
-      sessionId: sid,
-    };
+    const u = await loadUserRow(userId);
+    u.sessionId = sid;
     const rules = await sql`SELECT onchain_synced_at FROM rules WHERE user_id = ${userId}::uuid`;
     return c.json({ user: mePayload(u, !!rules[0]?.onchain_synced_at) });
   } catch (e) {

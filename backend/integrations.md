@@ -2,31 +2,36 @@
 
 How we call each external service: SDK or endpoint, what we send, limits, and what happens when it fails. Every client lives in `apps/web/lib/<service>/`, and every call has a timeout and maps failures to `UPSTREAM`.
 
-## Circle (Arc partner)
+## Privy (Google wallets · Q9)
 
 | Piece | Used for | How | Fails → |
 |---|---|---|---|
-| **User-controlled wallets: social login** | Google sign-in, user wallets | Server: create a device token for the Web SDK (`/api/auth/google/device-token`). Client: Web SDK `performLogin(Google)` → `userToken` + `encryptionKey`. Server: verify the token by calling Circle as that user; first time, `initialize user` with `blockchains: [ARC, BASE, ETH, ARB, SOL]` and `accountType: SCA` (EVM) → `challengeId` for the client | `AUTH_INVALID`. The seed path stays available |
-| **Contract execution** | Every user action on Arc (setRules, deposit, allocate, cancelJar, withdraw) | Server creates a user transaction (contract execution: vault address, ABI function, params, `feeLevel`) with the user's `userToken` → `challengeId` → client runs it in the SDK | `CHALLENGE_FAILED`; nothing moved |
-| **Typed-data signing** | **BuyApproval** (every buy, Q7); Gateway burn intent if used | `signTypedData` challenge; verified on Arc with ERC-1271 (S20) | Fallback: user calls vault `approveBuy(BuyApproval)` via Circle challenge; see vault-spec S20 |
-| **Gas Station** | Sponsors user and keeper SCAs | Console policy per chain ([docs/05](../docs/05-gasless-and-fees.md)). No code: transactions just use `feeLevel` | User pays on Arc (USDC) |
-| **Developer-controlled wallet** | Keeper on Arc; relays on Base/Ethereum | `@circle-fin/developer-controlled-wallets`: `createContractExecutionTransaction` with the entity secret | Keeper run fails safely; nothing left the vault |
-| **Gateway** | One dollar balance across chains | App Kit "Unified Balance", or Gateway API: deposit on the source chain → burn intent → attestation → `gatewayMint` on Arc | Q3 option A / CCTP fallback |
-| **CCTP V2 (App Kit Bridge)** | Vault → relay, relay → vault, withdraw cross-chain, deposit fallback | Burn happens in the vault (`depositForBurn`). The server polls the attestation API, then calls `receiveMessage` on the destination (Solana: relay pays; EVM: keeper dev wallet) | Poll every 5 s, mark slow after 3 min, keep going; the money is safe in CCTP |
-| **Paymaster** | Seed users paying EVM gas in USDC | Client: viem account abstraction + Circle Paymaster (EntryPoint v0.8 / EIP-7702) | EIP-3009 relayer |
+| **Google login** | Sign-in | PWA: Privy SDK Google login → access token. `POST /api/auth/privy` verifies with Privy server API / JWT; upserts user with EVM smart-wallet address + Solana address | `AUTH_INVALID`. Seed path stays available |
+| **EVM smart wallet** | Rules, deposit, allocate, cancel, withdraw, BuyApproval | PWA runs `SignableAction` `evm_calls` / `typed_data` via Privy. Vault verifies BuyApproval with ERC-1271 (`SignatureChecker`). S20 fallback: on-chain `approveBuy` if typed-data with arrays fails | `CHALLENGE_FAILED` / tx revert; nothing moved |
+| **Solana wallet** | One-tap Solana deposits; `setSolanaRecipient` ATA | Privy Solana signer for `sol_tx`. Fee payer = Kora or deposit relay (not the user) | User retries; seed Solana path available |
 
-Things to note:
-- `userToken` lasts about 60 min. On `401` from Circle, the client re-runs the Google login silently and retries.
-- Never store `encryptionKey` server-side beyond the request.
-- Circle webhook (optional, recommended): subscribe to inbound transfer notifications for the user wallets. This speeds up the deposit watcher. Verify the webhook signature.
+Env: `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, `NEXT_PUBLIC_PRIVY_APP_ID`. Never store Privy access tokens server-side beyond the login request.
+
+## CCTP V2 + keeper EOAs (no Circle Console required)
+
+| Piece | Used for | How | Fails → |
+|---|---|---|---|
+| **CCTP V2** | Vault → venue relay, relay → vault, withdraw cross-chain, Solana deposit → Arc | Vault / forwarder `depositForBurn`. Server polls Iris attestation API, then `receiveMessage` on destination (**Solana: buy relay pays SOL**; EVM: keeper/relayer EOA) | Poll every 5 s, mark slow after 3 min, keep going; money safe in CCTP |
+| **Keeper EOA** | `vault.execute`, Arc legs | `viem` + `KEEPER_*` private key / address (not Circle developer-controlled wallets) | Keeper run fails safely; nothing left the vault |
+| **EVM relayers** | Forwarder `forward`, Base venue receive/swap | Funded EOAs (`RELAYER_*`) | Job retries; deposit stays `needs_approval` / jar waits |
+| **Solana buy relay** | CCTP mint + Jupiter swap (D26) | `RELAY_SOL_KEY`: `receiveMessage`, then Jupiter with `taker` = relay, **`payer` = relay**, **destination = user's ATA**. Alert if SOL &lt; 0.05 | Return USDC to vault → `returnToJar` (we pay) |
+| **Solana deposit relay** | Google/seed one-tap deposit (A15) | SPL into deposit account → CCTP burn with `hookData = user` → `receiveDeposit` | Cap $500/deposit; user retries |
+
+Gateway / App Kit / Gas Station / Circle user wallets: **out for this build** (Q9). Optional if Circle Console verification later succeeds.
 
 ## 0G Private Computer
 
-- OpenAI SDK with `baseURL: 'https://router-api.0g.ai/v1'`, `apiKey: OG_API_KEY`, and header `X-0G-Provider-Trust-Mode: private` on every call.
-- Store the request ID from each response (header or body, confirmed in S10) in `ai_runs`, and show it in Reading, Confirm and the proof trail.
+- OpenAI-compatible `https://router-api.0g.ai/v1` with `OG_API_KEY`. Client: `src/lib/og/client.ts`.
+- Every call: `X-0G-Provider-Trust-Mode: private` + `X-0G-Provider-Address` for the TeeML pin in [ai-spec.md](ai-spec.md) / `src/lib/og/models.ts`.
+- Request ID: prefer `x_0g_trace.request_id`; store in `ai_runs`; show on Reading, Confirm, proof trail.
 - Timeouts: vision 20 s, text 10 s. One retry on 5xx. JSON mode + zod parse, with one repair retry on a parse failure.
-- Models, prompts and schemas: [ai-spec.md](ai-spec.md).
-- iAI bonus (flag `OG_SIGNIN`): OAuth with the user's 0G account; calls are billed to their credits. Ask at the booth for the endpoints. Only works on `localhost:3000`.
+- Models: private `0GM-1.0-35B-A3B` (vision), `glm-5.3` (text), `qwen3-embedding-0.6b`, `openai/whisper-large-v3`. Smoke: `scripts/og-check.ts`.
+- iAI bonus (flag `OG_SIGNIN`): OAuth with the user's 0G account; calls are billed to their credits. Ask at the booth for Privy app ID / endpoints. Only works on `localhost:3000` / `3001` / `5173`.
 
 ## Jupiter (Solana venue)
 
@@ -34,7 +39,7 @@ Things to note:
 |---|---|
 | Price API | Prices for Holdings, Jars ("price now"), balance; cache 60 s |
 | Swap V2 quote | Buy review (`amount` = jar USDC, `slippageBps` = 100), keeper re-quote |
-| Swap V2 build | Keeper: `inputMint` USDC, `outputMint` = verified mint, `taker` = relay, **destination = the user's token account** (S3), `payer` = relay (fees + ATA rent) |
+| Swap V2 build | Keeper: `inputMint` USDC, `outputMint` = verified mint, `taker` = relay, **destination = the user's token account** (S3), `payer` = relay (fees + ATA rent) — D26 |
 
 Check before every swap: the `outputMint` equals the Arkiv `asset` mint for that asset and chain, `priceImpactPct ≤ 1%`, and the out amount ≥ `amount / maxPrice`.
 
@@ -46,8 +51,8 @@ Venue adapters share one interface: `quote(asset, amountUsd6) → { price, impac
 
 | Venue | How |
 |---|---|
-| Base / Ethereum / Arbitrum | App Kit Swap first, then the Uniswap Trading API (quote → calldata). Relay = Circle dev wallet on that chain; private RPC send (MEV); recipient = the user's EVM address |
-| BNB Chain (`VENUE_BNB`) | Base relay → audited bridge (S19; per-transfer and daily caps) → BNB dollar token → PancakeSwap → user's EVM address. If any leg fails, return to the jar. BNB has no Circle USDC, so balances there are never shown as USDC |
+| Base / Ethereum / Arbitrum | Uniswap Trading API (quote → calldata) or App Kit Swap if available. Relay = EOA on that chain; private RPC send (MEV); recipient = the user's EVM address |
+| BNB Chain (`VENUE_BNB`) | Base relay → audited bridge (S19; per-transfer and daily caps) → BNB dollar token → PancakeSwap → user's EVM address. If any leg fails, return to the jar. BNB has no native Circle USDC, so balances there are never shown as USDC |
 
 ## Reference prices (A4)
 
@@ -62,7 +67,7 @@ Pyth price feeds for the underlying (S18), or the Jupiter price API across all p
 
 ## Gmail
 
-- OAuth 2.0 web flow, incremental scope `https://www.googleapis.com/auth/gmail.readonly`, `access_type=offline`, `include_granted_scopes=true`. Asked only when the user taps (never at sign-in).
+- OAuth 2.0 web flow, incremental scope `https://www.googleapis.com/auth/gmail.readonly`, `access_type=offline`, `include_granted_scopes=true`. Asked only when the user taps (never at sign-in). Uses `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (not Privy).
 - `users.messages.list` with `q = from:(<shop allowlist>) newer_than:30d`. Allowlist: Amazon, Flipkart, Myntra, Croma, Nykaa, Swiggy Instamart, Blinkit, BigBasket, Apple, Zepto, Ajio, Tata CLiQ, Uber (to mark as not a product).
 - `users.messages.get?format=full` → **skip unless `Authentication-Results` shows `dkim=pass` for the shop's domain (A8)** → text/plain or HTML-to-text, truncated to 12k characters → 0G → drop the body.
 - OAuth: `state` = HMAC(session ID, nonce) + PKCE; the callback rejects a mismatch (A12).

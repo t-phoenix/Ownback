@@ -13,7 +13,7 @@ Use company names first and tickers second.
 
 These never appear in the UI: guaranteed, returns, profit, moon, token\*, bridge\*, CCTP\*, "invest smarter", "wealth journey".
 
-\* Allowed only inside proof trail rows and explorer labels, where they name the real thing ("Circle CCTP", "Arc tx").
+\* Allowed only inside proof trail rows and explorer labels, where they name the real thing ("CCTP", "Arc tx").
 
 ## Error codes → copy
 
@@ -59,7 +59,7 @@ The UI never shows the code itself.
 | 1 Watching | "Watching {chain} for your USDC… checked {n} s ago" · "Checks every 5 s while this screen is open. Pull down or tap to check now." · "Skip for now · we'll tell you when it lands" |
 | 2 Seen | "Deposit on its way" · "{amount} USDC From {from} on {chain} · {time}" · steps "Seen on {chain}" / "Confirmed {have} of {need} confirmations · ~{eta} s" / "Added to your dollar balance" / "Ready to use" · "Updating live · about {eta} s left" · "You can close the app. The money is already yours; we'll send a notification when it's ready." (Q3: if option A, change to "…we'll ask you to approve once when it lands.") |
 | Needs approval (Q3) | Sheet: "Add {amount} to your vault on Arc" · push: "{amount} arrived · tap to add it" |
-| Auto-add (Q3) | Row: "Auto-add from {chain} · up to {cap}" · sheet: "Let Ownback move USDC that arrives on {chain} into your own vault on Arc. It can't send it anywhere else. Fee up to 0.1%." · step: "Moved to your vault on Arc · Circle CCTP · fee {fee}" |
+| Auto-add (Q3) | Row: "Auto-add from {chain} · up to {cap}" (hidden while `AUTO_ADD_EVM` off, D27) · sheet: "Let Ownback move USDC that arrives on {chain} into your own vault on Arc. It can't send it anywhere else. Fee up to 0.1%." · step: "Moved to your vault on Arc · CCTP · fee {fee}" |
 | One tap (Solana or auto-add off) | Push: "{amount} arrived on {chain} · tap to add it" |
 | 3 Added | "{amount} added" · "Your dollars are ready. Add a purchase and {rate}% of it goes into the companies behind it." · "Network fee $0.00 (we cover it)" · push "{amount} added" |
 | 4 Below minimum | "We got {amount}. The minimum is $1, so it's waiting. Send {short} more and we'll add both." |
@@ -86,7 +86,7 @@ The UI never shows the code itself.
 | Add footer | "Receipts and emails are read by a private AI model on 0G and not stored. Only shop, item, amount and date are kept." |
 | Reading steps | "Read the receipt · {shop}, {date}" · "Converted {local} → {usd} ({rate}/$)" · "Found the maker · {maker}" · "Finding companies behind it" · "Checking which ones you can buy" · footer "Read by a private AI model on 0G. The photo is deleted after reading. Request ID {id}" |
 | Confirm button | "Confirm {invest} across {n}" · "Only {maker}" · "Wrong product? Fix it" |
-| Confirm approval (Circle sheet) | "Move {invest} into {n} jars on Arc" |
+| Confirm approval (Privy / seed) | "Move {invest} into {n} jars on Arc" |
 | Confirm fee (Q2) | "Network fee $0.00 · we cover it" (or "< $0.01") |
 | Saving | "Saving… usually 2 s" |
 | Not tokenized | "not tokenized yet" |

@@ -6,21 +6,23 @@ The architecture doc has the full system diagram and partner reasoning. This fil
 
 | Part | Runs on | Built by | Owns |
 |---|---|---|---|
-| **PWA** (frontend) | Next.js on Vercel, in the phone browser and added to the home screen | Frontend | Screens, Circle Web SDK approvals, seed-phrase signing on the device, polling, share sheet |
+| **PWA** (frontend) | Next.js on Vercel, in the phone browser and added to the home screen | Frontend | Screens, Privy (Google smart wallet + Solana) approvals, seed-phrase signing on the device, polling, share sheet |
 | **API** (backend) | Next.js route handlers on Vercel (Node runtime) | Backend | Sessions, purchases, matching, quotes, building transactions, reading the chain, Activity |
 | **Keeper** (backend) | `POST /api/jobs/keeper/run`, right after a user signs a BuyApproval | Backend | Approved buys: execute on Arc → CCTP → swap on the cheapest venue → proofs |
 | **Scanner jobs** (backend) | Cron routes plus on-app-open calls | Backend | Gmail scan, deposit watch, price cache, jar-ready notifications |
 | **OwnbackVault** (contracts) | Arc mainnet | Contracts | Rules, free balance, jars, monthly limits, signed-approval buys to a fixed relay, deposits from forwarders, withdraw to own address |
-| **OwnbackDepositForwarder** (contracts) | Ethereum, Base, Arbitrum | Contracts | Auto-add: moves a user's USDC only into that user's vault balance (Q3) |
+| **OwnbackDepositForwarder** (contracts) | Ethereum, Base, Arbitrum | Contracts | Auto-add: moves a user's USDC only into that user's vault balance (Q3; flagged off for Google MVP, D27) |
 | **Postgres** (database) | Neon | Backend | Private data: users, purchases, allocations, buys, Gmail state, events |
 | **Arkiv registry** (database) | Arkiv testnet | Backend + scripts | Public: brands, companies, supplier links, verified tokens, proofs |
 | **Shared package** | `packages/shared` | Everyone, changed only by PR | Chain config, assets, states, API types, error codes, vault ABI, money helpers |
 
 External services:
-- **Circle**: user-controlled wallets with Google login, a developer-controlled wallet for the keeper, Gas Station, Gateway, CCTP V2 through App Kit, Paymaster.
+- **Privy**: Google login, EVM smart wallet (ERC-1271), Solana wallet for Google users (Q9).
+- **CCTP V2**: TokenMessenger + Iris attestation (direct; no Circle App Kit / Gateway). Keeper and relays are funded EOAs.
+- **Circle Console** products (user wallets, Gas Station, Gateway): optional if account verification works later — not required to ship.
 - **0G Private Computer** for every AI job.
-- **Jupiter** on Solana; App Kit Swap or Uniswap on Base.
-- **Gmail API**.
+- **Jupiter** on Solana; Uniswap / App Kit Swap on Base when enabled.
+- **Gmail API** (Google OAuth; separate from Privy login).
 - **Frankfurter** for exchange rates.
 - **Web Push**.
 
@@ -45,26 +47,26 @@ Integration bugs happen at these seams. Each one has exactly one definition:
 
 Users sign every action that moves their own money, **including every buy** (Q7). The keeper only executes what a user signed.
 
-| Action | Google users (Circle wallet) | Seed-phrase users | Contract call |
+| Action | Google users (Privy) | Seed-phrase users | Contract call |
 |---|---|---|---|
 | Save rules and Solana withdraw address on-chain | Prepended to the user's first vault action (see [api-contract § Signable actions](../backend/api-contract.md#signable-actions)) | Same | `setRules`, `setSolanaRecipient` |
-| Move a deposit into the vault | Arc: at the next Confirm. EVM chains: once per chain, approve auto-add; then nobody. Solana: one tap per deposit | Same, signed on the device | `deposit` / forwarder → `receiveDeposit` |
-| Confirm a purchase | Circle approval sheet: "Move $47.75 into 6 jars on Arc" | Signed on Confirm, no sheet | `allocate` or `depositAndAllocate` |
-| Cancel a jar, withdraw | Circle approval sheet | Device | `cancelJar`, `withdraw`, `withdrawCrossChain` |
-| Buy (ready jar, or a smaller one on request) | Circle typed-data sheet: "Buy 3 assets · max fees $0.05" (BuyApproval) | Signed on the device | `execute` (keeper, checks the signature) |
+| Move a deposit into the vault | Arc: at the next Confirm. EVM auto-add: flagged off MVP (D27). Solana: one tap per deposit via Privy Solana | Same, signed on the device | `deposit` / forwarder → `receiveDeposit` |
+| Confirm a purchase | Privy: "Move $47.75 into 6 jars on Arc" | Signed on Confirm | `allocate` or `depositAndAllocate` |
+| Cancel a jar, withdraw | Privy approval | Device | `cancelJar`, `withdraw`, `withdrawCrossChain` |
+| Buy (ready jar, or a smaller one on request) | Privy typed-data (EIP-712 / ERC-1271): "Buy 3 assets · max fees $0.05" (BuyApproval) | Signed on the device | `execute` (keeper, checks the signature) |
 | Money back to a jar after a failed swap | Nobody: the keeper runs it | Same | `returnToJar` (keeper only, capped to what that batch took) |
 
-The API never holds user keys. For Google users it creates a **Circle challenge** and the PWA shows Circle's approval sheet. For seed users it returns **unsigned calls** that the PWA signs locally. Both cases use one shared type, `SignableAction` ([backend/api-contract.md](../backend/api-contract.md#signable-actions)).
+The API never holds user keys. It returns a `SignableAction` (`evm_calls` / `typed_data` / `sol_tx`). Google users run it through Privy; seed users sign locally. Same shared type ([backend/api-contract.md](../backend/api-contract.md#signable-actions)).
 
 ## The six main flows
 
 ### 1 · Sign in
 
 ```
-Google:  PWA ─ Circle Web SDK (Google) ─► userToken ─► POST /api/auth/google
-         API verifies the token with Circle, creates the user, and the first time
-         returns a challenge that creates wallets on ARC, BASE, ETH, ARB (one EVM address, spike S6) and SOL
-         PWA runs the challenge ─► API stores the addresses ─► session cookie ─► Set your rules
+Google:  PWA ─ Privy (Google) ─► EVM smart wallet + Solana address
+         POST /api/auth/privy { accessToken } ─► API verifies with Privy, upserts user + addresses
+         ─► session cookie ─► Set your rules
+         (first vault action prepends setRules + setSolanaRecipient as needed)
 Seed:    PWA makes or imports the words, derives the EVM (m/44'/60'/0'/0/0) and Solana (m/44'/501'/0'/0') addresses,
          signs the server nonce with BOTH keys ─► POST /api/auth/seed ─► session cookie ─► Set your rules
 ```
@@ -77,10 +79,10 @@ Rules are saved in Postgres straight away. They are written on-chain (`setRules`
 PWA shows the address for the chosen chain ─► polls GET /api/deposits/watch every 5 s
 API reads the USDC balance or transfers on that chain ─► watching → seen → confirming → added
 Arc:        the user's Arc wallet now has USDC. It counts as "free" and moves into the vault at the next signed action
-            (depositAndAllocate), or straight away if the user approves "Add to vault".
-EVM chains: auto-add on → relayer calls the forwarder → CCTP fast → vault.receiveDeposit → added (app can be closed).
-            auto-add off → push "tap to add it" → one approval.
-Solana:     one tap → SPL transfer to the deposit relay → CCTP → vault.receiveDeposit (A15).
+            (depositAndAllocate), or straight away if the user approves "Add to vault". **Default fund path (D27).**
+EVM chains: auto-add on (flag) → relayer calls the forwarder → CCTP fast → vault.receiveDeposit → added.
+            auto-add off / flag off → push "tap to add it" or steer user to Arc.
+Solana:     one tap → SPL transfer (Privy Solana or seed; Kora/deposit-relay fee payer) → CCTP → vault.receiveDeposit (A15).
 ```
 
 ### 3 · Add a purchase
@@ -99,7 +101,7 @@ The match pipeline: brand → maker (0G tool call + Wikidata) → Arkiv company 
 ```
 Confirm tap ─► POST /api/purchases/:id/confirm ─► API pre-checks free balance and limit
            ─► SignableAction (allocate, or depositAndAllocate if part of the money is still in the Arc wallet)
-PWA gets it signed ─► POST /api/purchases/:id/confirm/submitted {txHash}
+PWA gets it signed (Privy or seed) ─► POST /api/purchases/:id/confirm/submitted {txHash}
 API reads the receipt, checks the Allocated events match the purchase, then marks it saved ─► Saved
 ```
 
@@ -109,12 +111,13 @@ The API never trusts the client's word that a transaction succeeded. It reads th
 
 ```
 Sunday reminder (or any time) ─► Buy review: venue per asset by all-in cost, live price, max +1%, fees in $ and % vs the user's cap
-  ─► user signs the BuyApproval ─► POST /api/buys ─► keeper
+  ─► user signs the BuyApproval (Privy ERC-1271 or seed ecrecover) ─► POST /api/buys ─► keeper EOA
   1 Re-simulate; drop items over max price or max fee (they wait)
   2 (partly bought = execute only what the quote supports)
   3 vault.execute(batchId, domain, orders with signatures) ─► CCTP burn to the venue relay
-  4 Wait for Circle's attestation ─► receiveMessage on the venue ─► USDC in the relay
-  5 For each entry, swap USDC → asset with the output going to the user's own address (verified mint only)
+  4 Wait for Iris attestation ─► receiveMessage on the venue (Solana: relay pays SOL) ─► USDC in the relay
+  5 For each entry, swap USDC → asset with the output going to the user's own address
+     (Solana: Jupiter payer = relay, destination = user ATA; D26)
   6 Write the Arkiv proof, update Postgres, send a push
   Failure or fees over the cap mid-route: stop, CCTP back to the vault, then returnToJar (we pay)
 ```
@@ -123,7 +126,7 @@ Full algorithm: [backend/keeper-and-jobs.md](../backend/keeper-and-jobs.md).
 
 ### 6 · Withdraw and share
 
-- **Withdraw**: `withdraw(amount)` pays the caller on Arc. `withdrawCrossChain(amount, domain)` burns through CCTP to the caller's own EVM address on other EVM chains, or to their registered Solana address. The keeper relays the mint on the destination chain.
+- **Withdraw**: `withdraw(amount)` pays the caller on Arc. `withdrawCrossChain(amount, domain)` burns through CCTP to the caller's own EVM address on other EVM chains, or to their registered Solana address. The keeper/relay mints on the destination chain.
 - **Share**: `/card/[shareId].png` renders the card (random share ID, A13). `/r/[code]` is the public landing page with the referral code.
 
 ## Environments

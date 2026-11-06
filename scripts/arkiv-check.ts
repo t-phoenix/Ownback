@@ -57,10 +57,11 @@ export async function writeSupplier(pk: Hex) {
 if (process.argv[2] === "read") {
   const writer = (process.argv[3] ?? "0x0000000000000000000000000000000000000001") as Hex
   const t = Date.now()
-  const rows = await suppliersOf("co:apple", writer)
-  console.log("query ok:", rows.length, "rows in", Date.now() - t, "ms")
-  // also prove the query engine returns real data: any entity on the chain, no schema
-  // also prove the engine returns live data: entities with the README tutorial's "posts" schema tag
-  const any = await publicClient.select({ $key: true }).where(eq("arkiv.schema", "posts")).limit(3).fetch()
-  console.log("live data query ok, sample keys:", any.entities.map((e: any) => e.$key))
+  // no top-level await: root has no "type":"module", so tsx emits cjs
+  void (async () => {
+    const rows = await suppliersOf("co:apple", writer)
+    console.log("query ok:", rows.length, "rows in", Date.now() - t, "ms")
+    const any = await publicClient.select({ $key: true }).where(eq("arkiv.schema", "posts")).limit(3).fetch()
+    console.log("live data query ok, sample keys:", any.entities.map((e: any) => e.$key))
+  })()
 }

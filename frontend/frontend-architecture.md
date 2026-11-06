@@ -37,12 +37,16 @@ Rules:
 ## Signing (one entry point)
 
 ```ts
-async function signAction(a: SignableAction): Promise<{ txHash?: string; challengeIds?: string[]; signature?: string }> {
+async function signAction(a: SignableAction): Promise<{ txHash?: string; signature?: string }> {
   switch (a.kind) {
-    case 'circle_challenge': for (const id of a.challengeIds) await circle.execute(id); return { challengeIds: a.challengeIds };   // Circle's sheet, once per step, in order
-    case 'evm_calls':        return { txHash: await seed.sendCalls(a.chain, a.calls) };                // in order; waits for each
-    case 'sol_tx':           return { txHash: await seed.signAndSendSol(a.txBase64, a.feePayer) };
-    case 'typed_data':       return { signature: await (isGoogle ? circle.signTypedData(a) : seed.signTypedData(a.typedData)) };
+    case 'evm_calls':
+      return { txHash: await (isPrivy ? privy.sendCalls(a.chain, a.calls) : seed.sendCalls(a.chain, a.calls)) };
+    case 'sol_tx':
+      return { txHash: await (isPrivy ? privy.signAndSendSol(a.txBase64, a.feePayer) : seed.signAndSendSol(a.txBase64, a.feePayer)) };
+    case 'typed_data':
+      return { signature: await (isPrivy ? privy.signTypedData(a.typedData) : seed.signTypedData(a.typedData)) };
+    case 'circle_challenge':
+      throw new Error('legacy circle_challenge unused (Q9)');
   }
 }
 ```
@@ -51,11 +55,11 @@ async function signAction(a: SignableAction): Promise<{ txHash?: string; challen
 
 After it returns, call the matching `…/submitted` route. Then poll until the server reports the final state. Never mark something "saved" or "sent" on the client alone.
 
-- **Circle:** if the `userToken` has expired (`CHALLENGE_FAILED` with an auth reason), re-run the Google login silently and retry once.
+- **Privy:** if the session expired (`AUTH_INVALID` / `CHALLENGE_FAILED`), re-run Privy login and retry once.
 - **Seed:**
   - The words are encrypted in IndexedDB with a key from the app PIN.
   - They're decrypted only inside `signAction` and dropped right after.
-  - Arc gas is paid in USDC from the same wallet. EVM chains use Paymaster; Solana uses Kora ([docs/05](../docs/05-gasless-and-fees.md)).
+  - Arc gas is paid in USDC from the same wallet ($0.10 buffer). Solana deposits use Kora / deposit-relay fee payer ([docs/05](../docs/05-gasless-and-fees.md)).
 
 ## Money and numbers
 

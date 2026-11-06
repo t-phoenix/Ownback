@@ -16,7 +16,7 @@ This becomes `packages/shared/api.ts`: one zod schema per request and response. 
 | Idempotency | Every POST that moves money or creates a purchase takes header `Idempotency-Key` (UUID). Same key + same body → same response for 24 h |
 | Pagination | `?cursor=…&limit=20` → `{ items, nextCursor }` |
 | Errors | Non-2xx returns `{ error: { code: ErrorCode, retryable: boolean, details?: object } }`. The UI maps `code` to copy and never shows it |
-| Circle user token | Google users only. The PWA sends header `x-circle-user-token` on every route that may return a `circle_challenge` (rules, deposits, confirm, jars, buys, withdraw). The server uses it for that request only and **never stores it**. Expired token → `CHALLENGE_FAILED` with `details.reason = 'user_token_expired'`; the PWA re-runs Google login silently and retries once |
+| Privy session | Google users authenticate once via `POST /api/auth/privy`. After that the `ob_session` cookie is enough. The PWA signs `SignableAction`s with Privy client-side; the server never holds Privy access tokens beyond the login request |
 
 ## Shared types
 
@@ -42,25 +42,25 @@ Every action the user must sign comes back in this shape:
 
 ```ts
 type SignableAction =
-  | { kind: 'circle_challenge'; challengeIds: string[]; summary: string }        // Google users: run each with the Circle Web SDK, in order; stop at the first failure
-  | { kind: 'evm_calls'; chain: ChainKey; calls: { to: string; data: string; value: '0' }[]; summary: string }  // seed users sign locally, in order
-  | { kind: 'sol_tx'; txBase64: string; feePayer: 'kora' | 'user'; summary: string }
-  | { kind: 'typed_data'; typedData: Eip712; summary: string }   // BuyApproval: Circle signTypedData challenge or local signTypedData
+  | { kind: 'evm_calls'; chain: ChainKey; calls: { to: string; data: string; value: '0' }[]; summary: string }  // Privy smart wallet or seed: sign locally, in order
+  | { kind: 'sol_tx'; txBase64: string; feePayer: 'kora' | 'user' | 'deposit_relay'; summary: string }
+  | { kind: 'typed_data'; typedData: Eip712; summary: string }   // BuyApproval: Privy ERC-1271 or seed ecrecover
+  | { kind: 'circle_challenge'; challengeIds: string[]; summary: string }  // legacy only; unused when Q9 Privy path is live
   ;
 // Every action also carries `fees: Fees` and `expect: { assets: AssetId[]; amountsUsd6: Usd6[] }` so the PWA can decode the calldata itself and refuse a mismatch (A5).
 type Fees = { totalUsd6: Usd6; pctBps: number; capBps: number; overCap: boolean; covered: boolean;
-              parts: { label: string; usd6: Usd6 }[] };   // e.g. 'Arc network', 'Circle CCTP', 'Solana network', 'Jupiter route', 'New token account'
+              parts: { label: string; usd6: Usd6 }[] };   // e.g. 'Arc network', 'CCTP', 'Solana network', 'Jupiter route', 'New token account'
 ```
 
-`summary` is the text shown on the approval, for example "Move $47.75 into 6 jars on Arc". After signing, the client calls the matching `…/submitted` route with `{ txHash }` (EVM/Solana) or `{ challengeIds }` (Circle). The server then confirms on-chain itself.
+`summary` is the text shown on the approval, for example "Move $47.75 into 6 jars on Arc". After signing, the client calls the matching `…/submitted` route with `{ txHash }` (EVM/Solana) and/or `{ signature }` (typed_data BuyApproval). `challengeIds` is legacy. The server then confirms on-chain itself.
 
 **What the server puts in front of a vault action (in this order, only when needed):**
 1. `setRules` (if `onchainSynced` is false)
-2. `setSolanaRecipient(ata)` (if the vault has none). `ata` = the USDC associated token account of the user's own Solana address, derived by the server and re-derived by the PWA in `verifyAction` (A6).
+2. `setSolanaRecipient(ata)` (if the vault has none). `ata` = the USDC associated token account of the user's own Solana address (Privy Solana or seed), derived by the server and re-derived by the PWA in `verifyAction` (A6).
 3. `usdc.approve(vault, exactAmount)` (before `deposit` / `depositAndAllocate`; exact amount, never unlimited)
 4. The action itself.
 
-Seed users get these as one `evm_calls` list. Google users get one `circle_challenge` with several `challengeIds`. Seed users keep a **$0.10 USDC gas buffer** in their Arc wallet: `deposit` / `depositAndAllocate` never move it into the vault, so they can always pay Arc gas to withdraw ([docs/05](../docs/05-gasless-and-fees.md)).
+Google (Privy) and seed users both get these as one `evm_calls` / `typed_data` / `sol_tx` list. The PWA runs them through Privy or local keys. **$0.10 USDC gas buffer** stays in the Arc wallet for Google and seed: `deposit` / `depositAndAllocate` never move it into the vault ([docs/05](../docs/05-gasless-and-fees.md), Q9).
 
 ## Routes
 
@@ -68,16 +68,14 @@ Seed users get these as one `evm_calls` list. Google users get one `circle_chall
 
 | Method | Path | Request | Response | Errors |
 |---|---|---|---|---|
-| POST | `/api/auth/google/device-token` **public** | `{ deviceId }` | `{ deviceToken, deviceEncryptionKey, appId }` (for the Circle Web SDK social login) | `UPSTREAM` |
-| POST | `/api/auth/google` **public** | `{ userToken, encryptionKey }` | `{ user: Me, setup?: SignableAction }` (`setup` = create wallets, first time only) | `AUTH_INVALID`, `GEO_BLOCKED` |
-| POST | `/api/auth/google/setup/submitted` | `{ challengeIds }` | `{ user: Me }` (addresses filled) | `CHALLENGE_FAILED` |
+| POST | `/api/auth/privy` **public** | `{ accessToken }` | `{ user: Me }` (verifies JWT with Privy; upserts `evmAddress` + `solAddress` from linked wallets) | `AUTH_INVALID`, `GEO_BLOCKED` |
 | GET | `/api/auth/seed/nonce` **public** | — | `{ nonce, message }` | — |
 | POST | `/api/auth/seed` **public** | `{ evmAddress, solAddress, evmSignature, solSignature, nonce }` | `{ user: Me }` | `AUTH_INVALID`, `NONCE_USED` |
 | POST | `/api/auth/logout` | `{ everywhere?: boolean }` | `204` (deletes the session row, or all of them) | — |
 | GET | `/api/me` | — | `Me` | `UNAUTHENTICATED` |
 
 ```ts
-type Me = { id; authKind: 'google' | 'seed'; email?: string; displayName: string;
+type Me = { id; authKind: 'privy' | 'seed'; email?: string; displayName: string;
             evmAddress?: string; solAddress?: string; referralCode: string; onboarded: boolean };
 ```
 
@@ -212,7 +210,7 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 
 | Method | Path | Request | Response | Errors |
 |---|---|---|---|---|
-| GET | `/api/wallet` | — | `{ vault: { inJarsUsd6; freeUsd6; totalUsd6 }; evmAddress; solAddress; signIn: { kind; email? } }` | — |
+| GET | `/api/wallet` | — | `{ vault: { inJarsUsd6; freeUsd6; totalUsd6 }; evmAddress; solAddress; signIn: { kind: 'privy' \| 'seed'; email? } }` | — |
 | POST | `/api/withdraw` | `{ amountUsd6, chain }` + Idempotency-Key | `{ withdrawalId; action: SignableAction; feeUsd6; feeCovered: boolean }` | `INSUFFICIENT_FREE`, `CHAIN_UNSUPPORTED`, `NO_SOLANA_RECIPIENT` |
 | POST | `/api/withdraw/:id/submitted` | `{ txHash? , challengeIds? }` | `Withdrawal` | `TX_REVERTED` |
 | GET | `/api/withdraw/:id` | — | `Withdrawal` (`sending` → `sent`) | — |
@@ -244,7 +242,7 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | Code | HTTP | Retryable | Meaning |
 |---|---|---|---|
 | `UNAUTHENTICATED` | 401 | no | No or expired session → Sign in, then return |
-| `AUTH_INVALID` | 401 | no | Bad Circle token or signature |
+| `AUTH_INVALID` | 401 | no | Bad Privy token or signature |
 | `NONCE_USED` | 409 | no | Seed login replay |
 | `GEO_BLOCKED` | 451 | no | US |
 | `VALIDATION` | 400 | no | Body failed zod (details = issues) |
@@ -257,7 +255,7 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | `LIMIT_REACHED` | 409 | no | Limit screen |
 | `TX_REVERTED` | 409 | yes | ConfirmStates 5 (details.reason = vault error name) |
 | `TX_NOT_FOUND` | 409 | yes | Not mined yet; client retries `submitted` |
-| `CHALLENGE_FAILED` | 409 | yes | Circle challenge rejected or expired |
+| `CHALLENGE_FAILED` | 409 | yes | User signing / tx rejected or expired (Privy or legacy Circle) |
 | `DEPOSIT_NOT_READY` | 409 | yes | |
 | `CHAIN_UNSUPPORTED` | 400 | no | |
 | `NO_SOLANA_RECIPIENT` | 409 | no | Run `setSolanaRecipient` (separate from `setRules`, A6) |
@@ -270,7 +268,7 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | `KEEPER_DISABLED` | 503 | yes | Kill switch on |
 | `GMAIL_DISABLED` / `GMAIL_REVOKED` | 503 / 409 | no | |
 | `FEATURE_OFF` | 404 | no | |
-| `UPSTREAM` | 502 | yes | Circle, 0G, Jupiter, Arkiv or RPC failed |
+| `UPSTREAM` | 502 | yes | Privy, 0G, Jupiter, Arkiv, Iris/CCTP or RPC failed |
 | `INTERNAL` | 500 | yes | |
 
 Vault custom error → API code: `OverMonthlyCap` → `LIMIT_REACHED`; `InsufficientFree` → `INSUFFICIENT_FREE`; `PurchaseUsed` → treat as success (idempotent) and re-read events; `IsPaused` → `KEEPER_DISABLED`; anything else → `TX_REVERTED`. (No `OverAssetCap` — Q1 revised.)

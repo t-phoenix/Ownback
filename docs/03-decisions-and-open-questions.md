@@ -24,22 +24,24 @@ The order of truth is **wireframes, then PRD, then architecture** (set by the us
 - **Show** fees in $ and % on every review/approval; Done / Holding / Receipt show fees actually paid.
 - **Enforce:** automatic steps over the limit wait (`fees_high`); user actions over the limit are blocked ("Change fee limit"); never silently sent.
 - Mid-route fee spike → stop, return money to the jar; we pay the return.
-- Buy fees come from the amount bought. Arc deposits / Confirm / withdraws: "$0.00 · we cover it" when Gas Station allows (S4).
+- Buy fees come from the amount bought. Arc deposits / Confirm / withdraws: user pays fractions of a cent in USDC (no Gas Station; Q9). Show "< $0.01".
 - Full table: [05-gasless-and-fees.md](05-gasless-and-fees.md).
 
 ### Q3 · How money on other chains gets to the vault ✅ · confirmed 6 Nov
 
-**Problem:** USDC on Base/Eth/Arb sits in the user's wallet; only their key can move it. Google users need Circle's sheet (app open) unless they pre-approve a forwarder.
+**Problem:** USDC on Base/Eth/Arb sits in the user's wallet; only their key can move it. Google users need a wallet approval (app open) unless they pre-approve a forwarder.
 
 **Confirmed plan:**
 
 | Path | Who | Taps | How |
 |---|---|---|---|
 | **1 · Deposit on Arc** (Fund screen **default**) | Everyone | 0 extra | Lands where the vault is. Used at next Confirm via `depositAndAllocate`, or added straight away |
-| **2 · Auto-add on Base / Ethereum / Arbitrum** | Everyone | **1, once per chain** | User approves `OwnbackDepositForwarder` up to a spending allowance they pick (default $1,000). Relayer moves USDC via CCTP V2 fast into **their** vault balance with the app closed. Forwarder can't send elsewhere; its fee ≤ 0.1% |
-| **3 · One tap when it lands** | Solana, or anyone who skips auto-add | 1 per deposit | Push "$20.00 arrived · tap to add it". Google on Solana: SPL to our deposit account → CCTP → vault (A15) |
+| **2 · Auto-add on Base / Ethereum / Arbitrum** | Everyone (flagged) | **1, once per chain** | User approves `OwnbackDepositForwarder` up to a spending allowance they pick (default $1,000). Relayer moves USDC via CCTP V2 fast into **their** vault balance with the app closed. Forwarder can't send elsewhere; its fee ≤ 0.1%. **MVP (D27):** off for Google until a gas sponsor spike passes — Fund defaults to Arc |
+| **3 · One tap when it lands** | Solana, or anyone who skips auto-add | 1 per deposit | Push "$20.00 arrived · tap to add it". Google on Solana: Privy Solana wallet → SPL to our deposit account (Kora/deposit-relay fee payer) → CCTP → vault (A15) |
 
-Wireframe copy: Fund defaults to Arc; "Auto-add from {chain}" row; Deposit step 3 = "Moved to your vault on Arc · Circle CCTP". Gateway optional (S5).
+Wireframe copy: Fund defaults to Arc; "Auto-add from {chain}" row (hidden while D27 flag off); Deposit step 3 = "Moved to your vault on Arc · CCTP". Gateway out — CCTP direct only (Q9).
+
+Google approvals use **Privy** (Q9), not Circle's sheet.
 
 ### Q4 · Keeper: fixed relay per venue + batched execute ✅
 
@@ -65,19 +67,48 @@ Copy: "Ready · tap to buy"; "We'll remind you on Sunday when jars are ready"; B
 
 Applied in [ownback-wireframes.html](../ownback-wireframes.html), the editable canvas (v25, synced from the same board files) and [frontend/copy-and-errors.md](../frontend/copy-and-errors.md). Gaps found in the first pass were fixed in the AI-readiness audit ([11](11-ai-readiness-audit.md)).
 
+### Q9 · Wallets: Privy + CCTP; Arc stays · decided 6 Nov night · O3 closed same night
+
+**Blocker:** Circle Developer Console account verification failed (card decline) → no Circle user-controlled wallets, Gas Station, Gateway, or developer-controlled wallet APIs for this build.
+
+**Confirmed plan (user):**
+
+| Keep | Drop / defer | Replace with |
+|---|---|---|
+| **Arc mainnet** vault + USDC (bounty / Studio) | Circle user + developer wallets, Gas Station, Gateway, App Kit | — |
+| **CCTP V2** for cross-chain USDC (Q3 paths) | Circle Console as the only way to call CCTP | Direct TokenMessenger + Iris attestation from our keeper/relays |
+| Google sign-in UX | Circle Web SDK challenges | **Privy** Google login |
+| Seed-phrase path | — | Unchanged (device signing) |
+
+**O3 closed (user):**
+- Google EVM wallet = **Privy smart wallet** (ERC-4337 / ERC-1271; vault already verifies via `SignatureChecker`).
+- Google Solana wallet = **Privy Solana** (same login). Store `evmAddress` + `solAddress` like today.
+- **Solana venue buys (D26):** user never needs SOL. Relay pays `receiveMessage` + Jupiter gas/ATA rent; fees from the buy amount ≤ `maxFeeUsd6`. Never airdrop SOL to Privy Solana wallets for buys.
+- **EVM auto-add (D27):** Fund defaults to Arc. Base/Eth/Arb auto-add flagged off for Google until a gas-sponsor spike (Privy sponsorship or our paymaster) passes.
+
+Rules that follow:
+- **D1 revised:** Privy is the Google wallet stack for this build. Circle Console products are optional if verification later succeeds; they are not required to ship.
+- **Signing:** Google users get the same `SignableAction` shapes as seed (`evm_calls` / `typed_data` / `sol_tx`), executed through Privy. `circle_challenge` is legacy / unused.
+- **Keeper / relays:** plain funded EOAs (`KEEPER_*`, `RELAYER_*`, Solana relay keys) — not Circle developer-controlled wallets.
+- **Gas on Arc:** leave **$0.10 USDC buffer** in the wallet for Google *and* seed (Arc gas is USDC). No Gas Station.
+- **Do not** make Chainlink CCIP the primary bridge. CCTP remains Q3. CCIP only if a CCTP Arc spike fails.
+- **Prizes:** Arc Studio + vault on Arc + USDC + CCTP still target the Arc bounty. README partner-tech = Arc + CCTP + Privy (no Circle Wallets / Gas Station / Gateway unless Console opens later).
+- Code after docs: spike S-Privy → auth → SignableAction runner → EOA keeper (separate PR). Env: `PRIVY_*` / `NEXT_PUBLIC_PRIVY_*`; Circle wallet envs optional; `GOOGLE_*` kept for Gmail OAuth.
+
 ## Still open
 
 | # | Question | Status |
 |---|---|---|
 | O1 | **Code layout vs folder-scoped build.** README / `database/schema.md` / `backend/README.md` place runnable API + Drizzle under `apps/web` (and shared facts under `packages/shared`, D7). A 6 Nov backend+db build task constrained edits to `backend/` and `database/` only (no `apps/web`, no inventing cross-package glue). Interim: schema SQL + seed live under `database/`; API + temporary shared modules under `backend/src/`. When `apps/web` and `packages/shared` are scaffolded, move these without changing the freeze contracts. | Open — does not change product meaning |
 | O2 | **Dev seed beyond wireframe fixtures.** `database/schema.md` asks `pnpm db:seed` for demo user Abhi with 23 receipts / $9,210 / 11 assets / Croma iPhone / 8 Nov + 1 Nov Apple buys. Docs/03 only freezes the multi-chain balance totals and the Confirm split for one purchase. Seed ships those frozen numbers + the Croma Confirm allocations; the other ~22 receipt rows are not invented until a fixture list is decided. | Open — seed incomplete by design |
-| — | Spikes S1–S20 and accounts remain build gates | ([08](08-build-plan-and-checklists.md)) |
+| O3 | **Privy wallet shape.** | **Closed** — smart wallet + Privy Solana (Q9) |
+| — | Spikes S1–S20 + **S-Privy**; Circle wallet spikes (S4, S6, S7, S12, S20) use Privy/EOA fallbacks from Q9 | ([08](08-build-plan-and-checklists.md)) |
 
 ## Decisions (settled)
 
 | # | Decision | Why / source |
 |---|---|---|
-| D1 | Circle stack for sign-in and wallets. Privy is the fallback for sign-in only | User |
+| D1 | **Revised (Q9):** Privy Google = smart wallet (EVM) + Solana wallet. Circle Console wallets / Gas Station / Gateway optional if verification works later. Arc + CCTP V2 stay. | User, 6 Nov night; Circle Console blocked |
 | D2 | Truth order: user's decisions > wireframes > PRD > architecture | User |
 | D3 | Partner prizes: Arc (Best DeFi / Onchain Finance, Arc Studio), 0G, Arkiv (from scratch) | PRD |
 | D4 | Mainnet for all money; Arkiv testnet (Rabdi) is fine because it holds no money | PRD |
@@ -98,9 +129,12 @@ Applied in [ownback-wireframes.html](../ownback-wireframes.html), the editable c
 | D19 | "Free to use" = vault free + USDC in the user's Arc wallet; other chains show "arriving" until moved | Wireframes + Q3 |
 | D20 | Arkiv reads require `createdBy` + `ownedBy` = our writer; mints need two matching sources | A1 |
 | D21 | Arkiv SDK **1.0.1** (schema API, `ExpirationTime`, max about 182 days) | Verified 6 Nov |
-| D22 | Deposit paths: Arc default; EVM auto-add forwarder; Solana one-tap | Q3 confirmed |
+| D22 | Deposit paths: Arc default; EVM auto-add forwarder (flagged MVP); Solana one-tap | Q3 + D27 |
 | D23 | Ready minimum (`readyMinUsd6`, default $5) is a reminder threshold only; not a max investment | Q1 revised |
 | D24 | No `maxPerAssetBps` / `OverAssetCap` / Confirm `capOverflow` | Q1 revised |
+| D25 | Stack for this build: Privy (Google wallets) + Arc vault + CCTP V2 direct + EOA keeper/relays. No CCIP as primary bridge. Circle Console optional later | Q9 |
+| D26 | Solana venue buys: relay pays gas/rent (`payer` = relay, destination = user ATA); fees from buy amount; never fund user SOL for buys | Q9 / O3 |
+| D27 | Google Fund default = Arc; EVM auto-add off until gas-sponsor spike passes | Q9 / O3 |
 
 ## Wireframe demo data
 

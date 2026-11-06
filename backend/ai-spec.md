@@ -6,17 +6,25 @@ All calls go through the `og` client in `lib/og/` with the private trust mode he
 
 ## Jobs and models
 
-Pick exact model IDs from pc.0g.ai/models at the start (S10), and record them here and in `lib/og/models.ts`.
+Chosen 7 Nov for the **0G Private Computer** bounty (S10). Code: `src/lib/og/models.ts`.
 
-| Job | Model class | Input | Output schema | Budget |
-|---|---|---|---|---|
-| `read_receipt` | Qwen vision (multimodal), private | Image (JPEG/PNG/HEIC→JPEG, max 2048 px) | `ReceiptRead` | p50 < 6 s |
-| `read_invoice` | Fast LLM (Qwen3.x-Flash or GLM-Flash), JSON mode | Email text ≤ 12k chars | `ReceiptRead` + `isProduct` | p50 < 3 s |
-| `transcribe` | Whisper Large v3 | Audio ≤ 30 s | text → `parse_spoken` | < 4 s |
-| `parse_spoken` / typed | Fast LLM | "Bought Nike shoes for 6,000 rupees" | `ReceiptRead` | < 2 s |
-| `find_maker` | Same LLM with tools `wikidata_lookup`, `registry_search` | Item + brand + shop | `MakerMatch` | < 4 s |
-| `brand_embed` | Qwen3 Embedding | Brand string | vector (Fix the match fuzzy search) | < 1 s |
-| `extract_suppliers` (offline, seed only) | GLM long context | 10-K / supplier list text | `SupplierRow[]` | Batch, not live |
+Every call sends `X-0G-Provider-Trust-Mode: private` and pins a TeeML provider. Request IDs come from `x_0g_trace.request_id` (shown on Reading / Confirm / proof trail).
+
+| Job | Model | Provider (TeeML) | Why | Output | Budget |
+|---|---|---|---|---|---|
+| `read_receipt` | `0GM-1.0-35B-A3B` | `0xf4FB…B250` | 0G-native multimodal; only healthy **private** image→text model | `ReceiptRead` | p50 < 6 s |
+| `read_invoice` | `glm-5.3` | `0xD179…E503` | Private text TeeML; reliable final `content` for JSON | `ReceiptRead` + `isProduct` | p50 < 3 s |
+| `parse_spoken` / typed | `glm-5.3` | same | Same | `ReceiptRead` | < 2 s |
+| `find_maker` | `glm-5.3` + tools | same | Same | `MakerMatch` | < 4 s |
+| `extract_suppliers` (offline) | `glm-5.3` | same | Batch seed only | `SupplierRow[]` | Batch |
+| `brand_embed` | `qwen3-embedding-0.6b` | `0x1584…1333` | Private embeddings for Fix the match | vector | < 1 s |
+| `transcribe` | `openai/whisper-large-v3` | `0xE63C…502e` | Private STT; bounty speech model | text → parse | < 4 s |
+
+**Not used in the product path:** Seedream / other `standard` Aliyun–ByteDance models — faster, but not TeeML private (receipts/emails must stay sealed).
+
+**Env:** `OG_API_KEY`, `OG_TRUST_MODE=private` (default). Also set the API key’s default trust mode to **Private** in [pc.0g.ai](https://pc.0g.ai) Dashboard → API Keys so every call is private even if a header is missed.
+
+**Reasoning models:** set `max_tokens` ≥ ~256 so the answer lands in `content` after `reasoning_content` (client defaults to 1024).
 
 ## Schemas (`lib/og/schemas.ts`)
 

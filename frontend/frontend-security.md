@@ -15,22 +15,22 @@ App-wide view: [docs/06-security.md](../docs/06-security.md).
 | ☐ | `autocomplete="off"`, `spellcheck="false"`, `autocapitalize="none"` on the import field; no paste-to-clipboard of the phrase |
 | ☐ | 5 wrong PINs → 30 s lockout, doubling each time. The user can always re-import with the words |
 
-## Circle (Google users)
+## Privy (Google users)
 
-- `encryptionKey` and `userToken` are kept in memory only (with a sessionStorage fallback for reloads). `encryptionKey` goes only to Circle's SDK. `userToken` goes to Circle's SDK, to `/api/auth/google`, and in the `x-circle-user-token` header on routes that build challenges ([api-contract](../backend/api-contract.md#conventions)). The server never stores it.
-- Every approval is shown by Circle's own sheet. Never imitate it.
-- Before opening it, `verifyAction` decodes what will be signed and compares it with the screen (A5).
+- Privy access tokens are used only for `POST /api/auth/privy`, then the `ob_session` cookie owns the API session. Never store Privy tokens in localStorage long-term beyond what the Privy SDK requires.
+- Approvals run through Privy's wallet UI / embedded signer. Before signing, `verifyAction` decodes what will be signed and compares it with the screen (A5).
+- Server never holds user keys or Privy secrets in the browser bundle (`PRIVY_APP_SECRET` is server-only).
 
 ## Page hardening
 
 | ✓ | Item |
 |---|---|
-| ☐ | CSP: `default-src 'self'`; `script-src 'self'` plus Circle SDK origins; `connect-src` for our API, Circle, RPCs, Jupiter; `img-src 'self' data: blob:`; `frame-ancestors 'none'` |
+| ☐ | CSP: `default-src 'self'`; `script-src 'self'` plus Privy origins; `connect-src` for our API, Privy, RPCs, Jupiter, Iris; `img-src 'self' data: blob:`; `frame-ancestors 'none'` |
 | ☐ | No `dangerouslySetInnerHTML`. Receipt text, shop names and email summaries are rendered as text only |
 | ☐ | External links (explorers) use `rel="noopener noreferrer"`, and their URLs are built only from tx hashes we validated |
 | ☐ | `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy` allowing only camera and microphone (on Add) |
-| ☐ | No secrets in the bundle. Only `NEXT_PUBLIC_CIRCLE_APP_ID`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_VAPID_PUBLIC` are public |
-| ☐ | Third-party scripts: only the Circle SDK. No analytics in the hackathon build |
+| ☐ | No secrets in the bundle. Only `NEXT_PUBLIC_PRIVY_APP_ID` and `NEXT_PUBLIC_VAPID_PUBLIC` are public |
+| ☐ | Third-party scripts: Privy SDK only. No analytics in the hackathon build |
 
 ## Privacy on screen
 

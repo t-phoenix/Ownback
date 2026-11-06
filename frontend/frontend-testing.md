@@ -41,7 +41,7 @@ On mocks (`NEXT_PUBLIC_MOCKS=1`) on every PR, and against `demo` at IC6.
 |---|---|
 | ☐ | iPhone Safari: added to the home screen, push arrives, camera capture, share sheet with the image |
 | ☐ | Android Chrome: install prompt, push, camera, share sheet, copy image |
-| ☐ | Circle Google sign-in on both phones with a non-team account (S7) |
+| ☐ | Privy Google sign-in on both phones with a non-team account (S7) |
 | ☐ | Slow 3G throttle: skeletons appear, never a blank screen |
 | ☐ | Dark mode readable |
 | ☐ | VoiceOver / TalkBack read the balance, the split bar and the buttons |
