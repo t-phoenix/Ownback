@@ -1,0 +1,6 @@
+# Single-package workspace so pnpm can apply onlyBuiltDependencies (esbuild for vitest).
+packages:
+  - '.'
+
+onlyBuiltDependencies:
+  - esbuild

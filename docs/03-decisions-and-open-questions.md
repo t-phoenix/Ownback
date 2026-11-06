@@ -69,7 +69,9 @@ Applied in [ownback-wireframes.html](../ownback-wireframes.html), the editable c
 
 | # | Question | Status |
 |---|---|---|
-| — | None that block product meaning | Spikes S1–S20 and accounts remain build gates ([08](08-build-plan-and-checklists.md)) |
+| O1 | **Code layout vs folder-scoped build.** README / `database/schema.md` / `backend/README.md` place runnable API + Drizzle under `apps/web` (and shared facts under `packages/shared`, D7). A 6 Nov backend+db build task constrained edits to `backend/` and `database/` only (no `apps/web`, no inventing cross-package glue). Interim: schema SQL + seed live under `database/`; API + temporary shared modules under `backend/src/`. When `apps/web` and `packages/shared` are scaffolded, move these without changing the freeze contracts. | Open — does not change product meaning |
+| O2 | **Dev seed beyond wireframe fixtures.** `database/schema.md` asks `pnpm db:seed` for demo user Abhi with 23 receipts / $9,210 / 11 assets / Croma iPhone / 8 Nov + 1 Nov Apple buys. Docs/03 only freezes the multi-chain balance totals and the Confirm split for one purchase. Seed ships those frozen numbers + the Croma Confirm allocations; the other ~22 receipt rows are not invented until a fixture list is decided. | Open — seed incomplete by design |
+| — | Spikes S1–S20 and accounts remain build gates | ([08](08-build-plan-and-checklists.md)) |
 
 ## Decisions (settled)
 
