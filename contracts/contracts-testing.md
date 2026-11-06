@@ -7,12 +7,12 @@ Write and run these in Arc Studio first (Arc prize rule), then keep them in Foun
 | # | Test | Expect |
 |---|---|---|
 | U1 | `setRules` with rate 199 or 1001 | `RateOutOfBounds` |
-| U2 | `setRules` with cap 0 or maxPerAsset 0 / 10001 | `InvalidRules` |
+| U2 | `setRules` with monthlyCap 0 or rate out of 200–1000 | `InvalidRules` / `RateOutOfBounds` |
 | U3 | `allocate` before `setRules` | `RulesNotSet` |
 | U4 | `deposit` → `free` and `totalAccounted` up by the amount | Pass |
-| U5 | `allocate` the wireframe example: $47.75 across 6 assets (33.43, 3.18, 3.18, 3.19, 2.39, 2.38) | Jars match; `free` down by 47.75 |
+| U5 | `allocate` the wireframe example: $47.75 across 6 assets (33.43, 3.18, 3.18, 3.19, 2.39, 2.38) under monthlyCap ≥ $50 | Jars match; Apple jar $33.43 OK (no per-asset max) |
 | U6 | `allocate` over the monthly cap ($45 used of $50, then $47.75) | `OverMonthlyCap(5e6)` |
-| U7 | `allocate` over the per-asset cap (Q1 meaning) | `OverAssetCap` |
+| U7 | (removed) per-asset cap — Q1 revised | — |
 | U8 | Same `purchaseId` twice for one user | `PurchaseUsed` |
 | U9 | Same `purchaseId` from two different users | Both pass (key includes user) |
 | U10 | Unsorted or duplicate assets | `AssetsNotSorted` |
@@ -37,7 +37,7 @@ Write and run these in Arc Studio first (Arc prize rule), then keep them in Foun
 | U37 | Two batches together exceed an approval item's amount | `OverApproval(i)` |
 | U38 | Item domain ≠ batch domain | `WrongDomain` |
 | U39 | ERC-1271 smart account (mock) signature accepted; a mock returning the wrong magic value rejected | Pass / `BadSignature` |
-| U40 | Per-asset cap: fallback asset exempt; another asset over the cap reverts with `OverAssetCap(remaining)` | Pass |
+| U40 | (removed) Per-asset cap / `OverAssetCap` — Q1 revised; no test | — |
 | U41 | `setSolanaRecipient`: first set is immediate; a change needs 48 h; `activateSolanaRecipient` early reverts | Pass / `TimelockNotReady` |
 | U42 | `withdrawCrossChain` with `maxFee` > 0.1% | `FeeTooHigh` |
 | U43 | `receiveDeposit` from a registered forwarder credits `amount − feeExecuted` to the hookData user | Pass |

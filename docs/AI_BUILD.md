@@ -1,0 +1,53 @@
+# AI build instructions
+
+Read this before writing any Ownback code. It's loaded automatically through the root [CLAUDE.md](../CLAUDE.md) and [AGENTS.md](../AGENTS.md).
+
+## Truth order
+
+When two sources disagree, the higher one wins:
+
+1. **[docs/03 · Decisions](03-decisions-and-open-questions.md)**: the user's decisions.
+2. **Screens:** [ownback-wireframes.html](../ownback-wireframes.html) for layout and flow; [frontend/copy-and-errors.md](../frontend/copy-and-errors.md) for the exact words.
+3. **PRD and architecture pages**: the product summary.
+4. **Folder specs** (`contracts/`, `backend/`, `database/`, `frontend/`, `docs/04–10`): they define every detail the sources above don't. If a folder spec contradicts 1–3, the spec is the bug. Fix the spec in the same PR.
+
+## Never invent
+
+- **Addresses, mints, decimals, or "verified" flags.** Use only values marked ✓ in [contracts/chain-config.md](../contracts/chain-config.md). If a value is ☐, mark the asset `not tokenized yet` or the jar `no_venue`, or turn that venue's flag off.
+- **Automatic buys.** Jars never buy without a user-signed `BuyApproval` that the vault verifies.
+- **A per-company or per-asset cap** (`maxPerAssetBps`, `OverAssetCap`, `capOverflow`). These were removed (Q1). The monthly limit is the only spend cap. `readyMinUsd6` (default $5, user range $1–$50) is a reminder threshold, not a cap.
+- **Float money.** Money is `bigint` micro-USDC (`Usd6` digit strings in JSON). Invest amounts and split rows are whole cents (multiples of `10_000n`), using largest-remainder rounding (D18).
+- **Fee comparisons as ratios.** The only fee check is `(feeUsd6 * 10_000n) / amountUsd6 <= maxFeeBps` (docs/05).
+- **New enums, error codes, routes or env names.** These live once in `packages/shared` (`states.ts`, `errors.ts`, `api.ts`, `chains.ts`, `assets.ts`). Import them. If you need a new one, add it to the spec first ([docs/04](04-state-machines.md), [backend/api-contract.md](../backend/api-contract.md), [backend/README.md § Env](../backend/README.md#env)), then to the code.
+
+## Rules that are easy to get wrong
+
+| Area | Rule | Spec |
+|---|---|---|
+| Signing | Every user action goes through one `SignableAction`. Google users get `circle_challenge` with `challengeIds[]`, run in order. Seed users get `evm_calls` / `sol_tx` / `typed_data` | [api-contract § Signable actions](../backend/api-contract.md#signable-actions) |
+| Before a vault action | The server prepends, only when needed: `setRules` → `setSolanaRecipient(user's USDC ATA)` → `usdc.approve(vault, exactAmount)` → the action | same |
+| Circle user token | The PWA sends `x-circle-user-token` on routes that build challenges. The server never stores it | [api-contract § Conventions](../backend/api-contract.md#conventions) |
+| Trust | The server never trusts a client's "it succeeded". It reads Arc receipts and events before changing state. The PWA decodes every action (`verifyAction`) before showing Circle's sheet | docs/02, A5 |
+| Seed gas | Deposits leave $0.10 USDC in the seed user's Arc wallet for gas | [docs/05](05-gasless-and-fees.md) |
+| Arkiv reads | Always `.createdBy(WRITER).ownedBy(WRITER)`. A mint must also match `assets.ts` | [database/arkiv-schema.md](../database/arkiv-schema.md), A1 |
+| Keeper | Executes only stored, unexpired, signature-checked approvals. Re-simulates before each irreversible step. Anything not bought goes back to the jar (we pay) | [backend/keeper-and-jobs.md](../backend/keeper-and-jobs.md) |
+| Privacy | Never store images, audio or email bodies. Never put an address, email or shop name on Arkiv or in logs | [docs/06](06-security.md) |
+| Deposits | Arc is the default. EVM chains use the auto-add forwarder (one approval per chain). Solana deposits are one tap | Q3 |
+
+## Versions
+
+- `@arkiv-network/sdk` **1.0.1** with `viem` 2.x (verified working: [scripts/arkiv-check.ts](../scripts/arkiv-check.ts)).
+- Everything else: the latest stable major at the time you add it. Pin the exact version in the lockfile. Never upgrade a pinned major in a feature PR.
+- Arc mainnet chain ID is **5042**. viem exports the chain as `arc`. USDC ERC-20 is `0x3600…0000` (6 decimals; native gas uses 18).
+
+## How to work
+
+1. Read docs/03, docs/04, docs/05 and this file. Then read the folder spec for the part you're building.
+2. Build against the shared types, and against mocks (`MOCK_CHAIN=1`, `NEXT_PUBLIC_MOCKS=1`) until the real dependency is ready.
+3. A task is done when its tests from the folder testing doc pass and `pnpm check` passes (typecheck, lint, unit tests).
+4. **If something is ambiguous, stop. Don't guess.** Add the question to "Still open" in docs/03, build the documented fallback if one exists, and tell the human.
+5. Spikes ([docs/08](08-build-plan-and-checklists.md#spikes)): if a spike you depend on has no result, implement only its documented fallback, behind a flag.
+
+## Credentials (humans only)
+
+Agents never create accounts, sign in, or handle real keys. The full list of credentials (Circle, Google OAuth, 0G, Arkiv, Neon, Vercel, RPCs, relay keypairs, VAPID, `SESSION_SECRET`, `TOKEN_ENC_KEY`) is in [docs/08 § Accounts](08-build-plan-and-checklists.md#accounts-and-secrets). Env names: [backend/README.md § Env](../backend/README.md#env). Never commit `.env*` files except `.env.example` (names only).

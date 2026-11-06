@@ -43,7 +43,7 @@ Deleted on sign-out; "sign out everywhere" deletes all rows for the user.
 | user_id | uuid PK FK | |
 | rate_bps | int CHECK 200–1000 | default 500 |
 | monthly_cap_usd6 | bigint CHECK > 0 | default 50 000 000 |
-| max_per_asset_bps | int CHECK 1–10000 | Default per Q1 |
+| ready_min_usd6 | bigint CHECK > 0 | default 5 000 000 ($5 ready/reminder threshold, Q1) |
 | fallback_asset | text | `idx:sp500` |
 | split_maker / split_behind / split_materials | int | CHECK sum = 100; default 70/20/10 |
 | buy_day | text | `sun` (reminder day, Q7) |

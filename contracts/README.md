@@ -2,7 +2,7 @@
 
 Two contracts:
 
-- **OwnbackVault** on Arc mainnet. It holds each user's free USDC and per-asset jars, and enforces their rules and monthly limits (with a per-asset cap). Only with the user's signed BuyApproval does it send jar money to a fixed venue relay through CCTP. Users withdraw only to their own address.
+- **OwnbackVault** on Arc mainnet. It holds each user's free USDC and per-asset jars, and enforces their rules and monthly limit (no per-asset max). Only with the user's signed BuyApproval (or S20 `approveBuy`) does it send jar money to a fixed venue relay through CCTP. Users withdraw only to their own address.
 - **OwnbackDepositForwarder** on Ethereum, Base and Arbitrum. With the user's one-time allowance, it moves their USDC only into their own vault balance (auto-add, Q3).
 
 | Doc | What it's for |

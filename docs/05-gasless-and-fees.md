@@ -17,7 +17,13 @@
 | Bridge fee (BNB route only) | Third-party bridge | ✓ |
 | Price impact / slippage | Up to 1%, shown separately as "Price protection" | ✗ (shown, but has its own cap) |
 
-`fee% = total fees ÷ amount`. The check is `fee% ≤ maxFeeBps`.
+**Fee check (required integer form):** `(feeUsd6 * 10_000n) / amountUsd6 <= maxFeeBps`.
+
+Example: fees $0.05 on $5.00 → `(50_000n * 10_000n) / 5_000_000n = 100` → 1.00% ≤ default 500 bps → pass.
+
+Display: `feePct = Number(feeUsd6) / Number(amountUsd6)` shown as percent; never compare that float to `maxFeeBps`.
+
+**BuyApproval:** `maxFeeUsd6 = (amountUsd6 * BigInt(maxFeeBps)) / 10_000n`. Keeper/vault use the absolute; UI shows $ and % vs the user's limit.
 
 ## Simulation, then enforce
 
@@ -46,6 +52,10 @@ A confirmed transaction can't be undone. "Reverse" means the route stops **befor
 | Withdraw to another chain | Arc → destination | User | CCTP fee from the amount; destination mint by us | "Fee ~$0.02 · arrives under a minute" (Withdraw) |
 
 Buy arithmetic shown to the user: `from jars = bought + fees + left in jar (rounding)`. For example: $43.63 = $43.56 + $0.05 + $0.02.
+
+**Per-item fee share:** a batch's actual fees are split across its items **pro rata by item amount** (largest remainder, whole micro-USDC). Each item's share must be ≤ its pro-rata share of the approval's `maxFeeUsd6`.
+
+**Seed users' Arc gas buffer:** seed wallets pay Arc gas themselves (in USDC). `deposit` / `depositAndAllocate` always leave **$0.10** in the user's Arc wallet, so they can still pay gas to withdraw or cancel. Google users don't need this when Gas Station sponsors Arc (S4). If S4 fails, they get the same buffer.
 
 ## Sponsor limits (so nobody can drain them, A16)
 

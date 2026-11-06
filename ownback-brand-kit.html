@@ -168,7 +168,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 <h2 id="narrative">Narratives</h2>
 <div class="grid g2">
 <div class="card"><div class="eyebrow">The one-liner</div><p class="quote">Cashback gives you a coupon. Ownback gives you a piece of the company.</p></div>
-<div class="card"><div class="eyebrow">The 10-second demo</div><p style="margin:6px 0 0">"I bought this iPhone yesterday. I snap the receipt. Ownback sees ₹79,900, takes 5%, and splits it: Apple, the chip maker TSMC, the glass maker Corning, a little gold. On Sunday it buys them. They're in my wallet. Here's the proof."</p></div>
+<div class="card"><div class="eyebrow">The 10-second demo</div><p style="margin:6px 0 0">"I bought this iPhone yesterday. I snap the receipt. Ownback sees ₹79,900, takes 5%, and splits it: Apple, the chip maker TSMC, the glass maker Corning, a little gold. When the jars are ready, I tap to buy. They're in my wallet. Here's the proof."</p></div>
 </div>
 <h3>Story arc for the pitch (3 minutes)</h3>
 <div class="tbl"><table>
@@ -210,7 +210,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 </div>
 <div class="tbl" style="margin-top:16px"><table>
 <tr><th>Moment</th><th>Write this</th><th>Not this</th></tr>
-<tr><td>After confirm</td><td>$47.75 is in 6 jars. Apple buys on Sunday.</td><td>Transaction successful! 🚀</td></tr>
+<tr><td>After confirm</td><td>$47.75 is in 6 jars. Apple's jar is ready to buy.</td><td>Transaction successful! 🚀</td></tr>
 <tr><td>Brand not listed</td><td>Haldiram's is a private company, so there are no shares to buy.</td><td>Error: ticker not found</td></tr>
 <tr><td>Limit reached</td><td>This purchase would go over your $50 monthly limit.</td><td>Insufficient allowance</td></tr>
 <tr><td>Holding</td><td>You now own $62.10 of Apple.</td><td>Your AAPLx position is up 3.2%</td></tr>
@@ -230,7 +230,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 <h2 id="visual">Visual language</h2>
 <div class="grid g3">
-<div class="card"><h3>The motif: product becomes stake</h3><p class="k" style="margin:0">An outline of the thing you bought fills with the brand colour from the bottom, like a jar. Used on Saved, Sunday buy and share cards.</p></div>
+<div class="card"><h3>The motif: product becomes stake</h3><p class="k" style="margin:0">An outline of the thing you bought fills with the brand colour from the bottom, like a jar. Used on Saved, Buy done and share cards.</p></div>
 <div class="card"><h3>Receipt details</h3><p class="k" style="margin:0">Mono type for amounts, rates and IDs; a zig-zag edge on receipt cards; the ₹ → $ line shown exactly as the receipt had it.</p></div>
 <div class="card"><h3>Icons</h3><p class="k" style="margin:0">1.75 px line icons on a 24 px grid, rounded joins. No emoji in the product. Company logos only as small round chips, never as hero art.</p></div>
 <div class="card"><h3>Shape</h3><p class="k" style="margin:0">12 px radius for cards, full pills for primary actions and chips. One shadow, used only on the main action and the app icon.</p></div>
@@ -309,7 +309,7 @@ Object.entries(PALS).forEach(([v,p])=>{
 });
 const tc=document.getElementById('typeCards');
 Object.entries(TYPES).forEach(([v,t])=>{
- tc.appendChild(card('type',v,`<div class="typespec"><span class="d" style="font-family:${t.d};font-weight:${t.dw}">$234.20</span><span class="d" style="font-family:${t.d};font-weight:${t.dw};font-size:22px">Own what you buy.</span><span class="b" style="font-family:${t.b}">Apple's jar is ready. It buys on Sunday, and the shares go straight to your wallet.</span><span class="m" style="font-family:${t.m}">₹79,900 → $955.00 · 0G req 7f3a…</span></div><h3 style="margin:0">${t.name}${v==='familjen'?' <span class="tag rec">Recommended</span>':''}</h3><p class="k" style="margin:0">${t.note}</p>`));
+ tc.appendChild(card('type',v,`<div class="typespec"><span class="d" style="font-family:${t.d};font-weight:${t.dw}">$234.20</span><span class="d" style="font-family:${t.d};font-weight:${t.dw};font-size:22px">Own what you buy.</span><span class="b" style="font-family:${t.b}">Apple's jar is ready. Tap to buy, and the shares go straight to your wallet.</span><span class="m" style="font-family:${t.m}">₹79,900 → $955.00 · 0G req 7f3a…</span></div><h3 style="margin:0">${t.name}${v==='familjen'?' <span class="tag rec">Recommended</span>':''}</h3><p class="k" style="margin:0">${t.note}</p>`));
 });
 const s=load();
 ['logo','pal','type'].forEach(k=>{if(s[k]&&[...sel[k].options].some(o=>o.value===s[k]))sel[k].value=s[k];sel[k].addEventListener('change',apply)});

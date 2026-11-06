@@ -17,7 +17,7 @@ App-wide view: [docs/06-security.md](../docs/06-security.md).
 
 ## Circle (Google users)
 
-- `encryptionKey` and `userToken` are kept in memory only (with a sessionStorage fallback for reloads) and never sent anywhere except Circle's SDK and our `/api/auth/google`.
+- `encryptionKey` and `userToken` are kept in memory only (with a sessionStorage fallback for reloads). `encryptionKey` goes only to Circle's SDK. `userToken` goes to Circle's SDK, to `/api/auth/google`, and in the `x-circle-user-token` header on routes that build challenges ([api-contract](../backend/api-contract.md#conventions)). The server never stores it.
 - Every approval is shown by Circle's own sheet. Never imitate it.
 - Before opening it, `verifyAction` decodes what will be signed and compares it with the screen (A5).
 

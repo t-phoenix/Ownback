@@ -56,5 +56,5 @@ No function lets the owner or keeper send USDC to an address they choose.
 ## Known limits (say them in the README)
 
 - `rateBps` is not enforced against the real purchase price. The vault can't see receipts, and it's the user's own money, signed by the user.
-- The custody gap: about a minute in the relay per weekly run. Post-hackathon fix: a Solana program that swaps and enforces the destination.
+- The custody gap: about a minute in the relay per buy batch. Post-hackathon fix: a Solana program that swaps and enforces the destination.
 - `cancelJar` doesn't refund the monthly counter. That's deliberate: the limit counts what was set aside.

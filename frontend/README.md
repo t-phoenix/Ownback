@@ -7,7 +7,7 @@ A mobile-first PWA built with Next.js App Router in `apps/web`. It is designed f
 | [screens-and-routes.md](screens-and-routes.md) | Every one of the 36 wireframe boards → route, data, states, links |
 | [frontend-architecture.md](frontend-architecture.md) | Stack, data fetching and polling, signing (Circle + seed), PWA/offline, money formatting |
 | [copy-and-errors.md](copy-and-errors.md) | Every user-facing message, keyed by state and error code; banned words. **Freezes Fri 12:00** |
-| [design-tokens.md](design-tokens.md) | Colours, type, spacing, as CSS variables + Tailwind (waits on the brand pick, Q6) |
+| [design-tokens.md](design-tokens.md) | Colours, type, spacing (Logo C · Ledger Green · Bricolage; Q6 done) |
 | [frontend-security.md](frontend-security.md) | Seed phrase handling, CSP, XSS, what never goes in the bundle |
 | [frontend-testing.md](frontend-testing.md) | Component tests per state, Playwright flows, device checks |
 

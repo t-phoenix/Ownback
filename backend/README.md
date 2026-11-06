@@ -34,9 +34,10 @@ packages/shared/          (repo root) chains, assets, states, api, errors, money
 
 ## Env
 
-Names only. Values go in Vercel, and the full list is in [docs/08 § Accounts and secrets](../docs/08-build-plan-and-checklists.md#accounts-and-secrets).
+Names only. Values go in Vercel. This block is the **complete** list and must match `.env.example` exactly; [docs/08 § Accounts and secrets](../docs/08-build-plan-and-checklists.md#accounts-and-secrets) says who creates each one.
 
 ```
+# server
 CIRCLE_API_KEY CIRCLE_ENTITY_SECRET CIRCLE_APP_ID KEEPER_WALLET_ID KEEPER_ADDRESS
 OG_API_KEY
 ARKIV_ACCESS_KEY ARKIV_WRITER_KEY ARKIV_WRITER_ADDRESS
@@ -44,8 +45,10 @@ GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET
 DATABASE_URL
 RPC_ARC RPC_BASE RPC_ETHEREUM RPC_ARBITRUM RPC_SOLANA
 RELAY_SOL_KEY RELAY_SOL_ADDRESS DEPOSIT_RELAY_SOL_KEY RELAYER_WALLET_IDS KORA_URL
-VAULT_ADDRESS
+VAULT_ADDRESS VAULT_OWNER ARC_STUDIO_URL
 VAPID_PUBLIC VAPID_PRIVATE
 SESSION_SECRET TOKEN_ENC_KEY CRON_SECRET
 KEEPER_ENABLED GMAIL_ENABLED VENUE_BASE VENUE_ETHEREUM VENUE_ARBITRUM VENUE_BNB OG_SIGNIN MOCK_CHAIN
+# public (bundled into the PWA; nothing secret)
+NEXT_PUBLIC_CIRCLE_APP_ID NEXT_PUBLIC_GOOGLE_CLIENT_ID NEXT_PUBLIC_VAPID_PUBLIC NEXT_PUBLIC_MOCKS
 ```

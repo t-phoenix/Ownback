@@ -94,12 +94,12 @@ ReceiptRead.items → for each item with a brand:
   registry: materials(product category) → gold / silver / …
   buyable filter: Arkiv `asset` entry exists for the asset with a verified mint AND a live quote for ≥ $1
   → maker[], behind[], materials[], notTokenized[]
-amount: investUsd6 = round(amountUsd6 × rateBps / 10000) to the cent
+amount: investUsd6 = amountUsd6 × rateBps / 10000, rounded half-up to a whole cent (a multiple of 10_000 micro-USDC)
 split: maker 70 / behind 20 / materials 10 (user's split); an empty behind/materials group gives its share to the maker;
        a maker that isn't tokenized gives its share to the user's fallback asset;
        if nothing at all is buyable → not_listed (fallback screen)
-       amounts in cents, largest remainder, so the rows sum to investUsd6 exactly
-limits: pre-check against vault remainingThisMonth / remainingForAsset → `limit` block
+       amounts in whole cents (multiples of 10_000 micro-USDC), largest remainder, so the rows sum to investUsd6 exactly (D18)
+limits: pre-check against vault remainingThisMonth → `limit` block (no per-asset limit, Q1)
 ```
 
 Several items from different makers on one receipt (Blinkit: Coke + chips): the split is applied per item, weighted by the line totals. With no line totals, split evenly. With more than 2 makers, `needs_review`.

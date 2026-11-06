@@ -17,8 +17,8 @@ The job they want done: *"When I buy something I like, let me own a bit of that 
 1. **Sign in.** Two options:
    - Google: a Circle wallet is created on Arc and Solana, with no seed phrase.
    - Seed phrase: create a new one or import your own. The words never leave the phone.
-2. **Set your rules.** Share of each purchase (2–10%, default 5%), monthly limit, max per company, and a fallback asset: S&P 500 by default, or Nasdaq 100, Gold, Bitcoin, Ether or US T-bills.
-3. **Add funds.** Send USDC from Arc, Solana, Base, Ethereum or Arbitrum and it shows as one dollar balance. Card and UPI are shown as "Coming soon".
+2. **Set your rules.** Share of each purchase (2–10%, default 5%), monthly limit, max fees %, ready minimum ($5 reminder threshold — not a max), and a fallback asset: S&P 500 by default, or Nasdaq 100, Gold, Bitcoin, Ether or US T-bills.
+3. **Add funds.** Default chain Arc. Send USDC from Arc, Solana, Base, Ethereum or Arbitrum; EVM auto-add (one approval per chain) or Solana one-tap. Card and UPI are "Coming soon".
 4. **Add a purchase.** Gmail invoices, a photo or screenshot, voice, or typing.
 5. **Currency conversion** when the receipt is read. After that, every amount is in dollars.
 6. **AI match.** Shows the maker, the companies behind the product and the raw materials, each with a token and venue. Also:
@@ -76,9 +76,8 @@ Routes for every board are in [frontend/screens-and-routes.md](../frontend/scree
 |---|---|---|
 | Share of each purchase | 2–10%, default 5% | Vault `setRules` (bounds) and the app |
 | Monthly limit | User-set, default $50, resets on the 1st | Vault `allocate` |
-| Max per company | User-set % of the monthly limit, per asset per month, default 20%. Overflow goes to the fallback (Q1) | Match step + vault `allocate` |
+| Ready minimum | Default $5 — reminder / "Ready" threshold only so tiny buys aren't eaten by fees. Not a max; jars may be larger (Q1) | App (`readyMinUsd6`); fee check (Q2) |
 | Default split | 70% maker / 20% behind the product / 10% raw materials, spread evenly across what's buyable | Backend match, editable by the user |
-| Jar ready at | $5 (reminder). Smaller jars can be bought if the user asks (Q7) | App; no on-chain minimum |
 | Every buy | Needs the user's signed BuyApproval | Vault `execute` |
 | Max fees | User-set, default 5% of the amount; simulated before every money move | Backend + BuyApproval |
 | Price protection | Never more than 1% above the reviewed quote | Keeper |
@@ -97,7 +96,7 @@ On stage, one real iPhone receipt becomes real AAPLx in a wallet in under 3 minu
 
 | Word | Means |
 |---|---|
-| Jar | A user's USDC set aside in the vault for one asset (Apple, TSMC, Gold…). It fills from purchases and buys at $5. |
+| Jar | A user's USDC set aside in the vault for one asset (Apple, TSMC, Gold…). It fills from purchases. At the ready minimum ($5) we remind the user; buys only after they sign. Jars may be larger than $5. |
 | Free balance | USDC that is the user's and not in a jar. It is shown as "Free to use". |
 | Maker | The company that owns the brand (iPhone → Apple). |
 | Behind the product | Suppliers named in public filings or supplier lists, with a quoted source sentence. |

@@ -9,7 +9,7 @@ App-wide view: [docs/06-security.md](../docs/06-security.md). This doc covers th
 | Receipt image, audio, email body | Nowhere: memory only, sent to 0G in private mode | Never stored | n/a |
 | Shop, place, items, Gmail message ID, summary | `purchases`, `gmail_messages` | Until the user deletes them | **Yes**, wiped to NULL |
 | Amounts, FX rate, date, status | `purchases` | Account lifetime (needed for monthly limits and Holdings) | No |
-| Allocations, buys, proofs | `allocations`, `buy_entries`, Arkiv `proof` | Account lifetime; Arkiv proofs expire after 2 years | No (no personal data in them) |
+| Allocations, buys, proofs | `allocations`, `buy_entries`, Arkiv `proof` | Account lifetime; Arkiv proofs use `ExpirationTime.fromDays(180)` (SDK max ~182 days, A17) | No (no personal data in them) |
 | Email | `users` | Account lifetime | No (delete the account for that) |
 | Gmail refresh token | `gmail_connections` (encrypted) | Until disconnect or revoke | Disconnect deletes it and revokes it at Google |
 | 0G request IDs | `ai_runs` | Account lifetime | No (an ID only) |

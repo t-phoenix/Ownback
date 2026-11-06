@@ -33,7 +33,7 @@ The parts join at these points. Each checkpoint has one command or script and a 
 | IC6 | Fri 20:00 | PWA ↔ real API, every screen | Playwright runs on `demo` with the mock chain off, using the demo user |
 | IC7 | Sat 03:00 | Full rehearsal | The stage script below runs twice in a row with no fix in between |
 
-## Acceptance tests (R1–R16 from the PRD)
+## Acceptance tests (R1–R19)
 
 | Req | Test | Layer | Pass |
 |---|---|---|---|
@@ -44,7 +44,7 @@ The parts join at these points. Each checkpoint has one command or script and a 
 | R5 Buy | Signed approval → AAPLx in the user's Solana wallet; slippage ≤ 1%; `execute` without a signature reverts | IC4 + Foundry | Fill price ≤ signed max |
 | R17 Fees (Q2) | Every money screen shows fees in $ and %; a route over the user's cap is blocked (user action) or waits (automatic); a mid-route spike returns the money to the jar | Unit + IC4 + forced-fee test | All pass |
 | R18 Consent (Q7) | No buy happens without a signature; filling jars can be bought on request; expired or cancelled approvals can't execute | Foundry + E2E | All pass |
-| R19 Per-company cap (Q1) | Purchase over the cap → the overflow shows on Confirm and goes to the fallback; a direct `allocate` over the cap reverts | Unit + Foundry | Pass |
+| R19 Ready minimum (Q1) | $5 is ready/reminder only; Confirm may allocate Apple $33.43; jars below $5 allow "Buy now anyway"; fee gate uses `(fee*10000)/amount ≤ maxFeeBps`; no `OverAssetCap` | Unit + Foundry | Pass |
 | R6 Proof trail | All 5 links open the right explorer page | E2E link check + manual | 5/5 |
 | R7 Deposit and withdraw | USDC on each of the 5 chains shows within 1 min; withdraw All returns free USDC to the user's own address | Mainnet smoke ($1 each) | 5/5 chains, 1 tap |
 | R8 Privacy | DB has no image, audio or email body; Arkiv entities have no address or email; download and delete work | Script `pnpm check:privacy` | 0 hits |
@@ -55,7 +55,7 @@ The parts join at these points. Each checkpoint has one command or script and a 
 | R13 Edge cases | Unreadable, not listed and limit reached each have a screen and lose no data | E2E | 3/3 |
 | R14 Receipts and activity | Every processed invoice is listed with its status; activity shows buys, matches, reviews and limit warnings | E2E | Pass |
 | R15 Price at every buy step | Review: price, quantity, max (+1%), 30 s refresh; progress/done: fill price next to the quote; Holding: each buy's price, average, price now | Component + IC4 | All shown |
-| R16 Funding and buying states | All 8 FundStates and 8 BuyStates render from fixtures; the live ones (watching, seen, added; scheduled, getting prices, done) are hit on mainnet | Component + IC4 | 16/16 render |
+| R16 Funding and buying states | All 8 FundStates and 8 BuyStates render from fixtures; the live ones (watching, seen, added; ready waiting for you, getting prices, done) are hit on mainnet | Component + IC4 | 16/16 render |
 
 ## Mainnet money budget (about $50)
 

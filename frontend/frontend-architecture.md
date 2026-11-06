@@ -37,9 +37,9 @@ Rules:
 ## Signing (one entry point)
 
 ```ts
-async function signAction(a: SignableAction): Promise<{ txHash?: string; challengeId?: string }> {
+async function signAction(a: SignableAction): Promise<{ txHash?: string; challengeIds?: string[]; signature?: string }> {
   switch (a.kind) {
-    case 'circle_challenge': await circle.execute(a.challengeId); return { challengeId: a.challengeId };   // shows Circle's sheet
+    case 'circle_challenge': for (const id of a.challengeIds) await circle.execute(id); return { challengeIds: a.challengeIds };   // Circle's sheet, once per step, in order
     case 'evm_calls':        return { txHash: await seed.sendCalls(a.chain, a.calls) };                // in order; waits for each
     case 'sol_tx':           return { txHash: await seed.signAndSendSol(a.txBase64, a.feePayer) };
     case 'typed_data':       return { signature: await (isGoogle ? circle.signTypedData(a) : seed.signTypedData(a.typedData)) };

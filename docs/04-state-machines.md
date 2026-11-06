@@ -15,7 +15,7 @@ Notation: `state --event--> state`. **Bold** names are stored in Postgres. *Ital
 | `QUOTE_REFRESH_MS` | 30 000 | BuyReview |
 | `PRICE_REFRESH_MS` / `PRICE_STALE_AFTER_MS` | 60 000 / 300 000 | GlobalStates 2, 3 |
 | `SKELETON_MAX_MS` | 2 000 | GlobalStates 1 |
-| `JAR_READY_USD6` | 5 000 000 ($5): reminder threshold, not a minimum (Q7) | Jars |
+| `JAR_READY_USD6` / `readyMinUsd6` | 5 000 000 ($5): **ready minimum** — reminder / "Ready" threshold only; jars and buys may be larger (Q1 revised, Q7) | Jars |
 | `DEFAULT_MAX_FEE_BPS` | 500 (5% of the amount) | Q2 |
 | `APPROVAL_TTL_MS` | 1 800 000 (30 min) | BuyApproval deadline |
 | `MAX_SLIPPAGE_BPS` | 100 (1%) | BuyReview |
@@ -78,15 +78,16 @@ Unsupported chain: not a state; a warning is always shown under the address.
 ## 4 · Jar (derived from the vault plus `buy_entries`)
 
 ```
-*filling* (< $5; "Buy now anyway" allowed, Q7) --allocations--> *ready* (≥ $5, "Ready · tap to buy · price now $X")
+*filling* (< ready minimum; "Buy now anyway" allowed, Q7) --allocations--> *ready* (≥ ready minimum, "Ready · tap to buy · price now $X")
 *ready* / *filling* --user signs BuyApproval--> *approved* --keeper executes--> *buying*
 *approved* --deadline passes unused--> back to *ready* / *filling*
-*ready* --fees over the user's cap--> *fees_high* ("Fees are high right now"); re-checked at each review
+*ready* --fees over the user's maxFeeBps--> *fees_high* ("Fees are high right now"); re-checked at each review
 *buying* --bought all--> *filling* (only rounding remainder left) | *buying* --partly bought--> *ready/filling* with remainder
 *buying* --swap failed twice--> *returning* --returnToJar--> previous state, same amount ("$5.08 is back in its jar")
 any --token mint doesn't match registry--> *paused* ("We paused Gold: its token address changed") until re-verified
 any --user cancels jar--> amount → free balance
 *no_venue* (Q5: asset's venue not live yet) → "Buys when available"
+Note: ready minimum is not a max. A jar of $33.43 is *ready* and may be bought in one approval.
 ```
 
 ## 5 · Buy batch (`buy_batches.status`)
@@ -162,4 +163,4 @@ cross-chain: **sending** covers burn on Arc → attestation → keeper relays th
 
 `deposit_added`, `rules_changed` (A22), `fees_high`, `buy_reminder`, `approval_expired`, `solana_recipient_changing` (A6), `receipt_matched`, `needs_review`, `jar_ready`, `fallback_used`, `limit_warning` (80%), `limit_reached`, `buy_done`, `buy_partial`, `buy_returned`, `buy_paused`, `withdraw_sent`, `gmail_found`, `gmail_revoked`, `rest_ready` (Q7).
 
-Each kind has a copy template in [frontend/copy-and-errors.md](../frontend/copy-and-errors.md) and a push on/off flag that follows the three Settings toggles (weekly buy done · receipt needs review · near monthly limit).
+Each kind has a copy template in [frontend/copy-and-errors.md](../frontend/copy-and-errors.md) and a push on/off flag that follows the three Settings toggles (buy done · receipt needs review · near monthly limit).

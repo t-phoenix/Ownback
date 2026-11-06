@@ -3,7 +3,7 @@
 Status: **draft for freeze at Fri 01:00**. Changes after that need a PR that regenerates `packages/shared/vault-abi.ts` and gets an OK from the backend owner.
 
 This version includes:
-- the user's 6 Nov decisions (Q1 cap overflow, Q2 fee cap, Q3 auto-add, Q5 venues, Q7 signed approvals)
+- the user's 6 Nov decisions (Q1 revised: no per-asset cap, Q2 fee cap, Q3 auto-add, Q5 venues, Q7 signed approvals)
 - the audit fixes A2, A5, A6 and A14 from [docs/10](../docs/10-security-audit.md)
 
 ## Units and IDs
@@ -39,8 +39,7 @@ uint256 public constant MAX_ORDERS_PER_BATCH = 50;
 
 struct Rules {
     uint16  rateBps;          // 200..1000; informational on-chain
-    uint16  maxPerAssetBps;   // 1..10000 of monthlyCap, per asset per month (Q1); the fallback asset is exempt
-    uint64  monthlyCap;       // micro-USDC, > 0
+    uint64  monthlyCap;       // micro-USDC, > 0 — only hard spend ceiling (Q1 revised: no per-asset max)
     bytes32 fallbackAsset;
 }
 
@@ -49,11 +48,11 @@ mapping(address => Rules) public rules;
 mapping(address => uint256) public free;
 mapping(address => mapping(bytes32 => uint256)) public jar;
 mapping(address => mapping(uint32 => uint256)) public spentInMonth;
-mapping(address => mapping(uint32 => mapping(bytes32 => uint256))) public spentInMonthPerAsset;
 mapping(bytes32 => bool) public usedPurchase;                 // keccak256(abi.encode(user, purchaseId))
 mapping(bytes32 => bool) public usedBatch;
 mapping(bytes32 => mapping(uint256 => uint256)) public approvalUsed;   // approvalHash → item index → amount executed
 mapping(bytes32 => bool) public approvalCancelled;
+mapping(bytes32 => bool) public onchainApproval;                // S20 fallback only: approvalHash → approved by approveBuy
 mapping(bytes32 => mapping(address => mapping(bytes32 => uint256))) public executedIn; // batch → user → asset
 mapping(address => bytes32) public solanaRecipient;           // user's USDC ATA on Solana (A6)
 mapping(address => Pending) public pendingSolanaRecipient;
@@ -69,7 +68,9 @@ uint256 public totalAccounted;                                // Σ free + Σ ja
 
 ```solidity
 // domain: { name: "OwnbackVault", version: "1", chainId: 5042, verifyingContract: vault }
-struct Item { bytes32 asset; uint256 amount; uint32 domain; uint256 maxPriceUsd6; }   // maxPrice per 1 token unit
+// maxPriceUsd6 = max USDC (6 decimals) the user will pay per 1 whole token (10**tokenDecimals raw units).
+// tokenDecimals come from packages/shared/assets.ts (never invent). Example: AAPLx 6 decimals → price for 1_000_000 raw units.
+struct Item { bytes32 asset; uint256 amount; uint32 domain; uint256 maxPriceUsd6; }
 struct BuyApproval { address user; Item[] items; uint256 maxFeeUsd6; uint256 nonce; uint64 deadline; }
 ```
 
@@ -83,16 +84,19 @@ struct BuyApproval { address user; Item[] items; uint256 maxFeeUsd6; uint256 non
 
 | Function | Checks | Effects | Event | Paused |
 |---|---|---|---|---|
-| `setRules(Rules r)` | `200 ≤ rateBps ≤ 1000` · `1 ≤ maxPerAssetBps ≤ 10000` · `monthlyCap > 0` | store | `RulesSet` | allowed |
+| `setRules(Rules r)` | `200 ≤ rateBps ≤ 1000` · `monthlyCap > 0` · `fallbackAsset ≠ 0` | store | `RulesSet` | allowed |
 | `setSolanaRecipient(bytes32 ata)` | `ata ≠ 0` | First time: set now. Later: `pending = {ata, now+48h}` | `SolanaRecipientSet` / `SolanaRecipientProposed` | allowed |
 | `activateSolanaRecipient()` | `pending.eta ≤ now` | set | `SolanaRecipientSet` | allowed |
 | `deposit(uint256 amount)` | `amount > 0` | `transferFrom` → `free += amount` | `Deposited(user, amount, 26)` | allowed |
-| `allocate(bytes32 purchaseId, bytes32[] assets, uint256[] amounts)` | not paused · rules set · lengths equal 1..16 · `assets` strictly ascending · amounts > 0 · purchase unused · `sum ≤ free` · `spentInMonth + sum ≤ monthlyCap` · per asset **except `fallbackAsset`**: `spentInMonthPerAsset + amt ≤ monthlyCap × maxPerAssetBps / 10000` | `free -= sum`, jars +=, counters +=, mark purchase | `Allocated(user, purchaseId, asset, amount)` | **reverts** |
+| `allocate(bytes32 purchaseId, bytes32[] assets, uint256[] amounts)` | not paused · rules set · lengths equal 1..16 · `assets` strictly ascending · amounts > 0 · purchase unused · `sum ≤ free` · `spentInMonth + sum ≤ monthlyCap` | `free -= sum`, jars +=, `spentInMonth` +=, mark purchase | `Allocated(user, purchaseId, asset, amount)` | **reverts** |
 | `depositAndAllocate(uint256 dep, …)` | both | both | both | **reverts** |
 | `cancelJar(bytes32 asset)` | `jar > 0` | jar → free (counters not refunded) | `JarCancelled` | allowed |
 | `cancelApproval(BuyApproval a)` | `msg.sender == a.user` | `approvalCancelled[hash(a)] = true` | `ApprovalCancelled` | allowed |
+| `approveBuy(BuyApproval a)` **(S20 fallback only)** | `msg.sender == a.user` · `deadline ≥ now` · not cancelled | `onchainApproval[hash(a)] = true` | `BuyApproved` | allowed |
 | `withdraw(uint256 amount)` | `0 < amount ≤ free` | `free -=`; `transfer(msg.sender)` | `Withdrawn(user, amount, 26, msg.sender)` | allowed |
 | `withdrawCrossChain(uint256 amount, uint32 domain, uint256 maxFee)` | `withdrawDomain[domain]` · Solana needs `solanaRecipient[user] ≠ 0` · `maxFee ≤ amount × 10 / 10000` (0.1%) | `free -=`; `depositForBurn(amount, domain, recipient, usdc, 0, maxFee, minFinality)` with recipient = Solana ATA or `bytes32(msg.sender)` | `Withdrawn` | allowed |
+
+**S20:** Prefer EIP-712 + ERC-1271. If Circle SCA cannot sign typed data with arrays on Arc, the PWA builds a `SignableAction` that calls `approveBuy` instead; `execute` then accepts either a valid off-chain signature **or** `onchainApproval[hash]`.
 
 ## Keeper functions
 
@@ -108,7 +112,7 @@ function receiveDeposit(bytes calldata message, bytes calldata attestation) exte
 2. For each order:
    - `deadline ≥ now`
    - not cancelled
-   - `SignatureChecker.isValidSignatureNow(approval.user, approvalHash, signature)`
+   - `SignatureChecker.isValidSignatureNow(approval.user, approvalHash, signature)` **or** `onchainApproval[approvalHash]` (S20 `approveBuy` fallback)
 3. For each `(i, amt)` in the order:
    - `item.domain == domain`
    - `approvalUsed[h][i] + amt ≤ item.amount`
@@ -171,11 +175,13 @@ The constructor sets the immutables, owner, keeper, initial relays (5 = Solana r
 
 ## Views
 
-`currentMonth()` · `remainingThisMonth(user)` · `remainingForAsset(user, asset)` (returns max for the fallback) · `jarsOf(user, assets[])` · `approvalRemaining(h, i)` · `hashApproval(BuyApproval)`
+`currentMonth()` · `remainingThisMonth(user)` · `jarsOf(user, assets[])` · `approvalRemaining(h, i)` · `hashApproval(BuyApproval)`
 
 ## Custom errors
 
-`RateOutOfBounds` · `InvalidRules` · `RulesNotSet` · `ZeroAmount` · `LengthMismatch` · `TooManyItems` · `AssetsNotSorted` · `PurchaseUsed` · `InsufficientFree(uint256)` · `OverMonthlyCap(uint256 remaining)` · `OverAssetCap(bytes32 asset, uint256 remaining)` · `BatchUsed` · `UnknownRelay` · `OverJar` · `OverBatchCap` · `BadSignature` · `ApprovalExpired` · `ApprovalCancelledErr` · `OverApproval(uint256 i)` · `WrongDomain` · `NotKeeper` · `NotOwner` · `IsPaused` · `NoSolanaRecipient` · `UnsupportedDomain` · `FeeTooHigh` · `OverExecuted` · `NoSurplus` · `UnknownForwarder` · `BadDeposit` · `TimelockNotReady` · `NothingPending`
+`RateOutOfBounds` · `InvalidRules` · `RulesNotSet` · `ZeroAmount` · `LengthMismatch` · `TooManyItems` · `AssetsNotSorted` · `PurchaseUsed` · `InsufficientFree(uint256)` · `OverMonthlyCap(uint256 remaining)` · `BatchUsed` · `UnknownRelay` · `OverJar` · `OverBatchCap` · `BadSignature` · `ApprovalExpired` · `ApprovalCancelledErr` · `OverApproval(uint256 i)` · `WrongDomain` · `NotKeeper` · `NotOwner` · `IsPaused` · `NoSolanaRecipient` · `UnsupportedDomain` · `FeeTooHigh` · `OverExecuted` · `NoSurplus` · `UnknownForwarder` · `BadDeposit` · `TimelockNotReady` · `NothingPending`
+
+No `OverAssetCap`: per-company max was removed (Q1 revised).
 
 ## Invariants
 
@@ -185,7 +191,7 @@ The constructor sets the immutables, owner, keeper, initial relays (5 = Solana r
 | I2 | A user's `free` only goes down through that user's own allocate, withdraw or withdrawCrossChain |
 | I3 | `execute` only burns to `relay[domain]`, which can't change sooner than 48 h after it's proposed |
 | I4 | No jar money moves without a valid, unexpired, uncancelled user signature, and the total per approval item stays ≤ its amount |
-| I5 | After `allocate`: `spentInMonth ≤ monthlyCap`, and the per-asset cap holds for every asset except the fallback |
+| I5 | After `allocate`: `spentInMonth ≤ monthlyCap` |
 | I6 | Pause never blocks withdraw, withdrawCrossChain, cancelJar, cancelApproval, returnToJar or receiveDeposit |
 | I7 | Σ `returnToJar` per (batch, user, asset) ≤ the amount executed |
 | I8 | `receiveDeposit` credits only messages burned by a registered forwarder, and credits exactly the minted amount |

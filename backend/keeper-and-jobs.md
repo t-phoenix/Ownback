@@ -28,7 +28,7 @@ REVIEW (GET /api/buys/review, user present)
  2. Pick the venue per asset: for each enabled venue with a verified mint (A1 two-source rule),
     quote all-in cost = price impact + every fee from the simulated route (docs/05). Choose the cheapest.
  3. Reference price check (A4): pool price within 2% of the reference (Pyth / Jupiter price API). If not → "waiting".
- 4. Fee check: fees ÷ amount ≤ user's maxFeeBps. If not → row shows "Fees too high (x%)" and is unselected.
+  4. Fee check: `(feeUsd6 * 10_000n) / amountUsd6 <= maxFeeBps`. If not → row shows "Fees too high (x%)" and is unselected.
  5. Return the rows with price, qty, max price (+1%), fees ($ and %), venue, and the BuyApproval typed data to sign.
 
 APPROVE (POST /api/buys {approval, signature})
@@ -47,7 +47,7 @@ EXECUTE (keeper/run)
        destination = the user's own address, slippage ≤ 1%, split if price impact needs it.
        BNB route: Base relay → audited bridge (capped) → swap on PancakeSwap → user's EVM address.
     d. Read the user's token balance before and after → qty, fill = spent ÷ qty. Fill > max → alert + pause the asset.
-    e. Fee for this item = its share of the actual route costs; deducted from the amount swapped; must be ≤ its share of maxFeeUsd6.
+    e. Fee for this item = its pro-rata share (by item amount) of the batch's actual route costs; deducted from the amount swapped; must be ≤ its pro-rata share of maxFeeUsd6 (docs/05).
     f. Failure: retry once with a fresh quote. Second failure → step 13.
 12. Proof: one Arkiv `proof` entity per bought item (no user data). Through the write queue.
 13. Return: everything not bought → one CCTP burn from the relay to the vault → receiveMessage on Arc → returnToJar per item. We pay. Status 'returned'.

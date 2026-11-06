@@ -6,11 +6,13 @@ These docs apply to every part of Ownback. Each part also has its own folder ([c
 |---|---|---|---|
 | 01 | [Product overview](01-product-overview.md) | What we build, for whom, what's in and out, every screen | Ready |
 | 02 | [System overview](02-system-overview.md) | The parts, how they talk, the six main flows end to end | Ready |
-| 03 | [Decisions and open questions](03-decisions-and-open-questions.md) | The user's answers to Q1–Q7, settled decisions, what still needs a call | **Q3 to confirm, Q8 open** |
+| 03 | [Decisions and open questions](03-decisions-and-open-questions.md) | The user's answers to Q1–Q8, settled decisions | **Ready** (Q3+Q8 closed 6 Nov evening) |
+| 11 | [AI-readiness audit](11-ai-readiness-audit.md) | Conflicts and gaps found on 6 Nov evening, how each was fixed, what's still external | Ready |
+| — | [AI build instructions](AI_BUILD.md) | Rules for coding agents (auto-loaded via the root CLAUDE.md / AGENTS.md) | Ready |
 | 04 | [State machines](04-state-machines.md) | Every state and transition the frontend and backend must agree on | Ready, becomes `packages/shared/states.ts` |
 | 05 | [Gasless and fees](05-gasless-and-fees.md) | Fee simulation, the user's fee cap, who signs and who pays on every chain | Ready, pending spikes S4, S14, S17 |
 | 06 | [Security](06-security.md) | Threat model, keys, invariants, privacy, compliance, kill switch | Ready |
-| 07 | [Testing and demo](07-testing-and-demo.md) | Test plan per layer, acceptance tests R1–R16, money budget, stage script | Ready |
+| 07 | [Testing and demo](07-testing-and-demo.md) | Test plan per layer, acceptance tests R1–R19, money budget, stage script | Ready |
 | 08 | [Build plan and checklists](08-build-plan-and-checklists.md) | Accounts and secrets, spikes, phases, integration checkpoints, go/no-go | Ready |
 | 09 | [Submission pack](09-submission-pack.md) | What each prize needs, README outline, video script, final checklist | Ready |
 | 10 | [Security audit](10-security-audit.md) | 26 design-stage findings (attack → fix), the guarantees that remain | Ready |

@@ -21,10 +21,11 @@ Do these first: most spikes are blocked without them. Each secret goes into Verc
 | ☐ | 2FA on Vercel, GitHub, Circle, Google Cloud, Neon, domain registrar (A20) | All | — | Before any deploy |
 | ☐ | Solana relay keypair, about $0.10 SOL | B | `RELAY_SOL_KEY`, `RELAY_SOL_ADDRESS` | Address hard-set in the vault at deploy |
 | ☐ | Kora (hosted or self-run, S14) | B | `KORA_URL` | Only for seed-phrase users on Solana |
-| ☐ | RPCs: Arc, Base, Ethereum, Arbitrum, Solana (Helius or similar) | B | `RPC_ARC` … `RPC_SOLANA` | Paid tier for Solana if rate-limited |
+| ☐ | RPCs: Arc, Base, Ethereum, Arbitrum, Solana (Helius or similar) | B | `RPC_ARC`, `RPC_BASE`, `RPC_ETHEREUM`, `RPC_ARBITRUM`, `RPC_SOLANA` | Arc public RPC: `https://rpc.mainnet.arc.io`. Paid tier for Solana if rate-limited |
 | ☐ | Neon project, branches `dev` + `demo` | B | `DATABASE_URL` | |
 | ☐ | Vercel project on **Pro** (D15), cron enabled | All | `CRON_SECRET` | |
-| ☐ | VAPID keys (`web-push generate-vapid-keys`) | F | `VAPID_PUBLIC`, `VAPID_PRIVATE` | |
+| ☐ | VAPID keys (`web-push generate-vapid-keys`) | F | `VAPID_PUBLIC`, `VAPID_PRIVATE`, `NEXT_PUBLIC_VAPID_PUBLIC` (same value as `VAPID_PUBLIC`) | |
+| ☐ | After deploy: vault and forwarder addresses | C | `VAULT_ADDRESS` (+ forwarder addresses in `packages/shared/chains.ts`) | From [contracts/deployment.md](../contracts/deployment.md) |
 | ☐ | App secrets | B | `SESSION_SECRET`, `TOKEN_ENC_KEY` (32 bytes) | `openssl rand -base64 32` |
 | ☐ | Vault owner: Safe 2-of-3 if Safe is on Arc (S16), else a hardware EOA | C | `VAULT_OWNER` | |
 | ☐ | Team USDC: about $50 on Arc + $1 on each other chain for smoke tests | All | — | |
@@ -55,7 +56,7 @@ Answer these before building on them. Fill in **Result** with a link to the tx o
 | S17 | CCTP V2 fast-transfer fee and time from Ethereum/Base/Arbitrum to Arc; `depositForBurnWithHook` + vault as `destinationCaller` works | B + C | Standard transfer | |
 | S18 | Reference price feed for xStocks (Pyth equity feeds on Solana, or Jupiter price API) | B | Jupiter price API only, with a tighter 1% band | |
 | S19 | BNB route: which audited bridge reaches BNB from Base/Arbitrum, fees, which dollar token, PancakeSwap pools for target assets | B | Keep `VENUE_BNB` off | |
-| S20 | Circle typed-data signing (EIP-712 with arrays) from a user-controlled SCA, and ERC-1271 check on Arc | B + C | BuyApproval as an on-chain `approveBuy` tx (one more challenge) | |
+| S20 | Circle typed-data signing (EIP-712 with arrays) from a user-controlled SCA, and ERC-1271 check on Arc | B + C | `approveBuy(BuyApproval)` on the vault: user submits the approval on-chain (Circle `contractExecution`); keeper still needs that on-chain record before `execute` | |
 | S0 | Public contract addresses (USDC, CCTP, Gateway) | B | — | **Done 6 Nov:** 3 sources each, incl. on-chain reads ([contracts/chain-config.md](../contracts/chain-config.md)) |
 
 ## Phases
@@ -76,7 +77,7 @@ Answer these before building on them. Fill in **Result** with a link to the tx o
 2. **The frontend never waits on the backend.** Build every screen against MSW mocks generated from `api.ts` and fixtures from the wireframes, using the corrected numbers in [03](03-decisions-and-open-questions.md).
 3. **Small PRs to `main`**, each with a passing `pnpm check` (typecheck + lint + unit tests). A shared change needs one review from another owner.
 4. **Mainnet writes only from scripts or the app**, never from ad-hoc consoles. Every tx hash goes into the Spikes table or `docs/tx-log.md`.
-5. **Feature flags** in env: `KEEPER_ENABLED`, `GMAIL_ENABLED`, `VENUE_BASE`, `VENUE_ETHEREUM`, `OG_SIGNIN`. Unfinished work merges dark.
+5. **Feature flags** in env: `KEEPER_ENABLED`, `GMAIL_ENABLED`, `VENUE_BASE`, `VENUE_ETHEREUM`, `VENUE_ARBITRUM`, `VENUE_BNB`, `MOCK_CHAIN`, `OG_SIGNIN`. Unfinished work merges dark.
 6. **Freeze points:** shared enums Thu 23:00 · ABI + API + DB Fri 01:00 · copy Fri 12:00 · features Sat 07:00.
 
 ## Go / no-go before the demo (Sat 06:00)

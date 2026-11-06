@@ -140,7 +140,7 @@ svg .ah{fill:var(--muted)} svg .ah-m{fill:var(--accent)}
 <!-- backend -->
 <rect class="box" x="246" y="50" width="268" height="150" rx="8"/><text class="t-b" x="258" y="72">API · Next.js route handlers</text><text class="t-s" x="258" y="92">auth · rules · purchases · confirm</text><text class="t-s" x="258" y="108">match pipeline (calls 0G + Arkiv)</text><text class="t-s" x="258" y="124">FX at read time (rate saved)</text><text class="t-s" x="258" y="140">balances (chains + Jupiter prices)</text><text class="t-s" x="258" y="156">share cards · referral codes</text><text class="t-s" x="258" y="172">web push</text>
 <rect class="box" x="246" y="224" width="268" height="76" rx="8"/><text class="t-b" x="258" y="246">Gmail scanner (worker)</text><text class="t-s" x="258" y="264">on app open + every 6 h</text><text class="t-s" x="258" y="280">shop allowlist · last 30 days</text>
-<rect class="box b-arc" x="246" y="324" width="268" height="112" rx="8"/><text class="t-b" x="258" y="346">Keeper (worker)</text><text class="t-s" x="258" y="364">Sun 10:00 IST + "Buy now"</text><text class="t-s" x="258" y="380">vault.execute → CCTP burn</text><text class="t-s" x="258" y="396">mint to relay → swap → user</text><text class="t-s" x="258" y="412">writes proof to Arkiv</text>
+<rect class="box b-arc" x="246" y="324" width="268" height="112" rx="8"/><text class="t-b" x="258" y="346">Keeper (worker)</text><text class="t-s" x="258" y="364">After the user signs a BuyApproval</text><text class="t-s" x="258" y="380">vault.execute → CCTP burn</text><text class="t-s" x="258" y="396">mint to relay → swap → user</text><text class="t-s" x="258" y="412">writes proof to Arkiv</text>
 <rect class="box" x="246" y="460" width="268" height="62" rx="8"/><text class="t-b" x="258" y="482">Postgres (Neon)</text><text class="t-s" x="258" y="500">users, rules, purchases, jars mirror</text><text class="t-s" x="258" y="514">no images, no email bodies</text>
 
 <!-- partner services -->
@@ -230,7 +230,7 @@ svg .ah{fill:var(--muted)} svg .ah-m{fill:var(--accent)}
 <h3>Who pays, and how it shows</h3>
 <ul>
 <li><b>Demo (hackathon):</b> sponsor everything with Gas Station and Kora. Fund the Gas Station policy and the Kora fee payer with about $10. Every screen says "Network fee $0.00 (we cover it)".</li>
-<li><b>After launch:</b> keep sponsoring deposits and confirms; take the actual network cost of the weekly buy in USDC from the batch (already shown as "fees $0.05" on Review and Done). Seed-phrase users on EVM pay through Circle Paymaster in USDC.</li>
+<li><b>After launch:</b> keep sponsoring deposits and confirms; take the actual network cost of each buy in USDC from the batch (already shown as "fees $0.05" on Review and Done). Seed-phrase users on EVM pay through Circle Paymaster in USDC.</li>
 <li><b>Limits so sponsorship can't be drained:</b> a Gas Station policy with per-user daily caps and an allowlist of contracts (USDC, Gateway Wallet, OwnbackVault); Kora configured to sign only those program calls; rate limits on our relayer.</li>
 </ul>
 <h3>Verify before relying on it</h3>
@@ -261,7 +261,7 @@ svg .ah{fill:var(--muted)} svg .ah-m{fill:var(--accent)}
 <li>0G vision/LLM returns <code>{shop, items[], total, currency, date, is_product}</code> with a request ID.</li>
 <li>Backend fetches the FX rate for that date, converts to USD and saves rate, source and time with the purchase.</li>
 <li>Match: brand → maker (0G tool-calling model + Wikidata) → Arkiv <code>company</code> and <code>asset</code> lookups → <code>supplier-of</code> and materials from Arkiv → keep only assets with a verified token and a live Jupiter quote. Unknown or private brand → fallback screen.</li>
-<li>Split 70 / 20 / 10 across what's buyable; respect monthly limit and max per company (same rules the vault checks).</li>
+<li>Split 70 / 20 / 10 across what's buyable, in whole cents; check the monthly limit (the only spend cap the vault checks).</li>
 </ol>
 <h3>4 · Confirm</h3>
 <ol class="steps">
@@ -274,7 +274,7 @@ svg .ah{fill:var(--muted)} svg .ah-m{fill:var(--accent)}
 <li>Keeper (Circle developer wallet) calls <code>vault.execute(batchId, domain, orders)</code> with the signed approvals, which the vault verifies. The vault burns the total through CCTP to the fixed relay token account on Solana and records each user's share in <code>Executed</code>.</li>
 <li>Poll Circle's attestation; call <code>receiveMessage</code> on Solana to mint USDC to the relay.</li>
 <li>For each entry: Jupiter swap USDC → asset with output to the user's own token account (create the ATA if missing; relay pays rent and fees).</li>
-<li>Write one Arkiv <code>proof</code> per entry (asset, amount, tx hashes, 0G request ID; no address). Push "Sunday buy done".</li>
+<li>Write one Arkiv <code>proof</code> per entry (asset, amount, tx hashes, 0G request ID; no address). Push "Buy done".</li>
 <li>If a swap fails, USDC stays in the relay and is retried next run; after two failures it is sent back to Arc and returned to that user's free balance.</li>
 </ol>
 <h3>6 · Withdraw and share</h3>
@@ -285,10 +285,10 @@ svg .ah{fill:var(--muted)} svg .ah-m{fill:var(--accent)}
 
 <h2 id="vault">Vault contract (Arc)</h2>
 <pre>// Sketch only. The frozen spec is contracts/vault-spec.md (v3): signed BuyApproval in execute,
-// receiveDeposit from forwarders, per-asset cap with the fallback exempt, 48 h Solana recipient change.
+// receiveDeposit from forwarders, no per-asset cap (Q1), 48 h Solana recipient change.
 contract OwnbackVault {
   // per user
-  struct Rules { uint16 rateBps; uint64 monthlyCap; uint16 maxPerAssetBps; bytes32 fallbackAsset; }
+  struct Rules { uint16 rateBps; uint64 monthlyCap; bytes32 fallbackAsset; }
   mapping(address =&gt; Rules) public rules;               // rateBps must be 200..1000 (2–10%)
   mapping(address =&gt; uint256) public free;              // USDC not yet in a jar
   mapping(address =&gt; mapping(bytes32 =&gt; uint256)) public jar;   // asset id → USDC
@@ -364,7 +364,7 @@ contract OwnbackVault {
 <h2 id="trust">Security and trust</h2>
 <ul>
 <li><b>What Ownback can never do:</b> move tokens out of a user's wallet, withdraw anyone's free USDC, or send jar money anywhere except the venue relay for that jar.</li>
-<li><b>The one custody gap:</b> for about a minute per weekly run, bought-to-be USDC sits in the relay on Solana between the CCTP mint and the swap. It is capped by the batch, logged per user on-chain, and proven on Arkiv. Post-hackathon fix: a small Solana program that swaps and enforces the destination.</li>
+<li><b>The one custody gap:</b> for about a minute per buy batch, bought-to-be USDC sits in the relay on Solana between the CCTP mint and the swap. It is capped by the batch, logged per user on-chain, and proven on Arkiv. Post-hackathon fix: a small Solana program that swaps and enforces the destination.</li>
 <li><b>Keys:</b> users' keys are with Circle (Google users) or on their device (seed users). The keeper's Arc key is a Circle developer-controlled wallet. Only the Solana relay key and the Arkiv writer key live in our env vars, and both hold dust.</li>
 <li><b>Token safety:</b> every buy checks the mint against the Arkiv <code>asset</code> entry, which came from the issuer's official list; DexScreener shows fake PAXG/XAUt pools on Solana.</li>
 <li><b>Privacy:</b> images, audio and email bodies are processed in 0G private mode and not stored. Gmail access is read-only, asked for on tap, revocable, and limited to shop senders.</li>
@@ -387,7 +387,7 @@ contract OwnbackVault {
 <tr><td>10</td><td><b>Gas and fee policy</b></td><td>Who pays which fee on which chain, sponsor caps, and how fees appear in USDC on screen.</td><td><span class="pill ok">section above</span></td><td>Fri 05:00</td></tr>
 <tr><td>11</td><td><b>Copy and error catalog</b></td><td>Every user-facing message from the state boards, keyed by error code. Stops raw errors reaching the UI.</td><td><span class="pill no">missing</span></td><td>Fri 12:00</td></tr>
 <tr><td>12</td><td><b>Design tokens</b></td><td>Chosen logo, colours and fonts as a Tailwind config. Waits on the brand pick.</td><td><span class="pill chk">waiting on pick</span></td><td>Fri 12:00</td></tr>
-<tr><td>13</td><td><b>Test and demo plan</b></td><td>Acceptance test per requirement (R1–R16), the mainnet money budget, and the exact on-stage script with a backup recording.</td><td><span class="pill chk">requirements in PRD</span></td><td>Fri 20:00</td></tr>
+<tr><td>13</td><td><b>Test and demo plan</b></td><td>Acceptance test per requirement (R1–R19), the mainnet money budget, and the exact on-stage script with a backup recording.</td><td><span class="pill chk">requirements in PRD</span></td><td>Fri 20:00</td></tr>
 <tr><td>14</td><td><b>Accounts and secrets checklist</b></td><td>Who creates the Circle console app, Google OAuth client and test users, 0G key, Arkiv key, Neon DB, Vercel; where each secret lives.</td><td><span class="pill chk">env list here</span></td><td>Thu 21:30</td></tr>
 <tr><td>15</td><td><b>Submission pack</b></td><td>README, the five <code>/arkiv/*.md</code> files, AI-use note, Arc Studio URL, video script.</td><td><span class="pill no">later</span></td><td>Sat 03:00</td></tr>
 </table></div>

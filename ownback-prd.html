@@ -72,7 +72,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <ul>
 <li><b>Every buy needs your OK.</b> You sign a BuyApproval, and the vault checks it. Smaller jars can be bought on request.</li>
 <li><b>Fees.</b> Fees are always shown in $ and %, simulated before every money move, and capped by you (default 5% of the amount).</li>
-<li><b>Max per company.</b> It's a % of your monthly limit; overflow goes to your fallback.</li>
+<li><b>Ready minimum, not a per-company max.</b> A jar is "ready" at $5 (user-set, $1–$50), which triggers the reminder. Any single company can take any share of a purchase. The monthly limit is the only hard spend ceiling.</li>
 <li><b>Deposits.</b> Arc deposits are used directly. A one-time auto-add on Base, Ethereum and Arbitrum moves later deposits into your vault with the app closed. Solana deposits take one tap.</li>
 <li><b>Venues.</b> Multi-chain, including BNB Chain.</li>
 <li><b>Keeper.</b> A fixed relay per venue with batched execution; shares still land only in your wallet.</li>
@@ -101,7 +101,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <div class="grid2">
 <div class="box"><h3>In (must demo)</h3><ul>
 <li>Sign in with Google, which creates wallets on Arc and Solana tied to that account; or use a seed phrase (create new or import)</li>
-<li>Set your rules: share of each purchase (2–10%, default 5%), monthly limit, max per company, fallback asset</li>
+<li>Set your rules: share of each purchase (2–10%, default 5%), monthly limit, max fees (default 5%), ready minimum (default $5), fallback asset</li>
 <li>Deposit USDC from Arc, Solana, Base, Ethereum or Arbitrum into one balance (card/UPI shown as "Coming soon")</li>
 <li>Add a purchase: invoices found in Gmail, receipt photo or screenshot, voice (Whisper on 0G) or typing</li>
 <li>Currency conversion at read time; every amount after that in dollars</li>
@@ -130,7 +130,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <p>This matches the wireframes: 27 screens in six flows, plus a bottom tab bar (Home · Holdings · <b>+ Add</b> · Receipts · Settings).</p>
 <div class="tbl"><table>
 <tr><th>Flow</th><th>Screens</th><th>What happens</th></tr>
-<tr><td><b>A · Onboarding</b></td><td>Shared link (web) → Sign in → Seed phrase (if chosen) → Set your rules → Add funds → Home, first time</td><td>A friend's share link lands on a public page with their card and referral code. Sign in with Google (no seed phrase) or a seed phrase. Set the 2–10% rate (live example "$955 iPhone → $47.75 into Apple"), monthly limit, max per company and fallback (S&amp;P 500 default; Nasdaq 100, Gold, Bitcoin, Ether, US T-bills). Deposit USDC on any supported chain. First Home shows the balance split and "Add your first purchase".</td></tr>
+<tr><td><b>A · Onboarding</b></td><td>Shared link (web) → Sign in → Seed phrase (if chosen) → Set your rules → Add funds → Home, first time</td><td>A friend's share link lands on a public page with their card and referral code. Sign in with Google (no seed phrase) or a seed phrase. Set the 2–10% rate (live example "$955 iPhone → $47.75 into Apple"), monthly limit, max fees, ready minimum and fallback (S&amp;P 500 default; Nasdaq 100, Gold, Bitcoin, Ether, US T-bills). Deposit USDC on any supported chain. First Home shows the balance split and "Add your first purchase".</td></tr>
 <tr><td><b>B · Dashboard</b></td><td>Home → Holdings → Holding → Activity</td><td>Home: total balance with a bar and rows for stocks and commodities, stablecoins (USDC) and crypto, chips per chain; receipts processed, spending tracked, in jars; top holdings; recent receipts; next buy. Tapping the balance opens Holdings (filters by type and chain). Holding has the share card and a proof trail where each step opens its explorer.</td></tr>
 <tr><td><b>C · Add a purchase</b></td><td>Add (Gmail card on top) → Gmail states → Invoices in Gmail → Reading → Confirm → Edit split / Fix the match / Brand not listed / Limit reached / Couldn't read → Saved</td><td>Gmail-connected users see new invoices and review them as a list; otherwise snap, upload, say or type. Reading shows each step, including the currency conversion. Confirm shows the receipt card (on receipt, rate, dollars, your 5%), the 70/20/10 bar and the maker, behind-the-product and raw-material lists with tick boxes.</td></tr>
 <tr><td><b>D · Buying</b></td><td>Jars → Buy review → Buying → Buy done</td><td>Jars fill until $5, then the user is reminded. Review shows the venue, live price, max price (+1%) and fees vs the user's cap. Nothing buys until the user signs. Smaller jars can be bought on request. The result lists what was bought, the fees paid and what is still filling.</td></tr>
@@ -163,7 +163,7 @@ Solana mainnet:  Jupiter swap USDC → AAPLx → user's wallet
 <li><code>execute(batchId, domain, orders)</code>, run by the keeper. Each order carries the user's signed <b>BuyApproval</b> (assets, amounts, venue, max price, max fee, deadline), which the vault verifies (EOA or ERC-1271). The money is burned by CCTP only to that venue's fixed relay, which can only change after a 48 h timelock.</li>
 <li><code>receiveDeposit</code>: credits USDC that a user's own auto-add forwarder (Base, Ethereum, Arbitrum) sent by CCTP.</li>
 <li><code>withdraw</code> / <code>withdrawCrossChain</code>: the user can always pull free USDC back, only to their own address (EVM: themselves; Solana: their registered address, 48 h to change). Money already in a jar stays until it buys or the user cancels that jar.</li>
-<li>Spend limits: a monthly cap and a per-company cap (a % of the monthly limit; overflow goes to the fallback), enforced in the contract. The invest rate is stored per user and must be 2–10% (default 5%).</li>
+<li>Spend limits: a monthly cap, enforced in the contract. There's no per-company cap (decision Q1). The invest rate is stored per user and must be 2–10% (default 5%).</li>
 </ul>
 <h3>Keeper</h3>
 <p>After a user signs a BuyApproval, the keeper re-simulates the route (price and fees), calls <code>execute</code>, waits for the CCTP attestation, mints USDC to our fixed relay on the venue chain, and swaps with the output going to the user's own address. It checks the token against two sources and the price against a reference. One batch per venue. Anything not bought (price moved, fees over the cap, swap failed) goes back to the jar at our cost. <i>Changed in v3: a per-user Circle relay can't work, because Circle's Solana wallets can't run swaps and can't sign in the background.</i></p>
@@ -246,7 +246,7 @@ Solana mainnet:  Jupiter swap USDC → AAPLx → user's wallet
 <tr><td>R16</td><td>Funding and buying states</td><td>Add funds shows watching (auto-check every 5 s, tap to refresh), on its way, added, and the error states (below minimum, wrong token, unsupported chain, slow, offline). Buying shows ready (waiting for you), getting prices, price moved, partly bought, failed (money back in jar), bridge slow and paused for safety.</td></tr>
 <tr><td>R17</td><td>Fees shown and capped</td><td>Every money screen shows fees in $ and %; every move is simulated first; over the user's cap (default 5%) a user action is blocked and an automatic step waits; a mid-route spike returns the money to the jar at our cost</td></tr>
 <tr><td>R18</td><td>Consent for every buy</td><td>No buy without the user's BuyApproval signature (vault-enforced); filling jars can be bought on request; expired or cancelled approvals can't execute</td></tr>
-<tr><td>R19</td><td>Per-company cap</td><td>Cap = % of the monthly limit; overflow shown on Confirm and sent to the fallback; a direct over-cap <code>allocate</code> reverts</td></tr>
+<tr><td>R19</td><td>Ready minimum</td><td>$5 (user-set) marks a jar ready and triggers the reminder; it's not a max (Apple may take $33.43 of $47.75); jars below it can still be bought with "Buy now anyway" if fees fit the fee limit</td></tr>
 <tr><td>R20</td><td>Auto-add deposits</td><td>With auto-add on, USDC sent on Base, Ethereum or Arbitrum reaches the vault with the app closed; it can only go to the user's own vault</td></tr>
 <tr><td>R14</td><td>Receipts and activity</td><td>Every processed invoice is listed with status; detail shows the rate and where the money went; activity lists buys, matches, reviews and limit warnings</td></tr>
 <tr><td>R9</td><td>Share card</td><td>From Holding or after a buy: one tap each for <b>Post to X</b>, <b>Post to LinkedIn</b>, <b>Copy text</b>, <b>Copy image</b> and <b>Save image</b>. On phones, the system share sheet sends the image straight into any app. "Hide amounts" is on by default ("I own a piece of Apple"), and the wallet address is never shown.</td></tr>

@@ -11,7 +11,7 @@ Tool: Vitest. The command `pnpm test` runs the unit and contract tests; `pnpm ev
 | Invest amount | $955.00 × 500 bps = $47.75; $2.63 × 500 = $0.13 (NoMatch example); $60.22 × 500 = $3.01 (Gmail list) |
 | FX | ₹79,900 at 83.66 → $955.06, rounded to cents (the wireframe shows $955.00 from a rounded rate; fixtures use the exact stored rate). Weekend date → last business day |
 | Limits pre-check | Used $45 of $50, purchase $47.75 → LIMIT_REACHED with left $5.00; partial confirm builds $5.00 of allocations, scaled per asset by largest remainder |
-| Per-asset cap (Q1) | Cap $10 (20% of $50), Apple $33.43 → $10.00 Apple + $23.43 to S&P 500; fallback exempt; overflow listed in `capOverflow` |
+| Ready minimum (Q1) | Split may put $33.43 in Apple; no overflow. Jar < $5 → filling + "Buy now anyway"; ≥ $5 → ready. Fee check still blocks tiny buys when `(fee*10000)/amount > maxFeeBps` |
 | Fee cap (Q2) | Fees $0.05 on $43.63 (0.11%) pass; $0.30 on $3.18 (9.4%) blocked at 5%; mid-route spike → stop + return; fee parts sum to the total |
 | BuyApproval | Typed data hash matches the vault's `hashApproval`; EOA and ERC-1271 signatures verify; expired or cancelled are rejected |
 | Arkiv read guard | A fake entity (another creator, ownership transferred to us) is ignored (A1) |

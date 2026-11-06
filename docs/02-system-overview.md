@@ -47,7 +47,7 @@ Users sign every action that moves their own money, **including every buy** (Q7)
 
 | Action | Google users (Circle wallet) | Seed-phrase users | Contract call |
 |---|---|---|---|
-| Save rules on-chain | Circle approval sheet | Signed on the device | `setRules` |
+| Save rules and Solana withdraw address on-chain | Prepended to the user's first vault action (see [api-contract § Signable actions](../backend/api-contract.md#signable-actions)) | Same | `setRules`, `setSolanaRecipient` |
 | Move a deposit into the vault | Arc: at the next Confirm. EVM chains: once per chain, approve auto-add; then nobody. Solana: one tap per deposit | Same, signed on the device | `deposit` / forwarder → `receiveDeposit` |
 | Confirm a purchase | Circle approval sheet: "Move $47.75 into 6 jars on Arc" | Signed on Confirm, no sheet | `allocate` or `depositAndAllocate` |
 | Cancel a jar, withdraw | Circle approval sheet | Device | `cancelJar`, `withdraw`, `withdrawCrossChain` |
@@ -92,7 +92,7 @@ Typed        ─► Fix the match screen ─► POST /api/purchases (text) ─�
 PWA polls GET /api/purchases/:id every 700 ms on Reading and shows each step as it finishes
 ```
 
-The match pipeline: brand → maker (0G tool call + Wikidata) → Arkiv company → Arkiv `supplier-of` and materials → keep only assets with a verified token (Arkiv `asset`) and a live quote → split 70/20/10 in cents (largest remainder) → check limits.
+The match pipeline: brand → maker (0G tool call + Wikidata) → Arkiv company → Arkiv `supplier-of` and materials → keep only assets with a verified token (Arkiv `asset`) and a live quote → split 70/20/10 in whole cents (largest remainder, D18) → check the monthly limit.
 
 ### 4 · Confirm
 
@@ -124,7 +124,7 @@ Full algorithm: [backend/keeper-and-jobs.md](../backend/keeper-and-jobs.md).
 ### 6 · Withdraw and share
 
 - **Withdraw**: `withdraw(amount)` pays the caller on Arc. `withdrawCrossChain(amount, domain)` burns through CCTP to the caller's own EVM address on other EVM chains, or to their registered Solana address. The keeper relays the mint on the destination chain.
-- **Share**: `/card/[id].png` renders the card. `/r/[code]` is the public landing page with the referral code.
+- **Share**: `/card/[shareId].png` renders the card (random share ID, A13). `/r/[code]` is the public landing page with the referral code.
 
 ## Environments
 

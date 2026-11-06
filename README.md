@@ -8,12 +8,12 @@ ETHGlobal Mumbai · hacking runs Thu 5 Nov 21:00 IST to Sat 7 Nov 09:00 IST · p
 
 ## Source of truth
 
-When two documents disagree, the higher one wins. The user's recorded decisions in [docs/03](docs/03-decisions-and-open-questions.md) sit above all of them.
+When two documents disagree, the higher one wins. The user's recorded decisions in [docs/03](docs/03-decisions-and-open-questions.md) sit above all of them. **AI agents:** start with [docs/AI_BUILD.md](docs/AI_BUILD.md) (auto-loaded by [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md)).
 
 1. **Wireframes**: 36 screens in 7 flows, all in one page: [ownback-wireframes.html](ownback-wireframes.html) (open it in any browser). Editable canvas: https://claude.ai/artifact/J3Y8WWMmWwRXoXKEaJL9aJ
 2. **PRD**: https://claude.ai/artifact/CVsUQf22vdpzyfhBMZ4RyJ · local copy: [ownback-prd.html](ownback-prd.html)
-3. **Architecture and backend doc**: https://claude.ai/artifact/KeXfMndvPJhL3Eqg5FcEeU · local copy: [ownback-architecture.html](ownback-architecture.html)
-4. **The docs in this folder**: they describe how to build what the three documents above describe. If a doc here disagrees with them, the doc is wrong, unless the item is listed in [docs/03-decisions-and-open-questions.md](docs/03-decisions-and-open-questions.md). That file records every conflict found and how it was resolved.
+3. **Architecture and backend doc**: https://claude.ai/artifact/KeXfMndvPJhL3Eqg5FcEeU · local copy: [ownback-architecture.html](ownback-architecture.html) (a summary; the build specs in this repo hold the detail)
+4. **The docs in this folder**: how to build. If a folder doc disagrees with `docs/03`, **03 wins**. Where the PRD or architecture page is less specific, the folder doc defines the detail. For words on screen, [frontend/copy-and-errors.md](frontend/copy-and-errors.md) wins over the wireframes.
 
 Brand kit (not ranked; it covers only the look; picked: Logo C, Ledger Green, Bricolage): https://claude.ai/artifact/2Uqk914XAsxD7aAconWDqo · local copy: [ownback-brand-kit.html](ownback-brand-kit.html)
 

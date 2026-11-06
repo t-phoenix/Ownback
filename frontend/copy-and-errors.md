@@ -39,6 +39,12 @@ The UI never shows the code itself.
 | `FEES_TOO_HIGH` | Review, Withdraw, deposits | "Fees would be {fees} ({pct}% of {amount}). Your limit is {cap}%." | Wait · Change fee limit |
 | `BAD_SIGNATURE` / `APPROVAL_EXPIRED` | Buy review | "That approval didn't go through. Review the prices again." | Review again |
 | `KEEPER_DISABLED` | Jars, Buy | "Buys are paused while we check something. Your money is safe and you can withdraw any time." | — |
+| `NONCE_USED` | Sign in | "That sign-in link was already used. Try again." | Try again |
+| `CHAIN_UNSUPPORTED` | Add funds, Withdraw | "We don't support that chain. Use Arc, Solana, Base, Ethereum or Arbitrum." | — |
+| `DEPOSIT_NOT_READY` | Add funds | (no message) keep showing the deposit steps and poll again | — |
+| `NO_READY_JARS` | Jars, Buy review | "No jar is ready yet. You can still buy a smaller jar with Buy now anyway." | — |
+| `GMAIL_DISABLED` | Gmail card | Hide the Gmail card; show only Snap / Say / Type | — |
+| `FEATURE_OFF` | Settings (0G account) | Hide the row | — |
 | `NO_SOLANA_RECIPIENT` | Withdraw | "Set up your Solana wallet first." (shows one approval) | Set up |
 | `GMAIL_REVOKED` | Gmail card | (state 6 copy below) | Reconnect |
 | `UPSTREAM`, `INTERNAL`, unknown | any | "We couldn't load this. Your money isn't affected." | Try again |
@@ -81,13 +87,13 @@ The UI never shows the code itself.
 | Reading steps | "Read the receipt · {shop}, {date}" · "Converted {local} → {usd} ({rate}/$)" · "Found the maker · {maker}" · "Finding companies behind it" · "Checking which ones you can buy" · footer "Read by a private AI model on 0G. The photo is deleted after reading. Request ID {id}" |
 | Confirm button | "Confirm {invest} across {n}" · "Only {maker}" · "Wrong product? Fix it" |
 | Confirm approval (Circle sheet) | "Move {invest} into {n} jars on Arc" |
-| Cap overflow (Q1) | "{asset}: {capped} (your {pct}% monthly cap) · {overflow} → {fallback}" |
+| Confirm fee (Q2) | "Network fee $0.00 · we cover it" (or "< $0.01") |
 | Saving | "Saving… usually 2 s" |
 | Not tokenized | "not tokenized yet" |
 | Why these companies | "Maker: {product} → {maker} (Wikidata). Suppliers: {sources}, with the quoted sentence. Materials: from the product's bill of materials. AI request ID: {id}" |
 | Not listed | "{brand} is a private company, so there are no shares to buy. Your {rate}% ({amount}) can go somewhere else." · info "We also checked the companies behind it ({examples}). None of them have tokenized shares yet, so there's nothing else to buy for this product." · "Put {amount} into {fallback}" · "Skip this purchase · Nothing is saved" |
 | Limit | "You set a {cap} monthly limit. This purchase would go over it." · "Save {left} now, rest next month" · "Raise limit to {double}" · "Skip this purchase" · "Limits reset on the 1st. The vault contract enforces them." |
-| Saved | "{invest} is in {n} jars" · "{maker}'s jar is ready. It buys on Sunday." / "{assets} fill up from your next purchases." |
+| Saved | "{invest} is in {n} jars" · "{maker}'s jar is ready. Tap to buy when you want." / "{assets} fill up from your next purchases. We'll remind you on Sunday." |
 | Rest pending (Q7) | Activity: "Ready to save {rest} from {shop}" · Approve |
 
 ## Buying
@@ -104,12 +110,12 @@ The UI never shows the code itself.
 | Review | "Prices update live · next in {s} s" · "Price now {price} per {token}" · "You get about {qty} {token}" · "Won't buy above {max} (+1%)" · "Price protection 1% · if the price moves more, that jar waits" · "Shares go straight to your Solana wallet {addr}." |
 | Fees (review) | Row: "Fees {fee} ({pct}%)" · footer: "Fees {total} ({pct}% · your limit {cap}%)" · approval sheet: "Buy {n} assets · up to {total} · max fees {maxFee}" |
 | Fees (done) | "Bought {bought} · fees {fees} · left in jars {left}" |
-| Progress | "{k} of {n} bought" · "Took {total} from your jars" · "Moved to Solana" · "Bought {asset} {qty} {token} at {fill} (quote {quote}) · {amount}" · "You can leave this screen. We'll notify you when it's done. If a price moves more than 1%, that jar keeps its dollars and tries again next Sunday." |
+| Progress | "{k} of {n} bought" · "Took {total} from your jars" · "Moved to Solana" · "Bought {asset} {qty} {token} at {fill} (quote {quote}) · {amount}" · "You can leave this screen. We'll notify you when it's done. If a price moves more than 1%, that jar keeps its dollars until you approve again." |
 | Partly bought | "Bought {amount} of {asset} ({qty} {token} at {price}). {rest} stays in the jar for next time." |
 | Failed | "We couldn't buy {asset} today. {amount} is back in its jar." · "No fee charged." |
 | Bridge slow | "Your {total} is moving to Solana and is safe. Buys continue automatically." |
 | Paused | "We paused {asset}: its token address changed. Your {amount} stays in the jar." |
-| Done | "Sunday's buy is done" · "Bought {n} assets · fees {fee} · {date}" · "Paid vs quote within {bps}%" · "Each row opens the asset with its price history and proof." |
+| Done | "Buy done" · "Bought {n} assets · fees {fee} · {date}" · "Paid vs quote within {bps}%" · "Each row opens the asset with its price history and proof." |
 
 ## Activity titles (`events.kind`)
 
@@ -118,9 +124,14 @@ The UI never shows the code itself.
 | buy_done | "Buy done" · "{asset1} at {price1}, {asset2}, {asset3} · {total} · fees {fee}" |
 | receipt_matched | "Receipt matched" · "{shop} {item} → {invest} across {n}" |
 | needs_review | "Needs your review" · "{shop} receipt · {n} brands we're not sure about" |
-| jar_ready | "Jar ready" · "{asset} reached $5 · buys Sunday" |
+| jar_ready | "Jar ready" · "{asset} reached $5 · tap to buy" |
 | fallback_used | "Not listed, used fallback" · "{brand} → {fallback} · {amount}" |
 | limit_warning | "80% of monthly limit used" · "{used} of {cap} · resets {date}" |
+| limit_reached | "Monthly limit reached" · "{used} of {cap} · resets {date}" |
+| fees_high | "Fees are high right now" · "{asset}: {pct}% · your limit {cap}% · your jar waits" |
+| approval_expired | "Buy approval expired" · "Prices changed or time ran out. Review again to buy." |
+| gmail_revoked | "Gmail disconnected" · "Your past receipts stay. Reconnect to keep finding new ones." |
+| rest_ready | "Ready to save {rest} from {shop}" · "Approve to put it in your jars" |
 | rules_changed | "Your rules changed" · "{what} · not you? Sign out everywhere" |
 | solana_recipient_changing | "Your Solana withdraw address changes on {date}" · "Not you? Cancel it in Wallet" |
 | buy_reminder | "{n} jars ready" · "Review the prices and buy" |

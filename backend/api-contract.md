@@ -16,18 +16,24 @@ This becomes `packages/shared/api.ts`: one zod schema per request and response. 
 | Idempotency | Every POST that moves money or creates a purchase takes header `Idempotency-Key` (UUID). Same key + same body → same response for 24 h |
 | Pagination | `?cursor=…&limit=20` → `{ items, nextCursor }` |
 | Errors | Non-2xx returns `{ error: { code: ErrorCode, retryable: boolean, details?: object } }`. The UI maps `code` to copy and never shows it |
+| Circle user token | Google users only. The PWA sends header `x-circle-user-token` on every route that may return a `circle_challenge` (rules, deposits, confirm, jars, buys, withdraw). The server uses it for that request only and **never stores it**. Expired token → `CHALLENGE_FAILED` with `details.reason = 'user_token_expired'`; the PWA re-runs Google login silently and retries once |
 
 ## Shared types
 
 ```ts
 type Usd6 = string;
 type AssetId = string;            // 'co:apple' | 'mat:gold' | 'idx:sp500' | …
-type ChainKey = 'arc' | 'solana' | 'base' | 'ethereum' | 'arbitrum';
+type ChainKey = 'arc' | 'solana' | 'base' | 'ethereum' | 'arbitrum' | 'bnb';   // 'bnb' only for venues/holdings, never for deposits or withdrawals
+type DepositChain = Exclude<ChainKey, 'bnb'>;
 
 type AssetRef = { assetId: AssetId; name: string; ticker?: string; token?: string; chain?: ChainKey;
                   role: 'maker' | 'supplier' | 'material' | 'fallback'; why?: string; tokenized: boolean };
 
-type Price = { usd6PerUnit: Usd6; at: string; source: 'jupiter' | 'uniswap' | 'appkit' };
+type Price = { usd6PerUnit: Usd6 /* per 1 whole token */; at: string; source: 'jupiter' | 'uniswap' | 'appkit' | 'aerodrome' | 'pancakeswap' | 'pyth' };
+type Eip712 = { domain: { name: 'OwnbackVault'; version: '1'; chainId: 5042; verifyingContract: string };
+                types: Record<string, { name: string; type: string }[]>; primaryType: 'BuyApproval'; message: Record<string, unknown> };
+type Withdrawal = { id; chain: DepositChain; amountUsd6: Usd6; feeUsd6: Usd6; status: 'sending' | 'sent' | 'failed'; arcTx?: string; mintTx?: string; createdAt: string };
+// Status enums (DepositStatus, PurchaseStatus, JarState, BuyBatchStatus, BuyEntryStatus, GmailState, EventKind) are imported from packages/shared/states.ts (docs/04). Never redeclare them here.
 ```
 
 ### Signable actions
@@ -36,7 +42,7 @@ Every action the user must sign comes back in this shape:
 
 ```ts
 type SignableAction =
-  | { kind: 'circle_challenge'; challengeId: string; summary: string }           // Google users: run with Circle Web SDK
+  | { kind: 'circle_challenge'; challengeIds: string[]; summary: string }        // Google users: run each with the Circle Web SDK, in order; stop at the first failure
   | { kind: 'evm_calls'; chain: ChainKey; calls: { to: string; data: string; value: '0' }[]; summary: string }  // seed users sign locally, in order
   | { kind: 'sol_tx'; txBase64: string; feePayer: 'kora' | 'user'; summary: string }
   | { kind: 'typed_data'; typedData: Eip712; summary: string }   // BuyApproval: Circle signTypedData challenge or local signTypedData
@@ -46,7 +52,15 @@ type Fees = { totalUsd6: Usd6; pctBps: number; capBps: number; overCap: boolean;
               parts: { label: string; usd6: Usd6 }[] };   // e.g. 'Arc network', 'Circle CCTP', 'Solana network', 'Jupiter route', 'New token account'
 ```
 
-`summary` is the text shown on the approval, for example "Move $47.75 into 6 jars on Arc". After signing, the client calls the matching `…/submitted` route with `{ txHash }` (EVM/Solana) or `{ challengeId }` (Circle). The server then confirms on-chain itself.
+`summary` is the text shown on the approval, for example "Move $47.75 into 6 jars on Arc". After signing, the client calls the matching `…/submitted` route with `{ txHash }` (EVM/Solana) or `{ challengeIds }` (Circle). The server then confirms on-chain itself.
+
+**What the server puts in front of a vault action (in this order, only when needed):**
+1. `setRules` (if `onchainSynced` is false)
+2. `setSolanaRecipient(ata)` (if the vault has none). `ata` = the USDC associated token account of the user's own Solana address, derived by the server and re-derived by the PWA in `verifyAction` (A6).
+3. `usdc.approve(vault, exactAmount)` (before `deposit` / `depositAndAllocate`; exact amount, never unlimited)
+4. The action itself.
+
+Seed users get these as one `evm_calls` list. Google users get one `circle_challenge` with several `challengeIds`. Seed users keep a **$0.10 USDC gas buffer** in their Arc wallet: `deposit` / `depositAndAllocate` never move it into the vault, so they can always pay Arc gas to withdraw ([docs/05](../docs/05-gasless-and-fees.md)).
 
 ## Routes
 
@@ -56,7 +70,7 @@ type Fees = { totalUsd6: Usd6; pctBps: number; capBps: number; overCap: boolean;
 |---|---|---|---|---|
 | POST | `/api/auth/google/device-token` **public** | `{ deviceId }` | `{ deviceToken, deviceEncryptionKey, appId }` (for the Circle Web SDK social login) | `UPSTREAM` |
 | POST | `/api/auth/google` **public** | `{ userToken, encryptionKey }` | `{ user: Me, setup?: SignableAction }` (`setup` = create wallets, first time only) | `AUTH_INVALID`, `GEO_BLOCKED` |
-| POST | `/api/auth/google/setup/submitted` | `{ challengeId }` | `{ user: Me }` (addresses filled) | `CHALLENGE_FAILED` |
+| POST | `/api/auth/google/setup/submitted` | `{ challengeIds }` | `{ user: Me }` (addresses filled) | `CHALLENGE_FAILED` |
 | GET | `/api/auth/seed/nonce` **public** | — | `{ nonce, message }` | — |
 | POST | `/api/auth/seed` **public** | `{ evmAddress, solAddress, evmSignature, solSignature, nonce }` | `{ user: Me }` | `AUTH_INVALID`, `NONCE_USED` |
 | POST | `/api/auth/logout` | `{ everywhere?: boolean }` | `204` (deletes the session row, or all of them) | — |
@@ -75,7 +89,8 @@ type Me = { id; authKind: 'google' | 'seed'; email?: string; displayName: string
 | PUT | `/api/rules` | `Partial<Rules>` | `Rules & { onchainSynced: false }` | `VALIDATION` |
 
 ```ts
-type Rules = { rateBps: number /*200–1000*/; monthlyCapUsd6: Usd6; maxPerAssetBps: number /* % of monthly cap per asset per month (Q1) */;
+type Rules = { rateBps: number /*200–1000*/; monthlyCapUsd6: Usd6;
+               readyMinUsd6: Usd6 /* default "5000000" ($5); allowed $1–$50; ready/reminder threshold only, not a max (Q1) */;
                maxFeeBps: number /* 50–1000, default 500 (Q2) */; autoAdd: Record<'ethereum'|'base'|'arbitrum', { on: boolean; capUsd6: Usd6 }>;
                fallbackAsset: 'idx:sp500' | 'idx:nasdaq100' | 'mat:gold' | 'crypto:btc' | 'crypto:eth' | 'idx:tbills';
                split: { maker: number; behind: number; materials: number } /* sums to 100 */; buyDay: 'sun' };
@@ -111,7 +126,7 @@ type ProofTrail = { ogRequestId?; arcTx?; cctpMessage?; venueTx?; arkivKey?; lin
 | POST | `/api/deposits/:id/approve` | — | `{ action: SignableAction }` (one-tap move: Solana, or auto-add off) | `DEPOSIT_NOT_READY`, `FEES_TOO_HIGH` |
 | POST | `/api/deposits/auto-add` | `{ chain, capUsd6 }` | `{ action: SignableAction }` (approve the forwarder once) | `CHAIN_UNSUPPORTED` |
 | DELETE | `/api/deposits/auto-add?chain=` | — | `{ action: SignableAction }` (allowance → 0) | — |
-| POST | `/api/deposits/:id/submitted` | `{ txHash? , challengeId? }` | `Deposit` | `TX_NOT_FOUND` |
+| POST | `/api/deposits/:id/submitted` | `{ txHash? , challengeIds? }` | `Deposit` | `TX_NOT_FOUND` |
 
 ```ts
 type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStatus /* states.ts §3 */; fees?: Fees; forwardTx?: string;
@@ -130,8 +145,8 @@ type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStat
 | GET | `/api/makers/search?q=` | — | `{ items: { companyId; name; ticker; listed; tokenized; token?; chain? }[] }` (Fix the match) | — |
 | PUT | `/api/purchases/:id/match` | `{ companyId } \| { privateBrand: true }` | `Purchase` | — |
 | PUT | `/api/purchases/:id/fallback` | `{ choice: 'fallback' \| 'skip' }` | `Purchase` | — |
-| POST | `/api/purchases/:id/confirm` | `{ amountUsd6?: Usd6 /* partial: "Save $5.00 now" */ }` + Idempotency-Key | `{ action: SignableAction }` | `INSUFFICIENT_FREE` (details `{ freeUsd6, shortUsd6 }`), `LIMIT_REACHED` (details `{ usedUsd6, capUsd6, leftUsd6 }`), `NOTHING_TO_BUY` |
-| POST | `/api/purchases/:id/confirm/submitted` | `{ txHash? , challengeId? }` | `Purchase` (`saved` once events are read; else `confirming`) | `TX_REVERTED` (details `{ reason }`), `TX_NOT_FOUND` |
+| POST | `/api/purchases/:id/confirm` | `{ amountUsd6?: Usd6 /* partial: "Save $5.00 now". The server scales every selected allocation to this total with largest-remainder rounding in whole cents, and stores the rest as rest_usd6 */ }` + Idempotency-Key | `{ action: SignableAction }` | `INSUFFICIENT_FREE` (details `{ freeUsd6, shortUsd6 }`), `LIMIT_REACHED` (details `{ usedUsd6, capUsd6, leftUsd6 }`), `NOTHING_TO_BUY` |
+| POST | `/api/purchases/:id/confirm/submitted` | `{ txHash? , challengeIds? }` | `Purchase` (`saved` once events are read; else `confirming`) | `TX_REVERTED` (details `{ reason }`), `TX_NOT_FOUND` |
 | POST | `/api/purchases/:id/report` | `{ note?: string }` | `204` | — |
 
 ```ts
@@ -142,7 +157,7 @@ type Purchase = {
   investUsd6?: Usd6; rateBps?: number;
   split?: { maker: number; behind: number; materials: number };
   allocations?: (AssetRef & { amountUsd6: Usd6; selected: boolean; sourceUrl?: string; quote?: string })[];
-  capOverflow?: { assetId; cappedUsd6; overflowUsd6; toAssetId /* fallback */ }[];   // Q1
+  // no capOverflow — per-company max removed (Q1 revised)
   notTokenized?: AssetRef[];                     // Foxconn, aluminium… shown as "not tokenized yet"
   limit?: { usedUsd6; capUsd6; leftUsd6 };
   ogRequestIds: string[];
@@ -167,7 +182,7 @@ type Purchase = {
 
 | Method | Path | Request | Response | Errors |
 |---|---|---|---|---|
-| GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; minUsd6; state: 'filling' \| 'ready' \| 'buying' \| 'returning' \| 'paused' \| 'no_venue'; price?: Price; note? }[]; nextBuyAt; estFeesUsd6 }` | — |
+| GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; price?: Price; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
 | POST | `/api/jars/:assetId/cancel` | — | `{ action: SignableAction }` | — |
 | GET | `/api/buys/review?include=ready\|all` | — | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; token; chain; venue; price: Price; refPriceUsd6; estQty: string; maxPriceUsd6; fees: Fees; selectable: boolean; reason?: 'fees_high' \| 'price_off_reference' \| 'no_venue' }[]; totalUsd6; fees: Fees; destination: string; approval: { kind: 'typed_data'; typedData } }` | `NO_READY_JARS` |
 | POST | `/api/buys` | `{ quoteId, approval, signature }` + Idempotency-Key | `{ batchIds: string[] }` | `QUOTE_EXPIRED`, `PRICE_MOVED`, `FEES_TOO_HIGH`, `BAD_SIGNATURE`, `KEEPER_DISABLED` |
@@ -199,7 +214,7 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 |---|---|---|---|---|
 | GET | `/api/wallet` | — | `{ vault: { inJarsUsd6; freeUsd6; totalUsd6 }; evmAddress; solAddress; signIn: { kind; email? } }` | — |
 | POST | `/api/withdraw` | `{ amountUsd6, chain }` + Idempotency-Key | `{ withdrawalId; action: SignableAction; feeUsd6; feeCovered: boolean }` | `INSUFFICIENT_FREE`, `CHAIN_UNSUPPORTED`, `NO_SOLANA_RECIPIENT` |
-| POST | `/api/withdraw/:id/submitted` | `{ txHash? , challengeId? }` | `Withdrawal` | `TX_REVERTED` |
+| POST | `/api/withdraw/:id/submitted` | `{ txHash? , challengeIds? }` | `Withdrawal` | `TX_REVERTED` |
 | GET | `/api/withdraw/:id` | — | `Withdrawal` (`sending` → `sent`) | — |
 | PUT | `/api/notifications` | `{ buyDone; needsReview; nearLimit }` | same | — |
 | POST | `/api/push/subscribe` | Push subscription JSON | `204` | — |
@@ -219,6 +234,8 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | POST | `/api/jobs/gmail/scan` | cron | All connected users, 50 messages each |
 | POST | `/api/jobs/prices/refresh` | cron or on demand | Price cache |
 | POST | `/api/jobs/rest-pending` | cron, 1st of month | Q7 notifications |
+| POST | `/api/jobs/arkiv/refresh` | weekly | Extend Arkiv entities with < 30 days left (A17) |
+| POST | `/api/jobs/relay/watch` | every 1 min | Alert on stuck/suspicious relay outflows (A3) |
 
 ## Errors
 
@@ -243,7 +260,7 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | `CHALLENGE_FAILED` | 409 | yes | Circle challenge rejected or expired |
 | `DEPOSIT_NOT_READY` | 409 | yes | |
 | `CHAIN_UNSUPPORTED` | 400 | no | |
-| `NO_SOLANA_RECIPIENT` | 409 | no | Run `setRules` with the ATA first |
+| `NO_SOLANA_RECIPIENT` | 409 | no | Run `setSolanaRecipient` (separate from `setRules`, A6) |
 | `NO_READY_JARS` | 409 | no | |
 | `QUOTE_EXPIRED` | 409 | yes | Re-fetch the review |
 | `PRICE_MOVED` | 409 | no | BuyStates 3 (a new price needs a new signature) |
@@ -256,4 +273,4 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | `UPSTREAM` | 502 | yes | Circle, 0G, Jupiter, Arkiv or RPC failed |
 | `INTERNAL` | 500 | yes | |
 
-Vault custom error → API code: `OverMonthlyCap` → `LIMIT_REACHED`; `OverAssetCap` → `LIMIT_REACHED` (details.asset); `InsufficientFree` → `INSUFFICIENT_FREE`; `PurchaseUsed` → treat as success (idempotent) and re-read events; `IsPaused` → `KEEPER_DISABLED`; anything else → `TX_REVERTED`.
+Vault custom error → API code: `OverMonthlyCap` → `LIMIT_REACHED`; `InsufficientFree` → `INSUFFICIENT_FREE`; `PurchaseUsed` → treat as success (idempotent) and re-read events; `IsPaused` → `KEEPER_DISABLED`; anything else → `TX_REVERTED`. (No `OverAssetCap` — Q1 revised.)
