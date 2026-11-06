@@ -7,43 +7,48 @@
 
 Brand kit: https://claude.ai/artifact/2Uqk914XAsxD7aAconWDqo. A local copy is at [ownback-brand-kit.html](../ownback-brand-kit.html).
 
-All values live in `app/tokens.css` as CSS variables. Tailwind reads the variables.
+All values live in `app/globals.css` as CSS variables (light on `:root`, dark under `prefers-color-scheme` unless the user picked light, and under `:root[data-theme="dark"]`). The user can pick System / Light / Dark in Settings.
+
+**Rule:** every text colour is paired with the surface it sits on. Components never hard-code a colour. The only exceptions are the always-dark "vault" surfaces (balance card, capture card, share card, sign-in art), which carry their own `--on-vault*` tokens, and the QR code (always dark on white).
 
 ## Colour roles
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--ink` | `#0E2A1F` | `#F6F8F5` | Text |
-| `--primary` | `#0F7B4F` | `#4CC38A` | Buttons, links, the maker segment |
-| `--accent` | `#E9B949` | `#E9B949` | The "piece": jar fill, the lifted slice in the logo, the behind segment. **Fill only, never text on white** (1.8:1) |
-| `--paper` | `#F6F8F5` | `#0E2A1F` | Page background |
-| `--surface` | `#FFFFFF` | `#14352A` | Cards |
-| `--soft` | `#CFEBDD` | `#1D4536` | Tints, chips, selected rows |
-| `--on-primary` | `#FFFFFF` | `#0E2A1F` | Text on primary |
+| `--ink` | `#0E2A1F` | `#F2F6F3` | Text |
+| `--ink-2` | `#29443A` | `#D3E0D8` | Strong secondary text |
+| `--muted` | `#56665D` | `#A3B8AC` | Secondary text |
+| `--primary` | `#0F7B4F` | `#4CC38A` | Buttons, the maker segment, focus ring |
+| `--primary-text` | `#0F7B4F` | `#6FD6A2` | Links and eyebrows on paper/surface |
+| `--on-primary` | `#FFFFFF` | `#0B2219` | Text on primary |
+| `--accent` | `#E9B949` | `#E9B949` | The "piece": jar fill, the lifted slice, the behind segment. **Fill only, never text on light** (1.8:1) |
+| `--accent-soft` / `--accent-ink` | `#FBF2D6` / `#7A5300` | `#3A3218` / `#F2D27A` | Reminder and "filling" tints, with their text colour |
 | `--on-accent` | `#0E2A1F` | `#0E2A1F` | Text on accent (8.4:1) |
-| `--muted` | `#5D6B63` | `#9FB3A8` | Secondary text |
-| `--line` | `#E2E8E4` | `#24493B` | Dividers |
-| `--good` | `#0F7B4F` | `#4CC38A` | Success ticks (same as primary) |
-| `--warn` | `#9A6B00` | `#E9B949` | Slow, near limit, fees close to the cap |
-| `--bad` | `#B4342B` | `#FF7A6E` | Failed (calm copy, use sparingly) |
+| `--paper` / `--paper-2` | `#F6F8F5` / `#EDF2EE` | `#0B2219` / `#0E281E` | Page background / sunken areas (sidebar, tracks) |
+| `--surface` | `#FFFFFF` | `#13332A` | Cards |
+| `--soft` / `--on-soft` | `#DDF0E5` / `#0A5A39` | `#1D4536` / `#A6E8C6` | Tints, secondary buttons, chips, with their text colour |
+| `--line` / `--line-strong` | `#E1E8E3` / `#C9D5CD` | `#234A3B` / `#2F5C4A` | Dividers / control borders |
+| `--good` | `#0F7B4F` | `#6FD6A2` | Success ticks |
+| `--warn` | `#8A5F00` | `#F2C55C` | Slow, near limit, needs review |
+| `--bad` | `#B4342B` | `#FF8A7E` | Failed (calm copy, use sparingly) |
+| `--vault` / `--on-vault` / `--on-vault-muted` | `#0F2A1E` / `#F6F8F5` / `#A7C2B4` | `#071A12` / same / same | Always-dark hero surfaces |
 
-**Contrast, checked 6 Nov (WCAG AA ≥ 4.5 for text):**
+Monogram tiles (`.tone-green|mint|gold|clay|sage|silver|sky`) each define a background/foreground pair for both themes, all ≥ 6.6:1.
 
-| Pair | Ratio |
-|---|---|
-| ink on paper | 14.4 |
-| white on primary | 5.3 |
-| primary on paper | 5.0 |
-| muted on paper | 5.3 |
-| warn on white | 4.7 |
-| bad on white | 6.1 |
-| ink on accent | 8.4 |
-| paper on ink (dark) | 14.4 |
-| dark primary `#4CC38A` on ink | 6.9 |
-| dark muted on ink | 6.9 |
-| accent on ink | 8.4 |
+**Contrast, re-checked 7 Nov against the built CSS (WCAG AA ≥ 4.5 for text). All pairs pass; the lowest are listed:**
 
-The dark surface, soft and line values are new. Check them with a contrast tool once they're built.
+| Pair | Light | Dark |
+|---|---|---|
+| ink on paper | 14.4 | 15.3 |
+| muted on paper / surface | 5.7 / 6.1 | 8.0 / 6.5 |
+| primary-text on paper-2 (worst case) | 4.7 | 8.8 |
+| on-primary on primary | 5.3 | 7.5 |
+| on-soft on soft | 7.0 | 7.7 |
+| accent-ink on accent-soft | 6.1 | 8.7 |
+| warn on surface | 5.7 | 8.4 |
+| on-vault-muted on vault | 8.0 | 9.5 |
+
+Fixed in this pass (text was disappearing in dark mode): active chips, the share card, toasts, the Gmail card, "Next buy" card and monogram avatars all used fixed light backgrounds or `--ink` as a background, so they turned into light text on light colours.
 
 **Split bar:**
 - maker = `--primary`
@@ -56,7 +61,7 @@ The dark surface, soft and line values are new. Check them with a contrast tool 
 |---|---|---|---|
 | `--font-display` | Bricolage Grotesque | 700, 800 | Big dollar amounts, screen titles |
 | `--font-body` | Source Sans 3 | 400, 600 | Everything else |
-| `--font-mono` | JetBrains Mono | 400, 500 | Addresses, tx hashes, request IDs, price tables |
+| `--font-mono` | JetBrains Mono → `ui-monospace` / SF Mono fallback | 400, 500 | Addresses, tx hashes, request IDs, price tables. Not self-hosted yet: `@fontsource/jetbrains-mono` install was blocked by pnpm's minimum-release-age policy on 7 Nov |
 
 Self-host through `next/font/google` (no runtime Google request, CSP stays `'self'`).
 
@@ -103,3 +108,25 @@ theme: { extend: {
 ```
 
 Icons: Lucide, 20 px, stroke 1.75. Show company names as text, never as their logos.
+
+## Layout, gestures and return habits (7 Nov)
+
+**Layout.** Below 900 px: one column, a floating tab bar inside the thumb arc, and the raised **Add** in the centre. Primary actions sit at the bottom of each flow (the "dock"). From 900 px: a sticky sidebar (logo → "Add a purchase" → nav → this week's buy-day card), which is the first stroke of the F-pattern. Home becomes two columns from 1100 px: the vault, the waiting stack and brands on the left; the ritual, the next buy and receipts on the right.
+
+**Gestures (phone).**
+- Swipe sideways between tabs; pull down on a tab to refresh ("Updated just now").
+- The "Waiting for you" stack: swipe right to act, left for later. Buttons do the same.
+- Slide to confirm the two irreversible moments (Confirm purchase, Buy now). A tap only nudges the knob. Enter/Space confirm from a keyboard. A mouse gets a normal button.
+- Long-press a jar (or right-click it) for its sheet. Drag a sheet's handle down to close it.
+- A light haptic tick on key moments where the platform supports it.
+
+**Desktop.** Single-key shortcuts H, O, A, R, S, J, N (the hints show on hover in the sidebar). Drop a receipt anywhere, or paste a screenshot with ⌘V; both open Reading.
+
+**Why people come back** (no streak punishment, no fake urgency):
+- *Open loops:* "Waiting for you" lists only real pending items (jars ready, receipts to review, Gmail invoices).
+- *A weekly ritual:* "Buy day is Sunday", with a 7-day strip of the days a receipt was added. It matches the Sunday reminder push.
+- *Goal gradient:* glass jars fill toward $5 and show "$1.82 to go".
+- *Collection:* "Brands you buy, owned" turns each shop into a company you own a piece of, with "of $955.00 spent · 6.5%".
+- *Peak-end:* Saved and Buy done end on a moment (gold slices falling into a jar, a coin burst), then the share card.
+
+**3D creatives** live in `public/creatives/` (coin, jar, receipt, shelf; WebP, 10–28 kB each). They are rendered on brand ink-green, so use them only on vault surfaces; `.creative` feathers their edges. `<Coin3D>` is the live, layered CSS version of the Slice mark, used where it needs to move (Rules, Buy done). All motion stops under `prefers-reduced-motion`.
