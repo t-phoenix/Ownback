@@ -1,0 +1,319 @@
+<title>Ownback Brand Kit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Familjen+Grotesk:wght@500;700&family=Figtree:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a kit you scroll top to bottom; one sticky "builder" preview that re-colours as you pick logo, palette and type. */
+:root{
+  --bg:#FAFAF8; --surface:#FFFFFF; --fg:#18181B; --muted:#5D5F66; --line:#E2E2E0; --accent:#1F5EFF; --chip:#F0F0EE;
+  --chrome-display:"Archivo","Helvetica Neue",Arial,sans-serif; --chrome-body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif; --chrome-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#111113;--surface:#18181B;--fg:#ECECEE;--muted:#A0A2A8;--line:#2C2C31;--accent:#7FA2FF;--chip:#232327;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111113;--surface:#18181B;--fg:#ECECEE;--muted:#A0A2A8;--line:#2C2C31;--accent:#7FA2FF;--chip:#232327;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--chrome-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1160px;margin:0 auto;padding-block:40px 96px}
+h1,h2,h3{font-family:var(--chrome-display);line-height:1.12;text-wrap:balance}
+h1{font-size:clamp(38px,6vw,64px);font-weight:800;margin:6px 0 12px;letter-spacing:-.02em}
+h2{font-size:30px;font-weight:800;margin:72px 0 6px}
+h3{font-size:19px;font-weight:700;margin:22px 0 6px}
+p,li{max-width:66ch}
+.eyebrow{font:600 12px/1 var(--chrome-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:20px;color:var(--muted);max-width:60ch;margin:0}
+.sub{color:var(--muted);margin:0 0 18px}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px;margin:24px 0 0}
+nav.toc a{font-size:13px;text-decoration:none;color:var(--fg);background:var(--chip);border-radius:99px;padding:5px 12px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--line)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.card h3{margin-top:0}
+.pick{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%;display:flex;flex-direction:column;gap:10px}
+.pick[aria-pressed="true"]{outline:2px solid var(--fg);outline-offset:2px}
+.tag{display:inline-block;font:600 11px var(--chrome-mono);letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;background:var(--chip);color:var(--muted)}
+.tag.rec{background:var(--fg);color:var(--bg)}
+.mono{font-family:var(--chrome-mono);font-size:13px}
+.k{color:var(--muted);font-size:13px}
+ul.tight{padding-left:18px;margin:8px 0} ul.tight li{margin:3px 0}
+.quote{font-family:var(--chrome-display);font-size:24px;font-weight:700;line-height:1.25;margin:0;max-width:30ch}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line)}
+th{font:600 12px var(--chrome-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* builder */
+.pickbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);margin-top:28px}
+.builder{padding-block:4px 12px;scroll-margin-top:72px}
+h2{scroll-margin-top:72px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:14px}
+.bar label{display:flex;gap:6px;align-items:center;color:var(--muted)}
+.bar select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;min-height:36px}
+.pv{--p-ink:#0B1B33;--p-primary:#1F5EFF;--p-accent:#FF6B4A;--p-paper:#F5F7FB;--p-soft:#DCE6FF;--p-on:#FFFFFF;--p-display:"Familjen Grotesk",sans-serif;--p-body:"Figtree",sans-serif;--p-mono:"DM Mono",monospace}
+.stage{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:18px;align-items:start;margin-top:12px}
+.icon{width:96px;height:96px;border-radius:22px;background:var(--p-primary);color:var(--p-on);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.icon svg{width:62px;height:62px}
+.phone{width:200px;border-radius:24px;background:var(--p-paper);color:var(--p-ink);padding:14px 12px;font-family:var(--p-body);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.phone .hd{display:flex;align-items:center;gap:6px;font:700 13px var(--p-display)}
+.phone .hd svg{width:18px;height:18px;color:var(--p-primary)}
+.phone .bal{background:var(--surface);background:#FFFFFF;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px}
+.phone .num{font:700 24px var(--p-display);letter-spacing:-.01em}
+.phone .barx{display:flex;height:6px;border-radius:3px;overflow:hidden;gap:2px}
+.phone .row{display:flex;justify-content:space-between;font-size:11px}
+.phone .btn{background:var(--p-primary);color:var(--p-on);border-radius:10px;text-align:center;font:700 12px var(--p-body);padding:8px}
+.phone .mono{font-family:var(--p-mono);font-size:10px;color:#6b7280}
+.share{aspect-ratio:1200/630;max-width:100%;width:100%;border-radius:14px;background:var(--p-primary);color:var(--p-on);padding:4%;display:flex;flex-direction:column;justify-content:space-between;font-family:var(--p-body);overflow:hidden;position:relative;container-type:inline-size}
+.share .top{display:flex;justify-content:space-between;align-items:center;font:700 3.2cqw var(--p-display)}
+.share .top span:last-child{font:500 2.4cqw var(--p-body);opacity:.85}
+.share .top svg{width:5cqw;height:5cqw;vertical-align:-1cqw;margin-right:1cqw}
+.share .hl{font:700 6.6cqw/1.02 var(--p-display);letter-spacing:-.02em;max-width:80%}
+.share .chips{display:flex;flex-wrap:wrap;gap:1.2cqw}
+.share .chips span{background:var(--p-paper);color:var(--p-ink);border-radius:99px;padding:.6cqw 1.8cqw;font:600 2.3cqw var(--p-body)}
+.share .chips span:first-child{background:var(--p-accent);color:var(--p-ink)}
+.share .ft{display:flex;justify-content:space-between;font:400 2.1cqw var(--p-mono);opacity:.85}
+
+/* swatches */
+.sw{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.sw div{aspect-ratio:1/1.1;padding:6px;display:flex;flex-direction:column;justify-content:flex-end;font:500 10px/1.3 var(--chrome-mono)}
+.typespec{display:flex;flex-direction:column;gap:6px}
+.typespec .d{font-size:34px;line-height:1.05;letter-spacing:-.01em}
+.typespec .b{font-size:16px;line-height:1.5}
+.typespec .m{font-size:13px}
+.logo-tile{height:120px;border-radius:10px;background:var(--chip);display:flex;align-items:center;justify-content:center;gap:12px;color:var(--fg)}
+.logo-tile svg{width:56px;height:56px}
+.logo-tile .wm{font:800 30px var(--chrome-display);letter-spacing:-.02em}
+.mini{display:flex;gap:10px;align-items:center}
+.mini .ic{width:44px;height:44px;border-radius:11px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center}
+.mini .ic svg{width:28px;height:28px}
+.mini .s{color:var(--fg)} .mini .s svg{width:18px;height:18px}
+@media (max-width:900px){.g3{grid-template-columns:minmax(0,1fr)}.g2{grid-template-columns:minmax(0,1fr)}.stage{grid-template-columns:auto minmax(0,1fr)}.stage .share-wrap{grid-column:1/-1}}
+@media (max-width:520px){.stage{grid-template-columns:minmax(0,1fr)}.phone{width:100%}.bar label{flex:1 1 100%;justify-content:space-between}.bar select{flex:1;max-width:72%}.bar a{display:none}.pickbar{position:static}}
+</style>
+
+<div class="wrap">
+<header>
+<div class="eyebrow">Brand kit · v1 · for review</div>
+<h1>Ownback</h1>
+<p class="lede">Own what you buy. The brand for an app that turns a small part of every purchase into shares of the companies behind it. Pick a logo, palette and type pair below; the preview updates as you choose.</p>
+<nav class="toc" aria-label="Sections"><a href="#core">Core</a><a href="#audience">Audience</a><a href="#narrative">Narratives</a><a href="#voice">Voice</a><a href="#logo">Logo</a><a href="#color">Colour</a><a href="#type">Type</a><a href="#visual">Visual language</a><a href="#apply">In use</a><a href="#rules">Rules</a><a href="#pick">My pick</a></nav>
+</header>
+
+<div class="pickbar">
+<div class="bar">
+<label for="selLogo">Logo <select id="selLogo"><option value="loop">A · Loop</option><option value="stub">B · Stub</option><option value="slice">C · Slice</option></select></label>
+<label for="selPal">Palette <select id="selPal"><option value="cobalt">1 · Cobalt &amp; Coral</option><option value="ledger">2 · Ledger Green</option><option value="indigo">3 · Indigo &amp; Saffron</option></select></label>
+<label for="selType">Type <select id="selType"><option value="familjen">I · Familjen + Figtree</option><option value="bricolage">II · Bricolage + Source Sans</option><option value="archivo">III · Archivo + Plex</option></select></label>
+<a href="#builder" class="k" style="margin-left:auto">See preview ↑</a>
+</div>
+</div>
+<section class="builder pv" id="builder" aria-label="Live preview">
+<div class="stage">
+<div class="icon" id="pvIcon" aria-label="App icon preview"></div>
+<div class="phone" aria-label="Home screen preview">
+<div class="hd"><span id="pvMark"></span>Ownback</div>
+<div class="bal"><span style="font-size:10px;opacity:.7">Total balance</span><span class="num">$234.20</span>
+<div class="barx"><span style="width:79%;background:var(--p-primary)"></span><span style="width:21%;background:var(--p-accent)"></span></div>
+<div class="row"><span>Stocks &amp; commodities</span><b>$184.20</b></div><div class="row"><span>Stablecoins</span><b>$50.00</b></div></div>
+<div class="row"><span>Apple · 0.21 AAPLx</span><b>$62.10</b></div>
+<div class="row"><span>TSMC · behind your iPhone</span><b>$9.40</b></div>
+<span class="mono">₹79,900 → $955.00 · 5% → $47.75</span>
+<div class="btn">Add a purchase</div>
+</div>
+<div class="share-wrap" style="min-width:0">
+<div class="share" aria-label="Share card preview">
+<div class="top"><span><span id="pvShareMark"></span>Ownback</span><span>Own what you buy.</span></div>
+<div class="hl">I bought an iPhone. Now I own a piece of Apple.</div>
+<div><div class="chips"><span>Apple</span><span>TSMC</span><span>Qualcomm</span><span>Corning</span><span>Gold</span><span>Silver</span></div></div>
+<div class="ft"><span>Amounts hidden</span><span>ownback.app/u/ABHI42</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<h2 id="core">Brand core</h2>
+<p class="sub">What stays the same whatever logo or colour you pick.</p>
+<div class="grid g2">
+<div class="card"><div class="eyebrow">Belief</div><p class="quote">Customers should own a piece of the companies they buy from.</p></div>
+<div class="card"><div class="eyebrow">Positioning</div><p style="margin:6px 0 0">For people who shop online every week but have never owned a share, <b>Ownback</b> is the app that turns a small part of every purchase into real shares of the companies behind it, in a wallet only they control. Unlike cashback and round-up savings apps, the money goes into the things you already chose, and every buy comes with public proof.</p></div>
+<div class="card"><div class="eyebrow">Mission</div><p style="margin:6px 0 0">Turn everyday spending into ownership of the companies you buy from.</p></div>
+<div class="card"><div class="eyebrow">Vision</div><p style="margin:6px 0 0">A world where customers are shareholders by default.</p></div>
+</div>
+<h3>Tagline options</h3>
+<div class="tbl"><table>
+<tr><th>Line</th><th>Use</th><th>Verdict</th></tr>
+<tr><td><b>Own what you buy.</b></td><td>Primary tagline: app store, share card, pitch close</td><td><span class="tag rec">Recommended</span> Says the whole product in four words</td></tr>
+<tr><td>Cashback is over. Ownback.</td><td>Launch campaign, X and LinkedIn posts</td><td>Strong hook, explains the name; a bit combative for daily use</td></tr>
+<tr><td>Own your life.</td><td>Campaign line for lifestyle content</td><td>Warm, but could be any brand; keep it for campaigns</td></tr>
+<tr><td>Spend it. Own it.</td><td>Short ads, stickers, merch</td><td>Punchy; works in Hindi and Spanish translations</td></tr>
+<tr><td>Every purchase pays you back in ownership.</td><td>Explainer copy, onboarding</td><td>Clear but long; a sentence, not a tagline</td></tr>
+</table></div>
+<h3>Values</h3>
+<div class="grid g3">
+<div class="card"><h3>Yours, always</h3><p class="k" style="margin:0">Shares go to the user's own wallet. We can't move them, and we say so.</p></div>
+<div class="card"><h3>Show the receipt</h3><p class="k" style="margin:0">Every buy has a proof trail anyone can check: the AI run, the transactions, the source for each supplier.</p></div>
+<div class="card"><h3>Small, every time</h3><p class="k" style="margin:0">2–10% of what you already spend. No big decisions, no market timing, no hype.</p></div>
+</div>
+
+<h2 id="audience">Target audience</h2>
+<p class="sub">India first, built for any market where people shop online but rarely own stocks.</p>
+<div class="grid g3">
+<div class="card"><span class="tag rec">Primary</span><h3>Riya, 26 · Bengaluru</h3><p class="k" style="margin:0 0 6px">Product designer. Pays everything by UPI, orders from Myntra and Swiggy weekly, follows finance creators but has never bought a US stock.</p><ul class="tight"><li><b>Wants:</b> to feel she's building something without a new habit</li><li><b>Fears:</b> scams, jargon, losing money she can't track</li><li><b>Where:</b> Instagram, LinkedIn, X</li><li><b>Says yes when:</b> she sees "I own a piece of Apple" from a friend</li></ul></div>
+<div class="card"><span class="tag">Secondary</span><h3>Arjun, 31 · Pune</h3><p class="k" style="margin:0 0 6px">Software engineer. Holds some USDC, uses a self-custody wallet, wants real-world assets without a broker.</p><ul class="tight"><li><b>Wants:</b> tokenized stocks with on-chain proof</li><li><b>Fears:</b> custodial apps, fake tokens</li><li><b>Where:</b> X, Telegram, hackathons</li><li><b>Says yes when:</b> he sees the vault rules and the proof trail</li></ul></div>
+<div class="card"><span class="tag">Next market</span><h3>Sofia, 24 · São Paulo</h3><p class="k" style="margin:0 0 6px">Student and part-time creator. Shops on Mercado Livre, saves in dollars when she can.</p><ul class="tight"><li><b>Wants:</b> a dollar savings habit that feels personal</li><li><b>Fears:</b> inflation, complicated apps</li><li><b>Where:</b> Instagram, TikTok, WhatsApp</li><li><b>Says yes when:</b> it works in her language and starts at $1</li></ul></div>
+</div>
+<p class="k">Not for: US persons (tokenized stocks aren't offered to them), day traders, or anyone looking for returns advice.</p>
+
+<h2 id="narrative">Narratives</h2>
+<div class="grid g2">
+<div class="card"><div class="eyebrow">The one-liner</div><p class="quote">Cashback gives you a coupon. Ownback gives you a piece of the company.</p></div>
+<div class="card"><div class="eyebrow">The 10-second demo</div><p style="margin:6px 0 0">"I bought this iPhone yesterday. I snap the receipt. Ownback sees ₹79,900, takes 5%, and splits it: Apple, the chip maker TSMC, the glass maker Corning, a little gold. On Sunday it buys them. They're in my wallet. Here's the proof."</p></div>
+</div>
+<h3>Story arc for the pitch (3 minutes)</h3>
+<div class="tbl"><table>
+<tr><th>Beat</th><th>What we say</th><th>What's on screen</th></tr>
+<tr><td>Hook (0:00)</td><td>"How much have you spent with Apple in your life? How much of Apple do you own?"</td><td>A receipt next to "$0.00 of Apple"</td></tr>
+<tr><td>Problem (0:20)</td><td>Investing is a separate chore: a broker, KYC, picking stocks. Cashback is a coupon you forget.</td><td>Three apps you'd need today</td></tr>
+<tr><td>Shift (0:40)</td><td>What if the purchase was the investment? You already chose the brand.</td><td>"Own what you buy."</td></tr>
+<tr><td>Demo (1:00)</td><td>Gmail finds the invoice → AI on 0G reads it → maker, suppliers, materials → confirm → jar on Arc → buy on Solana</td><td>Live app, real money</td></tr>
+<tr><td>Proof (2:10)</td><td>Tap each step: the AI run, the Arc transaction, the swap, the public Arkiv record.</td><td>Proof trail opening explorers</td></tr>
+<tr><td>Close (2:40)</td><td>"Every purchase pays you back in ownership. Customers become shareholders by default."</td><td>Share card posted to X</td></tr>
+</table></div>
+<h3>Messaging pillars</h3>
+<div class="grid g3">
+<div class="card"><h3>Own what you buy</h3><p class="k" style="margin:0">Proof points: maker + companies behind it + raw materials; 2–10% you choose; works from Gmail or a photo.</p></div>
+<div class="card"><h3>Your wallet, your shares</h3><p class="k" style="margin:0">Proof points: sign in with Google, no seed phrase; shares sent to your own address; withdraw free dollars any time.</p></div>
+<div class="card"><h3>Proof, not promises</h3><p class="k" style="margin:0">Proof points: every buy has a public record; supplier links quote their source; no "returns" talk, ever.</p></div>
+</div>
+<h3>Answers to the obvious questions</h3>
+<div class="tbl"><table>
+<tr><th>They ask</th><th>We say</th></tr>
+<tr><td>"Is this a real share?"</td><td>It's a token that tracks the stock, issued by a regulated third party and backed one to one. It's in your wallet, and we show the issuer.</td></tr>
+<tr><td>"Can you take my money?"</td><td>No. Shares go to your own wallet. Dollars in the vault can only go to your jars or back to you.</td></tr>
+<tr><td>"What if the brand isn't listed?"</td><td>We tell you, and put that part into an index you picked, like the S&amp;P 500.</td></tr>
+<tr><td>"Do you read my email?"</td><td>Only if you allow it, only order emails from shops, read by a private AI model, and never stored.</td></tr>
+</table></div>
+<h3>Social posts, ready to use</h3>
+<div class="grid g3">
+<div class="card"><span class="tag">X</span><p style="margin:8px 0 0">Spent ₹79,900 on an iPhone. Got $47.75 of Apple, TSMC and Corning back. Cashback is over. #Ownback</p></div>
+<div class="card"><span class="tag">LinkedIn</span><p style="margin:8px 0 0">I've been an Apple customer for 10 years and owned none of it. This week I started owning a small piece of every company I buy from, automatically. Here's the receipt and the proof.</p></div>
+<div class="card"><span class="tag">Instagram story</span><p style="margin:8px 0 0">"Bought: running shoes. Own: a bit of Nike." + share card + "Get yours: link in bio"</p></div>
+</div>
+<h3>Manifesto (video close)</h3>
+<p class="quote" style="max-width:40ch;font-size:22px">You've bought the phone, the shoes, the coffee, a hundred times. Every time, the money left and never came back. Ownback keeps a small piece of every purchase and turns it into a share of the companies that made it. Not points. Not coupons. Ownership. Own what you buy.</p>
+
+<h2 id="voice">Voice and tone</h2>
+<div class="grid g2">
+<div class="card"><h3>We sound like</h3><ul class="tight"><li>A friend who works in finance and never shows off</li><li>Plain words, company names before tickers</li><li>Numbers in dollars, exact to the cent</li><li>Calm about money; excited about the idea</li></ul></div>
+<div class="card"><h3>We never sound like</h3><ul class="tight"><li>A trading app: no "moon", no rockets, no charts on Home</li><li>A bank: no "dear customer", no fine-print tone</li><li>Crypto jargon in the UI: no "bridge", "CCTP", "mint"</li><li>Any promise: no "returns", "profit", "guaranteed"</li></ul></div>
+</div>
+<div class="tbl" style="margin-top:16px"><table>
+<tr><th>Moment</th><th>Write this</th><th>Not this</th></tr>
+<tr><td>After confirm</td><td>$47.75 is in 6 jars. Apple buys on Sunday.</td><td>Transaction successful! 🚀</td></tr>
+<tr><td>Brand not listed</td><td>Haldiram's is a private company, so there are no shares to buy.</td><td>Error: ticker not found</td></tr>
+<tr><td>Limit reached</td><td>This purchase would go over your $50 monthly limit.</td><td>Insufficient allowance</td></tr>
+<tr><td>Holding</td><td>You now own $62.10 of Apple.</td><td>Your AAPLx position is up 3.2%</td></tr>
+</table></div>
+
+<h2 id="logo">Logo options</h2>
+<p class="sub">Three directions. Each works as a symbol, a lockup with the wordmark, and an app icon. Click one to load it into the preview.</p>
+<div class="grid g3" id="logoCards"></div>
+
+<h2 id="color">Colour options</h2>
+<p class="sub">Each palette has five roles: ink (text), primary (brand, buttons), accent (highlights, the "piece"), paper (backgrounds) and soft (tints). Text pairings shown meet WCAG AA.</p>
+<div class="grid g3" id="palCards"></div>
+
+<h2 id="type">Type options</h2>
+<p class="sub">A display face for headlines and big numbers, a body face for everything else, and a mono face for receipts, rates and IDs.</p>
+<div class="grid g3" id="typeCards"></div>
+
+<h2 id="visual">Visual language</h2>
+<div class="grid g3">
+<div class="card"><h3>The motif: product becomes stake</h3><p class="k" style="margin:0">An outline of the thing you bought fills with the brand colour from the bottom, like a jar. Used on Saved, Sunday buy and share cards.</p></div>
+<div class="card"><h3>Receipt details</h3><p class="k" style="margin:0">Mono type for amounts, rates and IDs; a zig-zag edge on receipt cards; the ₹ → $ line shown exactly as the receipt had it.</p></div>
+<div class="card"><h3>Icons</h3><p class="k" style="margin:0">1.75 px line icons on a 24 px grid, rounded joins. No emoji in the product. Company logos only as small round chips, never as hero art.</p></div>
+<div class="card"><h3>Shape</h3><p class="k" style="margin:0">12 px radius for cards, full pills for primary actions and chips. One shadow, used only on the main action and the app icon.</p></div>
+<div class="card"><h3>Motion</h3><p class="k" style="margin:0">One moment per flow: the jar filling after Confirm, the chip "landing" in the wallet after a buy. 200–400 ms, eased. Off when reduced motion is on.</p></div>
+<div class="card"><h3>Imagery</h3><p class="k" style="margin:0">Real products and real receipts, photographed flat on a plain surface. No stock photos of people holding phones, no coins raining.</p></div>
+</div>
+
+<h2 id="apply">In use</h2>
+<p class="sub">The share card is what most people will see first, so it carries the brand. The preview at the top shows it in your current pick; these are the rules for it.</p>
+<div class="grid g2">
+<div class="card"><h3>Share card</h3><ul class="tight"><li>1200×630, primary colour background</li><li>Headline: "I bought X. Now I own a piece of Y."</li><li>One chip per asset; the maker's chip in the accent colour</li><li>Amounts hidden by default; referral link bottom right</li></ul></div>
+<div class="card"><h3>App store and social</h3><ul class="tight"><li>Icon: symbol in white on primary, no wordmark</li><li>Profile picture: same as the icon</li><li>First screenshot: the share card; second: Confirm with maker, suppliers and materials</li><li>Banner: "Own what you buy." in display type on paper</li></ul></div>
+</div>
+
+<h2 id="rules">Rules</h2>
+<div class="grid g2">
+<div class="card"><h3>Do</h3><ul class="tight"><li>Write "Ownback" as one word, capital O only</li><li>Name the company before the token: "Apple (AAPLx)"</li><li>Show the issuer and the proof link near any holding</li><li>Keep at least the symbol's width of clear space around the logo</li><li>Minimum sizes: symbol 16 px, lockup 80 px wide</li></ul></div>
+<div class="card"><h3>Don't</h3><ul class="tight"><li>Use green/red for gains and losses on Home</li><li>Put the logo on a busy photo</li><li>Stretch, outline or add effects to the symbol</li><li>Use brand logos of the companies as if they endorse us</li><li>Say "invest", "returns" or "profit" in marketing</li></ul></div>
+</div>
+<h3>Name check before launch</h3>
+<p class="k">A quick search found no app called Ownback, but that isn't a trademark search. Before launch: check trademarks in India (IP India), the US (USPTO) and the EU (EUIPO) in classes 9 and 36, and check domains (ownback.app, ownback.com) and social handles. The URLs in this kit are placeholders.</p>
+
+<h2 id="pick">My pick</h2>
+<div class="card" style="display:flex;flex-direction:column;gap:10px">
+<p style="margin:0 0 8px"><b>Chosen by the team (6 Nov): Logo C · Slice, Palette 2 · Ledger Green, Type II · Bricolage + Source Sans.</b> These values are in <code>frontend/design-tokens.md</code>. The original recommendation is below for reference.</p>
+<p style="margin:0"><b>Logo A · Loop, Palette 1 · Cobalt &amp; Coral, Type I · Familjen + Figtree.</b> The loop says "back" without words, cobalt reads as trustworthy money while coral gives the "piece" a warm, ownable colour, and neither is the green every finance app uses. Familjen's slightly condensed, quirky shapes make big dollar amounts feel friendly. If you'd rather lean into "ledger and receipts", swap to Palette 2 and Type III.</p>
+<button id="useMine" class="tag rec" style="align-self:flex-start;border:0;cursor:pointer;font-size:12px;padding:8px 14px">Load my pick into the preview</button>
+</div>
+</div>
+
+<script>
+(function(){
+const LOGOS={
+ loop:{name:"A · Loop",idea:"A ring that comes back on itself, with a piece filled in. Cash goes out, ownership comes back.",
+  svg:'<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M50.5 21A21 21 0 1 0 53 32" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><path d="M43 12l11 7-11 7z" fill="currentColor"/><path d="M32 32V20a12 12 0 0 1 12 12z" fill="var(--p-accent)"/></svg>'},
+ stub:{name:"B · Stub",idea:"A receipt whose corner is a slice of a pie chart. The receipt turns into a share.",
+  svg:'<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M14 8h26v14h12v34l-4.75-4-4.75 4-4.75-4-4.75 4-4.75-4-4.75 4-4.75-4L14 56z" fill="currentColor"/><path d="M44 6a12 12 0 0 1 12 12H44z" fill="var(--p-accent)"/><path d="M21 30h18M21 38h12" stroke="var(--p-primary)" stroke-width="4" stroke-linecap="round"/></svg>'},
+ slice:{name:"C · Slice",idea:"A coin with a quarter lifted out. Simple, works at 16 px, doubles as the 'o' in the wordmark.",
+  svg:'<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M32 8a24 24 0 1 0 24 24H32z" fill="currentColor"/><path d="M37 3a24 24 0 0 1 24 24H37z" fill="var(--p-accent)"/></svg>'}
+};
+const PALS={
+ cobalt:{name:"1 · Cobalt & Coral",mood:"Confident and modern. Money you can trust, with a warm piece of it that's yours.",ink:"#0B1B33",primary:"#1F5EFF",accent:"#FF6B4A",paper:"#F5F7FB",soft:"#DCE6FF",on:"#FFFFFF"},
+ ledger:{name:"2 · Ledger Green",mood:"Calm and grown-up. Receipts, ledgers and paper money. Safe, but closest to other finance apps.",ink:"#0E2A1F",primary:"#0F7B4F",accent:"#E9B949",paper:"#F6F8F5",soft:"#CFEBDD",on:"#FFFFFF"},
+ indigo:{name:"3 · Indigo & Saffron",mood:"Warm and rooted in India, still international. Most distinctive; needs care so saffron isn't read as a warning.",ink:"#17153A",primary:"#3B33C4",accent:"#F4A62A",paper:"#F7F6FB",soft:"#E7E4FF",on:"#FFFFFF"}
+};
+const TYPES={
+ familjen:{name:"I · Familjen + Figtree",d:'"Familjen Grotesk",sans-serif',b:'"Figtree",sans-serif',m:'"DM Mono",monospace',dw:700,note:"Friendly, slightly condensed display; very readable body. Most consumer-feeling."},
+ bricolage:{name:"II · Bricolage + Source Sans",d:'"Bricolage Grotesque",sans-serif',b:'"Source Sans 3",sans-serif',m:'"JetBrains Mono",monospace',dw:800,note:"Characterful, a bit editorial. Already used in the PRD."},
+ archivo:{name:"III · Archivo + Plex",d:'"Archivo",sans-serif',b:'"IBM Plex Sans",sans-serif',m:'"IBM Plex Mono",monospace',dw:800,note:"Sturdy and technical, ledger-like. Best with Ledger Green."}
+};
+const pv=document.getElementById('builder');
+const sel={logo:document.getElementById('selLogo'),pal:document.getElementById('selPal'),type:document.getElementById('selType')};
+function load(){try{return JSON.parse(localStorage.getItem('ownback-kit')||'{}')}catch(e){return{}}}
+function save(s){try{localStorage.setItem('ownback-kit',JSON.stringify(s))}catch(e){}}
+function apply(){
+ const l=LOGOS[sel.logo.value],p=PALS[sel.pal.value],t=TYPES[sel.type.value];
+ const st=pv.style;
+ st.setProperty('--p-ink',p.ink);st.setProperty('--p-primary',p.primary);st.setProperty('--p-accent',p.accent);st.setProperty('--p-paper',p.paper);st.setProperty('--p-soft',p.soft);st.setProperty('--p-on',p.on);
+ st.setProperty('--p-display',t.d);st.setProperty('--p-body',t.b);st.setProperty('--p-mono',t.m);
+ document.getElementById('pvIcon').innerHTML=l.svg.replace('var(--p-primary)',p.primary);
+ document.getElementById('pvMark').innerHTML=l.svg;
+ document.getElementById('pvShareMark').innerHTML=l.svg.replace('fill="currentColor"','fill="'+p.on+'"').replace('var(--p-primary)',p.primary);
+ document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',String(sel[b.dataset.k].value===b.dataset.v)));
+ save({logo:sel.logo.value,pal:sel.pal.value,type:sel.type.value});
+}
+function card(k,v,html){const b=document.createElement('button');b.type='button';b.className='card pick';b.dataset.k=k;b.dataset.v=v;b.innerHTML=html;b.addEventListener('click',()=>{sel[k].value=v;apply();document.getElementById('builder').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})});return b}
+const lc=document.getElementById('logoCards');
+Object.entries(LOGOS).forEach(([v,l])=>{
+ const sym=l.svg.replace(/var\(--p-accent\)/g,'#FF6B4A').replace(/var\(--p-primary\)/g,'var(--chip)');
+ lc.appendChild(card('logo',v,`<div class="logo-tile">${sym}<span class="wm">Ownback</span></div><h3 style="margin:0">${l.name}${v==='loop'?' <span class="tag rec">Recommended</span>':''}</h3><p class="k" style="margin:0">${l.idea}</p><div class="mini"><span class="ic">${l.svg.replace(/var\(--p-accent\)/g,'#FF6B4A').replace(/var\(--p-primary\)/g,'var(--fg)')}</span><span class="s">${sym}</span><span class="k">icon · 16 px</span></div>`));
+});
+const pc=document.getElementById('palCards');
+Object.entries(PALS).forEach(([v,p])=>{
+ const sw=[['Ink',p.ink,'#fff'],['Primary',p.primary,'#fff'],['Accent',p.accent,p.ink],['Paper',p.paper,p.ink],['Soft',p.soft,p.ink]].map(([n,c,f])=>`<div style="background:${c};color:${f}">${n}<br>${c}</div>`).join('');
+ pc.appendChild(card('pal',v,`<div class="sw">${sw}</div><h3 style="margin:0">${p.name}${v==='cobalt'?' <span class="tag rec">Recommended</span>':''}</h3><p class="k" style="margin:0">${p.mood}</p><div style="display:flex;gap:8px;flex-wrap:wrap"><span style="background:${p.primary};color:#fff;border-radius:99px;padding:6px 14px;font-weight:600;font-size:13px">Confirm $47.75</span><span style="background:${p.paper};color:${p.ink};border:1px solid ${p.soft};border-radius:99px;padding:6px 14px;font-size:13px">Only Apple</span></div><p class="mono k" style="margin:0">Dark mode: paper → ${p.ink}, ink → ${p.paper}, primary lightened ~20%</p>`));
+});
+const tc=document.getElementById('typeCards');
+Object.entries(TYPES).forEach(([v,t])=>{
+ tc.appendChild(card('type',v,`<div class="typespec"><span class="d" style="font-family:${t.d};font-weight:${t.dw}">$234.20</span><span class="d" style="font-family:${t.d};font-weight:${t.dw};font-size:22px">Own what you buy.</span><span class="b" style="font-family:${t.b}">Apple's jar is ready. It buys on Sunday, and the shares go straight to your wallet.</span><span class="m" style="font-family:${t.m}">₹79,900 → $955.00 · 0G req 7f3a…</span></div><h3 style="margin:0">${t.name}${v==='familjen'?' <span class="tag rec">Recommended</span>':''}</h3><p class="k" style="margin:0">${t.note}</p>`));
+});
+const s=load();
+['logo','pal','type'].forEach(k=>{if(s[k]&&[...sel[k].options].some(o=>o.value===s[k]))sel[k].value=s[k];sel[k].addEventListener('change',apply)});
+document.getElementById('useMine').addEventListener('click',()=>{sel.logo.value='loop';sel.pal.value='cobalt';sel.type.value='familjen';apply();document.getElementById('builder').scrollIntoView({behavior:'auto'})});
+apply();
+})();
+</script>

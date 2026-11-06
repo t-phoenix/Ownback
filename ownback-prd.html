@@ -1,0 +1,348 @@
+<title>Ownback MVP PRD</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column with a sticky section index on wide screens; tables scroll in their own boxes */
+:root{
+  --bg:#F7F8F6; --surface:#FFFFFF; --fg:#17201B; --muted:#53605A; --line:#D9DED9;
+  --accent:#1D6B4F; --accent-soft:#E3F0EA; --warn:#8A5A00; --warn-soft:#FBF1DC;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111613; --surface:#18201B; --fg:#E7ECE8; --muted:#A3B0A9; --line:#2D3832;
+  --accent:#6CCB9F; --accent-soft:#1D3328; --warn:#E6B35C; --warn-soft:#33290F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111613; --surface:#18201B; --fg:#E7ECE8; --muted:#A3B0A9; --line:#2D3832;
+  --accent:#6CCB9F; --accent-soft:#1D3328; --warn:#E6B35C; --warn-soft:#33290F; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:17px/1.6 var(--body)}
+.wrap{max-width:1120px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:200px minmax(0,1fr);gap:48px}
+nav{position:sticky;top:calc(24px + env(safe-area-inset-top,0px));align-self:start;display:flex;flex-direction:column;gap:6px;font-size:14px}
+nav a{color:var(--muted);text-decoration:none;padding:3px 0}
+nav a:hover,nav a:focus-visible{color:var(--accent)}
+main{min-width:0;max-width:760px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(34px,5vw,52px);font-weight:800;letter-spacing:-.02em}
+h2{font-size:28px;font-weight:800;margin-top:56px;padding-top:16px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:600;margin-top:28px}
+p,ul,ol{margin:12px 0}
+li{margin:4px 0}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:20px;color:var(--muted);max-width:62ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;font:13px var(--mono);color:var(--muted);margin-top:16px}
+code,.mono{font-family:var(--mono);font-size:.86em}
+.tbl{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.45}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:700;font-size:13px;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:none}
+.pill{display:inline-block;font:600 12px/1.6 var(--mono);padding:0 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.pill.w{background:var(--warn-soft);color:var(--warn)}
+.call{border-left:3px solid var(--warn);background:var(--warn-soft);padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+.verdict{background:var(--accent-soft);padding:16px 20px;border-radius:10px;margin:16px 0}
+.verdict strong{color:var(--accent)}
+.name{font-family:var(--display);font-weight:800;font-size:clamp(44px,8vw,80px);letter-spacing:-.03em;line-height:1;color:var(--accent);margin:8px 0 4px}
+.tag{font-family:var(--display);font-size:26px;font-weight:600}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.box h3{margin-top:0;font-size:16px}
+.box ul{padding-left:18px;font-size:15px}
+pre{font:13px/1.55 var(--mono);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:820px){.wrap{grid-template-columns:minmax(0,1fr);gap:24px}nav{position:static;flex-direction:row;flex-wrap:wrap;gap:4px 14px}.grid2{grid-template-columns:minmax(0,1fr)}}
+</style>
+
+<div class="wrap">
+<nav aria-label="Sections">
+  <a href="#summary">Summary</a><a href="#problem">Problem</a><a href="#scope">MVP scope</a><a href="#flow">User flow</a><a href="#arch">Architecture</a><a href="#ai">AI on 0G</a><a href="#prizes">Prize fit</a><a href="#reqs">Requirements</a><a href="#plan">36-hour plan</a><a href="#risks">Risks</a><a href="#brand">Brand kit</a>
+</nav>
+<main>
+<header>
+  <div class="eyebrow">PRD · MVP · ETHGlobal Mumbai</div>
+  <h1>Ownback</h1>
+  <p class="lede">Every purchase buys you a small piece of the company that made it. Shares land in your own wallet, on mainnet.</p>
+  <div class="meta"><span>Hack window: Thu 5 Nov 21:00 → Sat 7 Nov 09:00 IST</span><span>Status: v3 · user decisions + security audit, 6 Nov</span><span>Working name was Hissa</span></div>
+</header>
+
+<h2 id="summary">Summary</h2>
+<p>You buy an iPhone. You snap the receipt, or Ownback finds the invoice in your Gmail. AI reads it, converts ₹79,900 to $955.00 at that moment's rate, and works out who is behind it: Apple made it, TSMC, Qualcomm and Corning supply it, and it contains gold and silver. 5% of the price (the default; each user picks 2–10%) is split 70 / 20 / 10 across those into per-asset USDC jars on Arc. When a jar is ready, you get a reminder (Sunday by default), review the live price and fees, and approve. Only then does it buy the tokenized shares and metals on the cheapest venue across chains (Solana via Jupiter first; Base, Ethereum, Arbitrum and BNB Chain as they come online), straight into your own wallet.</p>
+<div class="call"><b>What changed in v3 (6 Nov).</b> The user's decisions and the design-stage security audit (both in the repo: <code>docs/03</code> and <code>docs/10</code>).
+<ul>
+<li><b>Every buy needs your OK.</b> You sign a BuyApproval, and the vault checks it. Smaller jars can be bought on request.</li>
+<li><b>Fees.</b> Fees are always shown in $ and %, simulated before every money move, and capped by you (default 5% of the amount).</li>
+<li><b>Max per company.</b> It's a % of your monthly limit; overflow goes to your fallback.</li>
+<li><b>Deposits.</b> Arc deposits are used directly. A one-time auto-add on Base, Ethereum and Arbitrum moves later deposits into your vault with the app closed. Solana deposits take one tap.</li>
+<li><b>Venues.</b> Multi-chain, including BNB Chain.</li>
+<li><b>Keeper.</b> A fixed relay per venue with batched execution; shares still land only in your wallet.</li>
+<li><b>Brand.</b> Logo C, Ledger Green, Bricolage + Source Sans.</li>
+</ul></div>
+<div class="call"><b>What changed in v2.</b> The wireframes are now the source of truth, and this PRD was audited against all 27 screens. Changes: sign-in is Google (wallet tied to the account) or a seed phrase, not passkeys; deposits come from any supported chain; card/UPI is shown but off; Gmail invoice import moved into scope with its states; the supplier and raw-material split is core, not optional; every amount is shown in dollars, with local currency only on the receipt line; Home shows a total balance split into stocks and commodities, stablecoins and crypto, per chain; new screens for receipts, activity, settings, wallet, edge cases and the shared-link page. The Arc bounty pick also changed (see Prize fit).</div>
+<div class="tbl"><table>
+<tr><th>Item</th><th>Decision</th></tr>
+<tr><td>Partner picks (max 3)</td><td><b>Arc</b> (money and vault) · <b>0G</b> (all AI) · <b>Arkiv</b> (public brand registry and proof log)</td></tr>
+<tr><td>Network</td><td>Mainnet for all money: Arc (public mainnet since 16 Sep 2026), Solana, Base, Ethereum, Arbitrum for deposits; CCTP and Gateway; Jupiter; 0G Private Computer. Arkiv is testnet only; it holds no money.</td></tr>
+<tr><td>Money shown</td><td>Always US dollars. Local currency appears only on the receipt line and is converted once, when the receipt is read; that rate is saved with the purchase.</td></tr>
+<tr><td>Stock venue</td><td>Multi-chain. For each asset the router picks the cheapest all-in venue (price impact + every fee) within the user's fee cap: Solana · Jupiter first, then Base, Ethereum, Arbitrum, and BNB Chain (via an audited bridge, behind a flag). No account or KYC with a tokenization platform.</td></tr>
+<tr><td>Buying</td><td>Never automatic. A reminder when jars reach $5; the user reviews and signs each buy (BuyApproval). Smaller jars can be bought on request.</td></tr>
+<tr><td>Fees</td><td>Always shown in $ and %. Simulated before every money move. Capped by the user (default 5% of the amount); over the cap it waits or stops and returns to the jar.</td></tr>
+<tr><td>Sign-in</td><td>Continue with Google (Circle user-controlled wallet, social login) or a seed phrase (self-custody, created or imported on the device)</td></tr>
+<tr><td>Track</td><td>From Scratch</td></tr>
+<tr><td>Demo budget</td><td>About $50 USDC of real money</td></tr>
+</table></div>
+
+<h2 id="problem">Problem and who it's for</h2>
+<p>People spend thousands a year on brands they love and own none of them. Investing feels like a separate chore: a broker, KYC, picking stocks. Saving apps round up spare change but don't connect it to anything you care about.</p>
+<p><b>Primary user:</b> a 22–35 year old in India or another non-US market who already holds a little USDC, shops online, and has never bought a US stock.</p>
+<p><b>Job to be done:</b> "When I buy something I like, let me own a bit of that company, without thinking about it."</p>
+
+<h2 id="scope">MVP scope</h2>
+<div class="grid2">
+<div class="box"><h3>In (must demo)</h3><ul>
+<li>Sign in with Google, which creates wallets on Arc and Solana tied to that account; or use a seed phrase (create new or import)</li>
+<li>Set your rules: share of each purchase (2–10%, default 5%), monthly limit, max per company, fallback asset</li>
+<li>Deposit USDC from Arc, Solana, Base, Ethereum or Arbitrum into one balance (card/UPI shown as "Coming soon")</li>
+<li>Add a purchase: invoices found in Gmail, receipt photo or screenshot, voice (Whisper on 0G) or typing</li>
+<li>Currency conversion at read time; every amount after that in dollars</li>
+<li>AI match: maker, companies behind the product, raw materials, each with its token and venue; fix-the-match search; brand-not-listed fallback</li>
+<li>Split 70 / 20 / 10 with an edit screen and an "Only the maker" shortcut</li>
+<li>Per-asset jars in an Arc vault contract; limit-reached handling (save part now, rest next month)</li>
+<li>Buy when the user approves (Sunday reminder, or any time; smaller jars too) on the cheapest venue across chains, with fees shown and capped, into the user's wallet</li>
+<li>Home dashboard: total balance by type and chain; Holdings; Receipts with detail; Activity</li>
+<li>Holding with tappable proof trail (0G, Arcscan, CCTP/Gateway, Solscan, Arkiv explorer)</li>
+<li>Share card with Post to X, Post to LinkedIn, Copy text, Copy image, More; and the shared-link landing page with a referral code</li>
+<li>Settings and Wallet: rules, addresses per chain, sign-in and recovery, Gmail and 0G connections, notifications, download or delete my data</li>
+</ul></div>
+<div class="box"><h3>Out (say "next" in the pitch)</h3><ul>
+<li>Card / UPI on-ramp (button visible, disabled)</li>
+<li>zkEmail and zkTLS proofs of purchase</li>
+<li>Brand-funded rewards and affiliate cashback</li>
+<li>Selling inside the app (users sell from their own wallet)</li>
+<li>Native mobile app (PWA only)</li>
+<li>Tax reports</li>
+<li>Live filing-reading for any product (MVP uses ~10 precomputed supplier lists)</li>
+</ul></div>
+</div>
+<p><b>Nice to have if time allows:</b> AI category % within the user's 2–10% range (e.g. needs 2%, wants 8%), sign-in with a 0G account to spend the user's own daily credits (the iAI bonus; shown in Settings → Connections), and a second Google account as backup sign-in.</p>
+
+<h2 id="flow">User flow</h2>
+<p>This matches the wireframes: 27 screens in six flows, plus a bottom tab bar (Home · Holdings · <b>+ Add</b> · Receipts · Settings).</p>
+<div class="tbl"><table>
+<tr><th>Flow</th><th>Screens</th><th>What happens</th></tr>
+<tr><td><b>A · Onboarding</b></td><td>Shared link (web) → Sign in → Seed phrase (if chosen) → Set your rules → Add funds → Home, first time</td><td>A friend's share link lands on a public page with their card and referral code. Sign in with Google (no seed phrase) or a seed phrase. Set the 2–10% rate (live example "$955 iPhone → $47.75 into Apple"), monthly limit, max per company and fallback (S&amp;P 500 default; Nasdaq 100, Gold, Bitcoin, Ether, US T-bills). Deposit USDC on any supported chain. First Home shows the balance split and "Add your first purchase".</td></tr>
+<tr><td><b>B · Dashboard</b></td><td>Home → Holdings → Holding → Activity</td><td>Home: total balance with a bar and rows for stocks and commodities, stablecoins (USDC) and crypto, chips per chain; receipts processed, spending tracked, in jars; top holdings; recent receipts; next buy. Tapping the balance opens Holdings (filters by type and chain). Holding has the share card and a proof trail where each step opens its explorer.</td></tr>
+<tr><td><b>C · Add a purchase</b></td><td>Add (Gmail card on top) → Gmail states → Invoices in Gmail → Reading → Confirm → Edit split / Fix the match / Brand not listed / Limit reached / Couldn't read → Saved</td><td>Gmail-connected users see new invoices and review them as a list; otherwise snap, upload, say or type. Reading shows each step, including the currency conversion. Confirm shows the receipt card (on receipt, rate, dollars, your 5%), the 70/20/10 bar and the maker, behind-the-product and raw-material lists with tick boxes.</td></tr>
+<tr><td><b>D · Buying</b></td><td>Jars → Buy review → Buying → Buy done</td><td>Jars fill until $5, then the user is reminded. Review shows the venue, live price, max price (+1%) and fees vs the user's cap. Nothing buys until the user signs. Smaller jars can be bought on request. The result lists what was bought, the fees paid and what is still filling.</td></tr>
+<tr><td><b>E · Receipts</b></td><td>Receipts → Receipt detail</td><td>Every invoice processed, with filters (in jars, bought, needs review). Detail shows what was read, the rate, where the money went, proof links, report a wrong match, delete the data.</td></tr>
+<tr><td><b>F · Settings</b></td><td>Settings → Wallets and sign-in</td><td>Investing rules, split, buy day, wallets per chain, add funds, Gmail and 0G connections, notifications, privacy, invite code, sign out. Wallet shows the vault (in jars / free / withdraw to own wallet), EVM and Solana addresses, and recovery.</td></tr>
+</table></div>
+
+<h2 id="arch">Architecture</h2>
+<pre>
+Phone (PWA, Next.js)
+  │ Google ── Circle user-controlled wallet ──► EVM address (Arc, Base…) + Solana address
+  │ or seed phrase ── derived on device ──► same two addresses
+  │ Gmail invoices / receipt / voice
+  ▼
+API (Node) ──► 0G Private Computer   vision read · brand→ticker · decision
+  │         └► Wikidata (free)       confirms parent company + ticker
+  │         └► Jupiter quote API     is the token buyable, at what price
+  │         └► Arkiv                 public brand registry + proof records
+  ▼
+USDC on Solana/Base/Ethereum/Arbitrum ── Circle Gateway ──► one balance ──► Arc
+Arc mainnet:  OwnbackVault.sol  per-user, per-asset USDC jars
+  │  withdraw only to the user's own Solana address (set at sign-up)
+  ▼ CCTP (burn USDC on Arc → mint on Solana)
+Solana mainnet:  Jupiter swap USDC → AAPLx → user's wallet
+</pre>
+<p>The full build plan, infra and partner integration are in the <a href="https://claude.ai/artifact/KeXfMndvPJhL3Eqg5FcEeU">Architecture and backend document</a>.</p>
+<h3>Vault contract (Arc)</h3>
+<ul>
+<li><code>deposit</code>, <code>allocate(purchaseId, assets[], amounts[])</code> and <code>depositAndAllocate</code>, called by the user's wallet after Confirm.</li>
+<li><code>execute(batchId, domain, orders)</code>, run by the keeper. Each order carries the user's signed <b>BuyApproval</b> (assets, amounts, venue, max price, max fee, deadline), which the vault verifies (EOA or ERC-1271). The money is burned by CCTP only to that venue's fixed relay, which can only change after a 48 h timelock.</li>
+<li><code>receiveDeposit</code>: credits USDC that a user's own auto-add forwarder (Base, Ethereum, Arbitrum) sent by CCTP.</li>
+<li><code>withdraw</code> / <code>withdrawCrossChain</code>: the user can always pull free USDC back, only to their own address (EVM: themselves; Solana: their registered address, 48 h to change). Money already in a jar stays until it buys or the user cancels that jar.</li>
+<li>Spend limits: a monthly cap and a per-company cap (a % of the monthly limit; overflow goes to the fallback), enforced in the contract. The invest rate is stored per user and must be 2–10% (default 5%).</li>
+</ul>
+<h3>Keeper</h3>
+<p>After a user signs a BuyApproval, the keeper re-simulates the route (price and fees), calls <code>execute</code>, waits for the CCTP attestation, mints USDC to our fixed relay on the venue chain, and swaps with the output going to the user's own address. It checks the token against two sources and the price against a reference. One batch per venue. Anything not bought (price moved, fees over the cap, swap failed) goes back to the jar at our cost. <i>Changed in v3: a per-user Circle relay can't work, because Circle's Solana wallets can't run swaps and can't sign in the background.</i></p>
+
+<h3 id="venues">Where to buy: permissionless venues</h3>
+<p>Buy each asset wherever it's cheapest all-in (price impact plus every fee), and leave it on that chain. A router picks the venue per asset from live quotes and the user's fee cap, and the user sees and signs the venue. USDC reaches every venue below through CCTP except BNB Chain, which needs an audited third-party bridge from Base or Arbitrum (Circle doesn't issue USDC there). Liquidity is a DexScreener snapshot from 5 Nov, biggest pool only.</p>
+<div class="tbl"><table>
+<tr><th>Chain · venue</th><th>Issuers</th><th>Asset classes</th><th>USDC from Arc</th><th>Liquidity sample</th><th>Use</th></tr>
+<tr><td><b>Solana</b> · Jupiter (Raydium, Orca, Meteora)</td><td>xStocks (Backed), Ondo, Etherfuse</td><td>US stocks; ETFs (SPYx, QQQx); gold ETF (GLDx); US T-bill yield (USDY, non-US only); Mexican government bonds (CETES)</td><td>CCTP (Arc→Solana unverified)</td><td>NVDAx $2.7M · QQQx $2.3M · GLDx $0.85M · USDY $9.2M · CETES $0.1M</td><td><span class="pill">primary</span></td></tr>
+<tr><td><b>Base</b> · Aerodrome, Uniswap</td><td>Coinbase</td><td>US stocks (AAPLc and others)</td><td>CCTP (listed)</td><td>AAPLc $0.5M, $5.9M/day volume</td><td><span class="pill">second venue</span></td></tr>
+<tr><td><b>Ethereum</b> · Uniswap, Curve</td><td>Ondo, Paxos, Tether</td><td>US stocks and ETFs (AAPLon, SPYon); silver ETF (SLVon $0.46M); gold (PAXG, XAUt)</td><td>CCTP</td><td>SPYon $77k · AAPLon $26k</td><td><span class="pill">supported (flag)</span></td></tr>
+<tr><td><b>BNB Chain</b> · PancakeSwap</td><td>bStocks, Ondo</td><td>US stocks</td><td>No CCTP; audited bridge from Base/Arbitrum, capped</td><td>TSLAB $1.6M</td><td><span class="pill">supported (flag)</span></td></tr>
+<tr><td>Arbitrum, Mantle, Ink, Robinhood Chain</td><td>xStocks, Ondo, Robinhood</td><td>US stocks and ETFs</td><td>CCTP (Robinhood: no)</td><td>Thin</td><td><span class="pill">Arbitrum supported (flag); others skip</span></td></tr>
+<tr><td><b>Arc</b></td><td>Ondo, Paxos, Tether (bridged in)</td><td>Stocks, gold</td><td>Native</td><td>No pools yet</td><td><span class="pill w">watch</span></td></tr>
+</table></div>
+<p><b>Asset classes you can buy permissionlessly today:</b> US stocks, US ETFs (index and sector), gold, silver, US Treasury yield (USDY) and Mexican government bonds (CETES). <b>Not available without whitelisting:</b> Indian stocks, money-market funds such as BlackRock BUIDL or Franklin BENJI, private credit and most real estate.</p>
+<p><b>Excluded on purpose:</b> stock perps (e.g. Hyperliquid HIP-3 markets) and synthetic stocks. They give price exposure, not ownership, which breaks the "own what you buy" promise.</p>
+<p><b>Rollout:</b> Solana must; Base should (Corning, AAPLc); Ethereum, Arbitrum and BNB Chain behind flags as each adapter passes its tests. Jars are per asset, so adding a venue needs no migration. A jar whose asset has no live venue shows "Buys when available". Check the token mint against the issuer's official list before every buy: DexScreener shows fake PAXG and XAUt pools on Solana with impossible liquidity. 1inch is also a Mumbai partner and could route the EVM venues, but that would be a fourth partner pick, over the limit of three.</p>
+
+<h2 id="ai">AI on 0G: does it cover what we need?</h2>
+<div class="verdict"><strong>Yes.</strong> 0G Private Computer is one OpenAI-compatible API for 100+ models, billed in real money. It has vision, OCR, speech-to-text, embeddings and "decision" models that return calibrated choices. Each run returns a request ID, which is exactly what 0G's prize asks for and gives us a verifiable "why we bought this" trail.</div>
+<div class="tbl"><table>
+<tr><th>Job</th><th>0G model (from pc.0g.ai/models)</th><th>Covered?</th></tr>
+<tr><td>Read receipt or screenshot into JSON (brand, item, amount, currency, date)</td><td>Qwen vision or MiniMax-M3.1-Flash (multimodal). Claude models are also listed on 0G. Qianfan OCR is retiring 22 Nov, so skip it.</td><td><span class="pill">yes</span></td></tr>
+<tr><td>Brand → parent company → ticker, with tool calls to Wikidata</td><td>Qwen3.7-Flash or GLM-5.3-Flash (tool calling, structured output)</td><td><span class="pill">yes</span></td></tr>
+<tr><td>Need vs want category, % suggestion, "is this a real receipt?"</td><td>Laya (free) or Vela 2.0 via <code>/decisions</code>: typed answers with probabilities</td><td><span class="pill">yes</span></td></tr>
+<tr><td>Voice entry ("bought Nike shoes for 6,000")</td><td>Whisper Large v3</td><td><span class="pill">yes</span></td></tr>
+<tr><td>Fuzzy-match brand names to the registry</td><td>Qwen3 Embedding 0.6B</td><td><span class="pill">yes</span></td></tr>
+<tr><td>Keep receipts private</td><td>Pick "Private" models (TEE, zero data retention)</td><td><span class="pill">yes</span></td></tr>
+<tr><td>Live stock price</td><td>Not an AI job. Use the Jupiter quote, or an x402 price API through Circle Gateway.</td><td><span class="pill w">elsewhere</span></td></tr>
+</table></div>
+<p><b>"What breaks if 0G is removed"</b> (their required sentence): Ownback can't read a receipt or tell which company made a product, so no purchase ever becomes a share, and there is no verified record of why each buy happened.</p>
+<p><b>Rule:</b> AI suggests; code and the user decide. Money moves only after the user taps Confirm, within limits the contract enforces.</p>
+
+<h3 id="supply">Supply-chain basket ("Go deeper")</h3>
+<p>Owning the brand is the first layer. Behind every product are the companies that make its parts, so the user can choose to own those too. This also helps when the brand itself isn't tokenized: a supplier often is.</p>
+<div class="tbl"><table>
+<tr><th>You buy</th><th>Brand owner</th><th>Behind the scenes (examples)</th></tr>
+<tr><td>iPhone</td><td>Apple</td><td>TSMC (chips) · Qualcomm (modem) · Broadcom (wireless parts) · Corning (cover glass) · Sony (camera sensors) · Cirrus Logic (audio chips)</td></tr>
+<tr><td>Dove soap</td><td>Unilever</td><td>Specialty chemical makers (surfactants, e.g. BASF, Dow) · palm-oil processors · packaging (e.g. Amcor). Chemicals rather than pharma is the realistic link here.</td></tr>
+</table></div>
+<p><b>How it works:</b></p>
+<ol>
+<li><b>Find links from real sources only.</b> Use Apple's public Supplier List, suppliers' own annual reports (US 10-K filings name their big customers, e.g. "Apple was X% of revenue"), and Wikidata. A long-context 0G model (GLM-5.3, 1M tokens) reads the filing and must quote the sentence that proves the link. <b>No quote, no supplier.</b> This stops the AI from inventing supply chains.</li>
+<li><b>Keep only what's buyable.</b> Each supplier goes through the same check as brands: is there a tokenized version with enough liquidity on Jupiter? Many suppliers (Foxconn, most Asian and European chemical makers) won't be. They're shown as "not available yet" and skipped.</li>
+<li><b>Add raw materials.</b> The AI also lists the product's main materials (an iPhone has gold, silver, aluminium, copper and lithium; jewellery is gold or silver; furniture is wood; a car is steel and oil). Only materials with a liquid token get bought: today that's gold (GLDx, XAUt, PAXG) and silver (SLVon). The rest show as "not tokenized yet".</li>
+<li><b>Split simply.</b> Default 70% maker, 20% companies behind the product, 10% raw materials, each spread evenly across what's available. The user can change it or turn it off. Each supplier gets its own jar, so the $5 rule still batches small amounts.</li>
+<li><b>Show the why.</b> The confirm screen lists each supplier with its role ("makes the A19 chip") and a link to the source.</li>
+</ol>
+<p><b>MVP cut:</b> a nice-to-have. For the demo, precompute verified supplier lists for about 10 products (iPhone, MacBook, Dove, Coca-Cola, Nike shoes and others) and store them in the Arkiv registry as public <code>supplier-of</code> records with their source links. Live filing-reading comes after the hackathon.</p>
+<p><b>Why judges should like it:</b> it's a second use of AI that can't be removed. No simple lookup table knows that your soap connects to a chemical company. It also makes the Arkiv registry richer: a public, sourced map from products to companies that anyone can query.</p>
+
+<h2 id="prizes">Prize fit</h2>
+<div class="tbl"><table>
+<tr><th>Prize</th><th>How we qualify</th><th>Must show in demo</th></tr>
+<tr><td>Arc ($15k pool, $3k per bounty)</td><td>Submit to <b>Best DeFi / Onchain Finance App Built End to End in Arc Studio</b>: a consumer app for trading tokenized real-world assets, settled in USDC on Arc (both are named in the brief). Backup pick: <b>Smart Contracts with Advanced Stablecoin Logic</b> (the vault's 70/20/10 split, limits and conditional release). We dropped the Mobile Web Consumer Agent bounty: it requires the Marketplace Discovery API and Nanopayments, which Ownback doesn't need.</td><td>Start in Arc Studio and include its project URL; show Studio in the video; working frontend and backend; architecture diagram; use of Circle tools (Wallets, Gateway, CCTP, USDC)</td></tr>
+<tr><td>0G: Build with Private Computer ($5k)</td><td>Consumer app where AI is the product; users come back after every purchase.</td><td>Request IDs in the main flow; the "what breaks" sentence; video under 3 min</td></tr>
+<tr><td>0G iAI bonus</td><td>Sign in with a 0G account and spend daily credits on receipt reads.</td><td>Credit balance dropping (localhost:3000 only)</td></tr>
+<tr><td>Arkiv: Build from scratch ($3k/$1k)</td><td>Public, expiring brand→ticker registry and anonymous proof records anyone can query.</td><td><code>/arkiv/*.md</code> files; entities with attributes and expiry</td></tr>
+<tr><td>Finalist (top 10)</td><td>Everyday problem, real money on mainnet, a demo anyone gets in 10 seconds.</td><td>Live "buy iPhone → own Apple" moment on stage</td></tr>
+</table></div>
+<div class="call">Arkiv is testnet-only today, so it is the one non-mainnet piece. That's fine because it stores no money. If Arkiv requirements get in the way, swap it for World (Agent Pass: a human must approve each buy). The third pick changes nothing else.</div>
+
+<h2 id="reqs">Requirements and acceptance</h2>
+<div class="tbl"><table>
+<tr><th>#</th><th>Requirement</th><th>Done when</th></tr>
+<tr><td>R1</td><td>Sign-in creates EVM (Arc) and Solana addresses</td><td>Google: new user is in under 30 s with no seed phrase. Seed phrase: create or import; the words never leave the device.</td></tr>
+<tr><td>R2</td><td>Receipt read</td><td>5 test receipts (Croma, Amazon, Nykaa, Zomato, Apple Store) return brand and amount correctly. p50 under 6 s.</td></tr>
+<tr><td>R3</td><td>Company match</td><td>Includes tricky ones: Dove → Unilever, Kurkure → PepsiCo, iPhone → Apple. Unknown or untokenized → fallback index.</td></tr>
+<tr><td>R4</td><td>Confirm + jar</td><td>Arc tx moves USDC into the right jar; limits enforced on-chain (test: over-limit reverts)</td></tr>
+<tr><td>R5</td><td>Buy</td><td>Signed BuyApproval → CCTP → Jupiter → AAPLx visible in the user's Solana wallet; slippage cap 1%; <code>execute</code> without a signature reverts</td></tr>
+<tr><td>R6</td><td>Proof trail</td><td>Every buy shows 0G request ID, Arc tx, CCTP message, Solana tx, Arkiv key; all links open in explorers</td></tr>
+<tr><td>R7</td><td>Deposit and withdraw</td><td>USDC sent on Arc, Solana, Base, Ethereum or Arbitrum shows in one balance within a minute; free USDC goes back to the user's own address in one tap</td></tr>
+<tr><td>R8</td><td>Privacy</td><td>Receipt images and emails never stored; Arkiv records hold no wallet address or personal data; "Download my data" and "Delete all receipt data" work</td></tr>
+<tr><td>R10</td><td>Gmail import</td><td>All six Gmail states work (connect, allow access, scanning, found N, caught up, disconnected). Read-only scope, asked on tap, never at sign-in. Finds order invoices from the last 30 days, marks ones already added and non-products.</td></tr>
+<tr><td>R11</td><td>Dollars everywhere</td><td>Local currency only on the receipt line; conversion rate saved at read time; every other screen in $</td></tr>
+<tr><td>R12</td><td>Balance by type and chain</td><td>Home and Holdings show stocks and commodities, stablecoins and crypto, with a total per chain; tapping the balance opens Holdings</td></tr>
+<tr><td>R13</td><td>Edge cases</td><td>Unreadable receipt, brand not listed (fallback, suppliers or skip) and monthly limit reached (save part now) each have a screen and never lose data</td></tr>
+<tr><td>R15</td><td>Price shown at every buy step</td><td>Review shows the live price per share, the quantity you'll get and the max price (+1%), refreshing every 30 s; progress and done screens show the fill price next to the quote; Holding shows each buy's price, your average price and the price now</td></tr>
+<tr><td>R16</td><td>Funding and buying states</td><td>Add funds shows watching (auto-check every 5 s, tap to refresh), on its way, added, and the error states (below minimum, wrong token, unsupported chain, slow, offline). Buying shows ready (waiting for you), getting prices, price moved, partly bought, failed (money back in jar), bridge slow and paused for safety.</td></tr>
+<tr><td>R17</td><td>Fees shown and capped</td><td>Every money screen shows fees in $ and %; every move is simulated first; over the user's cap (default 5%) a user action is blocked and an automatic step waits; a mid-route spike returns the money to the jar at our cost</td></tr>
+<tr><td>R18</td><td>Consent for every buy</td><td>No buy without the user's BuyApproval signature (vault-enforced); filling jars can be bought on request; expired or cancelled approvals can't execute</td></tr>
+<tr><td>R19</td><td>Per-company cap</td><td>Cap = % of the monthly limit; overflow shown on Confirm and sent to the fallback; a direct over-cap <code>allocate</code> reverts</td></tr>
+<tr><td>R20</td><td>Auto-add deposits</td><td>With auto-add on, USDC sent on Base, Ethereum or Arbitrum reaches the vault with the app closed; it can only go to the user's own vault</td></tr>
+<tr><td>R14</td><td>Receipts and activity</td><td>Every processed invoice is listed with status; detail shows the rate and where the money went; activity lists buys, matches, reviews and limit warnings</td></tr>
+<tr><td>R9</td><td>Share card</td><td>From Holding or after a buy: one tap each for <b>Post to X</b>, <b>Post to LinkedIn</b>, <b>Copy text</b>, <b>Copy image</b> and <b>Save image</b>. On phones, the system share sheet sends the image straight into any app. "Hide amounts" is on by default ("I own a piece of Apple"), and the wallet address is never shown.</td></tr>
+</table></div>
+<h3>How sharing works</h3>
+<ul>
+<li><b>Image:</b> the server renders a 1200×630 PNG card at <code>/card/[id].png</code> using Next.js OG image generation (no design tool needed). Every share page carries Open Graph tags, so links unfurl with the card on X, LinkedIn and WhatsApp.</li>
+<li><b>X:</b> open the tweet composer with the text and link filled in (<code>x.com/intent/post?text=…&amp;url=…</code>).</li>
+<li><b>LinkedIn:</b> open its share dialog with the link (<code>linkedin.com/sharing/share-offsite/?url=…</code>). LinkedIn doesn't accept pre-filled text, so copy the text to the clipboard first and say "Text copied, paste it in".</li>
+<li><b>Copy text / copy image:</b> the browser clipboard (<code>navigator.clipboard.write</code> with a PNG). Where copying an image isn't supported, fall back to Save image.</li>
+<li><b>Phones:</b> <code>navigator.share({files:[card.png]})</code> opens the native share sheet with the image attached, for Instagram stories, WhatsApp and others.</li>
+<li><b>Default text:</b> "I bought an iPhone and now own a piece of Apple. Every purchase buys me a bit of the company that made it. #Ownback". Each link carries a referral code, which drives the network effect.</li>
+</ul>
+<p><b>Demo success metric:</b> one real iPhone receipt becomes real AAPLx in a wallet in under 3 minutes, on stage.</p>
+
+<h2 id="plan">36-hour plan</h2>
+<div class="tbl"><table>
+<tr><th>When (IST)</th><th>Work</th></tr>
+<tr><td>Thu 21:00–23:00</td><td><b>Kill the big risk first:</b> send $2 USDC Arc → Solana by CCTP and swap to AAPLx by hand. Start in Arc Studio. Get 0G credits.</td></tr>
+<tr><td>Thu 23:00–Fri 05:00</td><td>Vault contract and tests (limits, own-address-only, withdraw); 0G receipt read + match pipeline with 20 test receipts</td></tr>
+<tr><td>Fri 05:00–12:00</td><td>Keeper (CCTP + Jupiter); Google sign-in wallets and seed-phrase path; Gateway deposits; Arkiv schema and writes</td></tr>
+<tr><td>Fri 12:00–20:00</td><td>PWA screens from the wireframes; share card and buttons; wire end to end on mainnet</td></tr>
+<tr><td>Fri 20:00–Sat 03:00</td><td>Gmail import (test users), voice entry, iAI sign-in if on time; fix bugs</td></tr>
+<tr><td>Sat 03:00–08:00</td><td>Architecture diagram, README, <code>/arkiv</code> docs, AI-use disclosure and prompt files, 2–4 min video (real voice, 720p+)</td></tr>
+<tr><td>Sat 08:00–09:00</td><td>Submit. No new features after 07:00.</td></tr>
+</table></div>
+
+<h2 id="risks">Risks</h2>
+<div class="tbl"><table>
+<tr><th>Risk</th><th>Plan B</th></tr>
+<tr><td>BNB Chain needs a third-party bridge and non-Circle dollars</td><td>Behind a flag; audited bridges only; per-transfer and daily caps; return to the jar if any leg fails</td></tr>
+<tr><td>Fake registry entries on Arkiv (anyone can write our schema)</td><td>Reads require createdBy + ownedBy our writer; mints must also match the git-pinned list</td></tr>
+<tr><td>CCTP has no Arc → Solana route on mainnet (unverified)</td><td>Arc → Base by CCTP, then buy on Base (AAPLc on Aerodrome); or keep jars on Arc and fund Solana from a Base/Solana USDC balance</td></tr>
+<tr><td>xStocks issuer can freeze tokens; not for US persons</td><td>Say it on the Holding screen; geo-block US</td></tr>
+<tr><td>Arc Studio may not deploy to mainnet</td><td>Start the project in Studio (required), deploy the vault to mainnet with Foundry, and show both</td></tr>
+<tr><td>Thin liquidity on some xStocks</td><td>Jupiter quote check before buy; fallback to SPYx</td></tr>
+<tr><td>Gmail read access is a Google "restricted" scope; unverified apps get a warning and at most 100 users</td><td>Add judges and team as test users; show the warning honestly; snap/upload is always there</td></tr>
+<tr><td>Circle Google login needs the Google OAuth app published or users added as testers</td><td>Publish the OAuth consent screen before the demo; the seed-phrase path is the fallback</td></tr>
+<tr><td>Fake receipts</td><td>No impact while users invest their own money; proofs come later with brand rewards</td></tr>
+<tr><td>India rules (no SEBI framework, 30% crypto tax)</td><td>Pitch as a non-custodial tool; user's own wallet; no advice</td></tr>
+</table></div>
+
+<h2 id="brand">Brand belief kit</h2>
+<p>The full <a href="https://claude.ai/artifact/2Uqk914XAsxD7aAconWDqo">brand kit</a> (logo, colour and type options, audience, narratives) is now its own document. This section stays as the short version.</p>
+<div class="eyebrow">Name</div>
+<div class="name">Ownback</div>
+<p class="tag">Own what you buy.</p>
+<p><b>Why this name:</b> everyone knows <i>cashback</i>. <i>Ownback</i> explains itself in one beat: instead of cash back, you get ownership back. It's one word, easy to say in English, Hindi or Spanish, and has no local meaning to translate. A quick search found no app with this name. That is not a trademark check; run one before launch.</p>
+<div class="tbl"><table>
+<tr><th>Name</th><th>Verdict</th></tr>
+<tr><td><b>Ownback</b></td><td>Recommended. Self-explaining via "cashback"; seems free.</td></tr>
+<tr><td>Hissa</td><td>Lovely in Hindi ("share"), but it means nothing to most of the world</td></tr>
+<tr><td>Stockback</td><td>Avoid. "Stock-Back" is a registered trademark of Stash.</td></tr>
+<tr><td>Shareback</td><td>Avoid. WeShop uses "ShareBack™".</td></tr>
+<tr><td>Buyshare</td><td>Clear but generic, and reads as "buy shares"</td></tr>
+</table></div>
+
+<h3>Tagline</h3>
+<p><b>"Own your life" works, but it's not the best main line.</b> It sounds like a fitness or self-help slogan and doesn't say what the app does. Use <b>"Own what you buy."</b> as the main tagline: four words that say the whole product. Keep "Own your life" as a campaign line for the yearly "your spending, as a portfolio" recap.</p>
+<p>Other lines for ads and the pitch:</p>
+<ul>
+<li>Cashback gives you money. Ownback gives you a piece of the company.</li>
+<li>You bought the phone. Now own a bit of the company.</li>
+<li>Be a customer and an owner.</li>
+</ul>
+
+<h3>What we believe</h3>
+<p><b>The people who buy from a company should be able to own it.</b> Today the rewards of great brands go to people who already have brokers and capital. The customers who made those brands big get receipts. We think every purchase can be a tiny step toward ownership, held in your own wallet and visible on a public chain.</p>
+<div class="grid2">
+<div class="box"><h3>Mission</h3><p>Turn everyday spending into ownership of the companies you buy from.</p></div>
+<div class="box"><h3>Vision</h3><p>A world where customers are shareholders by default.</p></div>
+</div>
+<h3>Values</h3>
+<ul>
+<li><b>Yours, really.</b> Shares go to your wallet, never ours. The vault can only pay you.</li>
+<li><b>Show the receipt.</b> Every buy has a public trail: what AI decided, and every transaction.</li>
+<li><b>Small is fine.</b> Fifty cents counts. Habits beat lump sums.</li>
+<li><b>No hype.</b> We never promise returns, push trading, or hide that stocks can fall.</li>
+</ul>
+<h3>Personality and voice</h3>
+<div class="tbl"><table>
+<tr><th>We are</th><th>We are not</th></tr>
+<tr><td>Plain-spoken, like a friend who knows money</td><td>A finance bro or a crypto shill</td></tr>
+<tr><td>Quietly proud ("You own $62 of Apple")</td><td>Loud ("🚀 to the moon")</td></tr>
+<tr><td>Specific (real numbers, real companies)</td><td>Vague ("grow your wealth")</td></tr>
+<tr><td>Honest about risk, in one line</td><td>Buried in fine print</td></tr>
+</table></div>
+<div class="grid2">
+<div class="box"><h3>Words we use</h3><ul><li>own, piece, jar, your wallet</li><li>company names, not tickers, first</li><li>"you bought… you now own…"</li></ul></div>
+<div class="box"><h3>Words we avoid</h3><ul><li>guaranteed, returns, profit, moon</li><li>token, bridge, CCTP (in the UI)</li><li>"invest smarter", "wealth journey"</li></ul></div>
+</div>
+<h3>Manifesto (for the video's last 15 seconds)</h3>
+<p><i>You've bought the phone, the shoes, the coffee, a hundred times. Every time, the money left and never came back. Ownback keeps a small piece of every purchase and turns it into a share of the company that made it. Your wallet, your shares, your receipts on-chain. Stop being only a customer. Own what you buy.</i></p>
+<h3>Visual direction (for later; wireframes stay unbranded)</h3>
+<p>A receipt meets a share certificate: monospaced figures, a ledger-green accent, and generous white space. The one recurring motif is the product turning into a stake: an iPhone outline filling up with a sliver of green.</p>
+
+<p style="margin-top:56px;font-size:14px;color:var(--muted)">Sources: ETHGlobal Mumbai prizes page (0G, Arc, Arkiv tracks); pc.0g.ai/models; DexScreener liquidity snapshot (5 Nov); Stash Stock-Back trademark (USPTO reg. 5899064); WeShop ShareBack™.</p>
+</main>
+</div>

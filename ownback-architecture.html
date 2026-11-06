@@ -1,0 +1,455 @@
+<title>Ownback Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky section index on the left, one reading column on the right; diagrams and tables scroll inside their own boxes. */
+:root{
+  --bg:#F7F8F6; --surface:#FFFFFF; --fg:#16201B; --muted:#56635C; --line:#D9DFDB;
+  --accent:#137A4B; --accent-soft:#E3F2EA; --warn:#9A5B00; --warn-soft:#FBF0DD; --bad:#A3322A; --bad-soft:#F8E4E2;
+  --arc:#2A5BD7; --og:#7A3FD1; --arkiv:#0E7C86; --ext:#6B6F6C;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif; --body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1512; --surface:#151D19; --fg:#E4EAE6; --muted:#9AA7A0; --line:#2A3530;
+  --accent:#4CC38A; --accent-soft:#16301F; --warn:#E3A84A; --warn-soft:#33270F; --bad:#F08A80; --bad-soft:#3A1C19;
+  --arc:#7EA2FF; --og:#B48CFF; --arkiv:#4FC6CF; --ext:#A3A8A5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1512; --surface:#151D19; --fg:#E4EAE6; --muted:#9AA7A0; --line:#2A3530;
+  --accent:#4CC38A; --accent-soft:#16301F; --warn:#E3A84A; --warn-soft:#33270F; --bad:#F08A80; --bad-soft:#3A1C19;
+  --arc:#7EA2FF; --og:#B48CFF; --arkiv:#4FC6CF; --ext:#A3A8A5; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:48px;padding-block:40px 80px}
+nav{position:sticky;top:calc(24px + env(safe-area-inset-top,0px));align-self:start;display:flex;flex-direction:column;gap:4px;font-size:14px}
+nav a{color:var(--muted);text-decoration:none;padding:3px 0}
+nav a:hover,nav a:focus-visible{color:var(--accent)}
+main{min-width:0;max-width:860px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.15}
+h1{font-size:44px;font-weight:800;margin:6px 0 10px;letter-spacing:-.01em}
+h2{font-size:28px;font-weight:700;margin:56px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:700;margin:28px 0 8px}
+p,li{max-width:68ch}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:19px;color:var(--muted);max-width:62ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;font:13px var(--mono);color:var(--muted);margin-top:12px}
+.tbl{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font:600 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.pill{display:inline-block;font:600 11px var(--mono);padding:2px 7px;border-radius:99px;white-space:nowrap}
+.ok{background:var(--accent-soft);color:var(--accent)} .chk{background:var(--warn-soft);color:var(--warn)} .no{background:var(--bad-soft);color:var(--bad)}
+.p-arc{color:var(--arc);font-weight:600} .p-og{color:var(--og);font-weight:600} .p-arkiv{color:var(--arkiv);font-weight:600}
+.call{border-left:3px solid var(--accent);background:var(--surface);padding:12px 16px;margin:16px 0;border-radius:0 8px 8px 0}
+.call.w{border-color:var(--warn)}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.card h3{margin:0 0 4px;font-size:17px}
+.card .who{font:600 12px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.card ul{padding-left:18px;margin:8px 0 0;font-size:14px}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0}
+ol.steps{padding-left:22px} ol.steps li{margin:4px 0}
+.diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin:16px 0}
+.diagram svg{display:block;min-width:900px;width:100%;height:auto}
+svg text{font-family:var(--body);fill:var(--fg)}
+svg .t-s{font-size:11px;fill:var(--muted)}
+svg .t-b{font-size:13px;font-weight:600}
+svg .t-h{font-family:var(--mono);font-size:10px;letter-spacing:.1em;fill:var(--muted)}
+svg .box{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+svg .lane{fill:var(--bg);stroke:var(--line);stroke-dasharray:4 4}
+svg .b-arc{stroke:var(--arc);stroke-width:1.8} svg .b-og{stroke:var(--og);stroke-width:1.8} svg .b-arkiv{stroke:var(--arkiv);stroke-width:1.8} svg .b-ext{stroke:var(--ext)}
+svg .ln{stroke:var(--muted);stroke-width:1.3;fill:none}
+svg .ln-money{stroke:var(--accent);stroke-width:2.2;fill:none}
+svg .ah{fill:var(--muted)} svg .ah-m{fill:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:12px;height:3px;margin-right:6px;vertical-align:middle;background:currentColor}
+.lg-arc{color:var(--arc)} .lg-og{color:var(--og)} .lg-arkiv{color:var(--arkiv)} .lg-m{color:var(--accent)} .lg-e{color:var(--ext)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:860px){.wrap{grid-template-columns:minmax(0,1fr);gap:20px}nav{position:static;flex-direction:row;flex-wrap:wrap;gap:4px 14px}.grid3{grid-template-columns:minmax(0,1fr)}h1{font-size:34px}}
+</style>
+
+<div class="wrap">
+<nav aria-label="Sections">
+<a href="#glance">At a glance</a><a href="#partners">Partner picks</a><a href="#diagram">System diagram</a><a href="#stack">Tech stack</a><a href="#infra">Infra</a><a href="#gas">Gasless</a><a href="#docs">Docs to write</a><a href="#flows">Key flows</a><a href="#vault">Vault contract</a><a href="#data">Data model</a><a href="#arkiv">Arkiv schema</a><a href="#ai">AI on 0G</a><a href="#api">API</a><a href="#trust">Security</a><a href="#verify">Verify first</a><a href="#prize">Prize checklist</a><a href="#repo">Repo + env</a><a href="#sources">Sources</a>
+</nav>
+<main>
+<header>
+<div class="eyebrow">Architecture and backend · ETHGlobal Mumbai</div>
+<h1>Ownback architecture</h1>
+<p class="lede">How the app, backend, contracts and partner protocols fit together, what infrastructure we run, and what each partner prize needs to see. Built to the 27-screen wireframes and PRD v2.</p>
+<div class="meta"><span>v3 · 6 Nov 2026</span><span>Mainnet for money · Arkiv on testnet</span><span>Partners: Arc · 0G · Arkiv</span></div>
+</header>
+
+<div class="call"><b>v3 (6 Nov): user decisions and security audit.</b> The build-level specs now live in the repo (<code>docs/</code>, <code>contracts/</code>, <code>backend/</code>, <code>database/</code>, <code>frontend/</code>) and win over this page where they differ.
+<ul>
+<li><b>Buys.</b> Every buy needs the user's signed <b>BuyApproval</b>, which the vault verifies; there's no automatic Sunday buy, only a reminder.</li>
+<li><b>Fees.</b> Fees are simulated and capped per user (default 5%).</li>
+<li><b>Deposits.</b> Auto-add uses a one-time-approved <code>OwnbackDepositForwarder</code> plus CCTP into <code>vault.receiveDeposit</code>.</li>
+<li><b>Venues.</b> Multi-chain venues, including BNB Chain (via an audited bridge, behind a flag).</li>
+<li><b>Arkiv.</b> SDK 1.0.1 schemas with lifetimes of at most about 182 days. Reads use <code>createdBy</code> + <code>ownedBy</code> our writer.</li>
+<li><b>Addresses.</b> All public contract addresses are verified from three sources (Arc chain ID 5042).</li>
+</ul></div>
+
+<h2 id="glance">At a glance</h2>
+<p>A Next.js PWA talks to one backend (Next.js route handlers plus two scheduled workers). Users' dollars sit in their own wallets and in a vault contract on <b>Arc</b>. AI on <b>0G Private Computer</b> reads receipts and Gmail invoices and works out who made the product and who supplies it. A public registry of brands, suppliers and verified token addresses lives on <b>Arkiv</b>, along with an anonymous proof record for every buy. When the user approves a buy, a keeper moves those jars from Arc to the cheapest venue across chains (Solana first, using CCTP) and buys the tokenized stock into the user's own address.</p>
+<div class="tbl"><table>
+<tr><th>Layer</th><th>What we use</th><th>Why</th></tr>
+<tr><td>Wallets and sign-in</td><td class="p-arc">Circle user-controlled wallets (Google login) · seed phrase on device</td><td>No seed phrase for most users; addresses on Arc (EVM) and Solana from one sign-in</td></tr>
+<tr><td>Dollars in</td><td class="p-arc">Circle Gateway (one USDC balance across Arc, Base, Ethereum, Arbitrum, Solana)</td><td>"Deposit on every chain we support" with one balance on Home</td></tr>
+<tr><td>Jars and rules</td><td class="p-arc">OwnbackVault.sol on Arc mainnet, started in Arc Studio</td><td>Limits, split and own-address-only rules enforced on-chain; gas paid in USDC</td></tr>
+<tr><td>Dollars out to venues</td><td class="p-arc">CCTP V2 via Arc App Kit (Bridge Kit)</td><td>Native burn-and-mint from Arc (domain 26) to Solana (5) or Base (6)</td></tr>
+<tr><td>Buying</td><td>Jupiter Swap API on Solana; App Kit Swap or Uniswap on Base</td><td>Where xStocks and other tokenized assets have real liquidity</td></tr>
+<tr><td>AI</td><td class="p-og">0G Private Computer (OpenAI-compatible router, private mode)</td><td>Receipt and email reading, company and supplier matching, voice; request IDs for proof</td></tr>
+<tr><td>Public data</td><td class="p-arkiv">Arkiv entities (brands, companies, suppliers, verified tokens, proofs)</td><td>Anyone can query the map and check each buy without asking us</td></tr>
+<tr><td>Private data</td><td>Postgres (Neon)</td><td>Emails, rules, receipts' extracted fields: never public, so never on Arkiv</td></tr>
+</table></div>
+
+<h2 id="partners">Partner picks and which prize we enter</h2>
+<p>ETHGlobal lets a team pick at most three partner prizes. These three are each load-bearing: remove one and a visible part of the app stops working.</p>
+<div class="grid3">
+<div class="card"><div class="who p-arc">Arc · Circle</div><h3>Best DeFi / Onchain Finance App Built End to End in Arc Studio</h3><p style="font-size:14px;margin:6px 0 0">$3,000. The brief names "trading with tokenized real-world assets" and "neobanks for consumers". That is Ownback.</p><ul><li>Backup: Smart Contracts with Advanced Stablecoin Logic (the split, limits and conditional release)</li><li>Skip: Mobile Web Consumer Agent (needs the Marketplace Discovery API and Nanopayments)</li></ul></div>
+<div class="card"><div class="who p-og">0G</div><h3>Build with 0G PC</h3><p style="font-size:14px;margin:6px 0 0">$5,000. A consumer app where AI on 0G is the product: every purchase goes through it.</p><ul><li>Bonus: sign in with a 0G account and spend the user's daily iAI credits</li></ul></div>
+<div class="card"><div class="who p-arkiv">Arkiv</div><h3>Build on Arkiv (from scratch)</h3><p style="font-size:14px;margin:6px 0 0">$3,000 / $1,000. Our registry is read by three screens users see: Confirm, Fix the match and the proof trail.</p><ul><li>One Arkiv prize per team. The "Mirror" track (token lists) also fits; don't enter both.</li></ul></div>
+</div>
+<div class="call w"><b>Arc rule that shapes the build:</b> every Arc prize requires Arc Studio as the starting point, its project URL in the submission, and Studio shown in the demo video. We start the vault contract and its tests in Studio on Thursday night. Studio's agent deploys to testnets; if it cannot deploy to Arc mainnet, we deploy the same contract to mainnet with Foundry and show both.</div>
+
+<h2 id="diagram">System diagram</h2>
+<div class="legend"><span class="lg-arc">Arc / Circle</span><span class="lg-og">0G</span><span class="lg-arkiv">Arkiv</span><span class="lg-e">Other services</span><span class="lg-m">USDC and asset movement</span></div>
+<div class="diagram" role="img" aria-label="System diagram: phone app, backend, AI on 0G, Arkiv registry, Circle services, Arc vault, CCTP to Solana and Base venues, user wallets.">
+<svg viewBox="0 0 1100 640" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+<marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-m" d="M0 0L10 5L0 10z"/></marker>
+</defs>
+<!-- lanes -->
+<rect class="lane" x="10" y="10" width="200" height="620" rx="10"/><text class="t-h" x="24" y="32">CLIENT</text>
+<rect class="lane" x="230" y="10" width="300" height="620" rx="10"/><text class="t-h" x="244" y="32">BACKEND (OURS)</text>
+<rect class="lane" x="550" y="10" width="250" height="620" rx="10"/><text class="t-h" x="564" y="32">PARTNER SERVICES</text>
+<rect class="lane" x="820" y="10" width="270" height="620" rx="10"/><text class="t-h" x="834" y="32">CHAINS (MAINNET)</text>
+
+<!-- client -->
+<rect class="box" x="26" y="50" width="168" height="120" rx="8"/><text class="t-b" x="38" y="72">PWA (Next.js)</text><text class="t-s" x="38" y="92">27 screens, tab bar</text><text class="t-s" x="38" y="108">camera · voice · share</text><text class="t-s" x="38" y="124">Circle Web SDK</text><text class="t-s" x="38" y="140">seed wallet (viem,</text><text class="t-s" x="38" y="156">solana/web3) on device</text>
+<rect class="box b-ext" x="26" y="200" width="168" height="62" rx="8"/><text class="t-b" x="38" y="222">Google</text><text class="t-s" x="38" y="240">sign-in · Gmail read</text><text class="t-s" x="38" y="254">(asked on tap)</text>
+<rect class="box" x="26" y="290" width="168" height="62" rx="8"/><text class="t-b" x="38" y="312">Shared-link page</text><text class="t-s" x="38" y="330">/u/[code] · OG card</text><text class="t-s" x="38" y="344">/card/[id].png</text>
+
+<!-- backend -->
+<rect class="box" x="246" y="50" width="268" height="150" rx="8"/><text class="t-b" x="258" y="72">API · Next.js route handlers</text><text class="t-s" x="258" y="92">auth · rules · purchases · confirm</text><text class="t-s" x="258" y="108">match pipeline (calls 0G + Arkiv)</text><text class="t-s" x="258" y="124">FX at read time (rate saved)</text><text class="t-s" x="258" y="140">balances (chains + Jupiter prices)</text><text class="t-s" x="258" y="156">share cards · referral codes</text><text class="t-s" x="258" y="172">web push</text>
+<rect class="box" x="246" y="224" width="268" height="76" rx="8"/><text class="t-b" x="258" y="246">Gmail scanner (worker)</text><text class="t-s" x="258" y="264">on app open + every 6 h</text><text class="t-s" x="258" y="280">shop allowlist · last 30 days</text>
+<rect class="box b-arc" x="246" y="324" width="268" height="112" rx="8"/><text class="t-b" x="258" y="346">Keeper (worker)</text><text class="t-s" x="258" y="364">Sun 10:00 IST + "Buy now"</text><text class="t-s" x="258" y="380">vault.execute → CCTP burn</text><text class="t-s" x="258" y="396">mint to relay → swap → user</text><text class="t-s" x="258" y="412">writes proof to Arkiv</text>
+<rect class="box" x="246" y="460" width="268" height="62" rx="8"/><text class="t-b" x="258" y="482">Postgres (Neon)</text><text class="t-s" x="258" y="500">users, rules, purchases, jars mirror</text><text class="t-s" x="258" y="514">no images, no email bodies</text>
+
+<!-- partner services -->
+<rect class="box b-og" x="566" y="50" width="218" height="104" rx="8"/><text class="t-b" x="578" y="72">0G Private Computer</text><text class="t-s" x="578" y="90">router-api.0g.ai/v1 · private</text><text class="t-s" x="578" y="106">vision · tool-calling LLM</text><text class="t-s" x="578" y="122">long-context · Whisper</text><text class="t-s" x="578" y="138">→ request ID per call</text>
+<rect class="box b-arkiv" x="566" y="176" width="218" height="96" rx="8"/><text class="t-b" x="578" y="198">Arkiv (testnet)</text><text class="t-s" x="578" y="216">brand · company · supplier-of</text><text class="t-s" x="578" y="232">asset (verified mints)</text><text class="t-s" x="578" y="248">proof (no personal data)</text>
+<rect class="box b-arc" x="566" y="294" width="218" height="140" rx="8"/><text class="t-b" x="578" y="316">Circle platform</text><text class="t-s" x="578" y="334">User-controlled wallets</text><text class="t-s" x="578" y="350">Developer-controlled wallet</text><text class="t-s" x="578" y="366">(keeper, SCA + Gas Station)</text><text class="t-s" x="578" y="382">Gateway (unified balance)</text><text class="t-s" x="578" y="398">CCTP V2 attestations</text><text class="t-s" x="578" y="414">App Kit / Bridge Kit SDK</text>
+<rect class="box b-ext" x="566" y="456" width="218" height="66" rx="8"/><text class="t-b" x="578" y="478">Market data</text><text class="t-s" x="578" y="496">Jupiter quote + price · FX rate</text><text class="t-s" x="578" y="512">Wikidata (company facts)</text>
+
+<!-- chains -->
+<rect class="box b-arc" x="836" y="50" width="238" height="96" rx="8"/><text class="t-b" x="848" y="72">Arc · domain 26</text><text class="t-s" x="848" y="90">OwnbackVault.sol</text><text class="t-s" x="848" y="106">per-user, per-asset USDC jars</text><text class="t-s" x="848" y="122">limits · split · own-address rule</text>
+<rect class="box b-arc" x="836" y="168" width="238" height="70" rx="8"/><text class="t-b" x="848" y="190">Base 6 · Ethereum 0 · Arbitrum 3</text><text class="t-s" x="848" y="208">USDC deposits (Gateway)</text><text class="t-s" x="848" y="224">Base: second venue</text>
+<rect class="box" x="836" y="280" width="238" height="112" rx="8"/><text class="t-b" x="848" y="302">Solana · domain 5</text><text class="t-s" x="848" y="320">relay USDC account (keeper)</text><text class="t-s" x="848" y="336">Jupiter swap USDC → AAPLx…</text><text class="t-s" x="848" y="352">output to the user's own</text><text class="t-s" x="848" y="368">token account</text>
+<rect class="box" x="836" y="420" width="238" height="102" rx="8"/><text class="t-b" x="848" y="442">User's wallets</text><text class="t-s" x="848" y="460">EVM: 0x… (Arc, Base, Eth, Arb)</text><text class="t-s" x="848" y="476">Solana: stocks, gold, index</text><text class="t-s" x="848" y="492">Ownback can never move these</text>
+<rect class="box" x="836" y="548" width="238" height="66" rx="8"/><text class="t-b" x="848" y="570">Explorers (proof trail)</text><text class="t-s" x="848" y="588">Arcscan · Solscan · Arkiv</text><text class="t-s" x="848" y="604">0G request page</text>
+
+<!-- control lines -->
+<path class="ln" d="M194 110H246" marker-end="url(#a)"/>
+<path class="ln" d="M194 231H220V262H246" marker-end="url(#a)"/>
+<path class="ln" d="M514 100H566" marker-end="url(#a)"/>
+<path class="ln" d="M514 150H540V224H566" marker-end="url(#a)"/>
+<path class="ln" d="M514 262H540V120H566" marker-end="url(#a)"/>
+<path class="ln" d="M514 380H566" marker-end="url(#a)"/>
+<path class="ln" d="M514 420H550V250H566" marker-end="url(#a)"/>
+<path class="ln" d="M380 200V224" marker-end="url(#a)"/>
+<path class="ln" d="M380 436V460" marker-end="url(#a)"/>
+<path class="ln" d="M514 180H540V489H566" marker-end="url(#a)"/>
+<path class="ln" d="M110 170V290" marker-end="url(#a)"/>
+<!-- money lines -->
+<path class="ln-money" d="M784 360H812V98H836" marker-end="url(#m)"/>
+<path class="ln-money" d="M836 203H812" />
+<path class="ln-money" d="M1074 98H1086V330H1074" marker-end="url(#m)"/>
+<text class="t-s" transform="translate(1096 270) rotate(-90)">CCTP burn → mint</text>
+<path class="ln-money" d="M955 392V420" marker-end="url(#m)"/>
+<path class="ln" d="M955 522V548" marker-end="url(#a)"/>
+<path class="ln-money" d="M194 140H220V600H820V470H836" marker-end="url(#m)" stroke-dasharray="6 4"/>
+<text class="t-s" x="250" y="592">user signs Confirm (USDC → jar) and deposits; Ownback never holds keys</text>
+</svg>
+</div>
+<p style="font-size:14px;color:var(--muted)">Dashed green: actions the user signs. Solid green: money the keeper moves, which the vault only lets go to that user's assets.</p>
+
+<h2 id="stack">Tech stack, piece by piece</h2>
+<p>Partner tech wins wherever it does the job. Generic tools fill only the gaps no partner covers (private data, hosting, FX rates).</p>
+<div class="tbl"><table>
+<tr><th>Need</th><th>Choice</th><th>Partner</th><th>Status</th><th>Notes</th></tr>
+<tr><td>Google sign-in + wallet</td><td>Circle user-controlled wallets, social login (Google). <code>ARC</code> (SCA) and <code>SOL</code> (EOA) wallets per user</td><td class="p-arc">Circle</td><td><span class="pill ok">docs verified</span></td><td>Google OAuth app must be published, or demo users added as testers. Circle's Solana wallets can't execute programs, which is why the swap uses a relay (see Keeper).</td></tr>
+<tr><td>Seed-phrase path</td><td>BIP-39 words generated or imported on the device; viem (EVM, m/44'/60') and @solana/web3.js (m/44'/501'); encrypted in IndexedDB with WebCrypto</td><td>—</td><td><span class="pill ok">standard</span></td><td>Words never reach our server. The same vault and keeper flows apply; the user signs locally.</td></tr>
+<tr><td>Gas for users</td><td>Circle Gas Station (sponsor) on every chain, Circle Paymaster (pay in USDC) on EVM, Kora on Solana for seed-phrase users; Arc gas is USDC already</td><td class="p-arc">Circle</td><td><span class="pill ok">docs verified</span></td><td>Users never hold ETH or SOL. Full plan in <a href="#gas">Gasless</a>.</td></tr>
+<tr><td>Deposits on any chain</td><td>Circle Gateway unified balance: Arc 26, Base 6, Ethereum 0, Arbitrum 3, Solana 5</td><td class="p-arc">Circle</td><td><span class="pill ok">docs verified</span></td><td>Deposit into the Gateway Wallet on the source chain, then mint on Arc when the vault needs it. App Kit "Unified Balance" wraps this.</td></tr>
+<tr><td>Card / UPI on-ramp</td><td>App Kit "Onramp" on Arc</td><td class="p-arc">Circle</td><td><span class="pill no">off for MVP</span></td><td>Button shown as "Coming soon".</td></tr>
+<tr><td>Vault contract</td><td>Solidity, written and tested in Arc Studio, deployed on Arc mainnet</td><td class="p-arc">Arc</td><td><span class="pill chk">Studio → mainnet?</span></td><td>Foundry as the mainnet deploy fallback. USDC on Arc is also the gas token.</td></tr>
+<tr><td>Keeper signer</td><td>Circle developer-controlled wallet (SCA on Arc) calls <code>execute</code></td><td class="p-arc">Circle</td><td><span class="pill ok">supported</span></td><td>Keys held by Circle, not in our env vars.</td></tr>
+<tr><td>Cross-chain to venue</td><td>CCTP V2 standard transfer via App Kit Bridge (Arc 26 → Solana 5 / Base 6)</td><td class="p-arc">Circle</td><td><span class="pill ok">both listed</span></td><td>Arc shows no "fast transfer" in Circle's table; standard is fine since Arc finalizes quickly. Test with $2 first.</td></tr>
+<tr><td>Swap on Solana</td><td>Jupiter Swap API (Ultra is superseded by Swap V2), output to the user's token account</td><td>—</td><td><span class="pill chk">check output param</span></td><td>Confirm the V2 field for a destination token account; else swap to relay, then transfer in the same tx.</td></tr>
+<tr><td>Swap on Base</td><td>App Kit Swap first; Uniswap Trading API if the pair isn't routed</td><td class="p-arc">Circle</td><td><span class="pill chk">check pairs</span></td><td>For Corning-type assets that only trade on Base.</td></tr>
+<tr><td>Other venues</td><td>Ethereum and Arbitrum (Uniswap), BNB Chain (PancakeSwap via an audited bridge from Base, capped); one adapter interface, cheapest all-in route wins</td><td>—</td><td><span class="pill chk">behind flags</span></td><td>BNB has no CCTP and no Circle USDC (verified 6 Nov).</td></tr>
+<tr><td>AI</td><td>0G Private Computer, OpenAI SDK with <code>baseURL=https://router-api.0g.ai/v1</code>, header <code>X-0G-Provider-Trust-Mode: private</code></td><td class="p-og">0G</td><td><span class="pill ok">docs verified</span></td><td>Store every request ID with the purchase. Models in the AI section.</td></tr>
+<tr><td>0G account (bonus)</td><td>"Sign in with 0G" in Settings → Connections; calls billed to the user's daily iAI credits</td><td class="p-og">0G</td><td><span class="pill chk">get docs at booth</span></td><td>Earlier note: their sign-in only works on localhost:3000, so demo it locally.</td></tr>
+<tr><td>Public registry + proofs</td><td>Arkiv testnet (rabdi, chain 7794095), <code>@arkiv-network/sdk</code> 1.0.1 (schemas, <code>ExpirationTime</code>; query run live 6 Nov)</td><td class="p-arkiv">Arkiv</td><td><span class="pill ok">docs verified</span></td><td>Testnet only; holds no money.</td></tr>
+<tr><td>Gmail invoices</td><td>Google OAuth incremental scope <code>gmail.readonly</code>; Gmail API <code>users.messages.list</code> + <code>get</code></td><td>—</td><td><span class="pill chk">restricted scope</span></td><td>Unverified app: warning screen and at most 100 users ever. Add judges as test users.</td></tr>
+<tr><td>FX at read time</td><td>Frankfurter (ECB reference rates, includes INR), saved with source and timestamp</td><td>—</td><td><span class="pill ok">free, no key</span></td><td>Daily reference rate is enough for a 5% allocation.</td></tr>
+<tr><td>Prices for balances</td><td>Jupiter price API (Solana tokens); USDC = $1</td><td>—</td><td><span class="pill ok">free</span></td><td>Cache 60 s.</td></tr>
+<tr><td>Private database</td><td>Postgres on Neon, Drizzle ORM</td><td>—</td><td><span class="pill ok">standard</span></td><td>Nothing here is public, so it doesn't belong on Arkiv.</td></tr>
+<tr><td>Share cards</td><td>Next.js <code>ImageResponse</code> at <code>/card/[id].png</code>, 1200×630</td><td>—</td><td><span class="pill ok">standard</span></td><td>Amounts hidden by default.</td></tr>
+<tr><td>Push</td><td>Web Push (VAPID) from the PWA service worker</td><td>—</td><td><span class="pill ok">standard</span></td><td>iOS needs the PWA added to the home screen.</td></tr>
+</table></div>
+
+<h2 id="infra">Infrastructure we run</h2>
+<div class="tbl"><table>
+<tr><th>Piece</th><th>Where</th><th>Size for the demo</th></tr>
+<tr><td>Web app + API</td><td>Vercel (one Next.js project, Node runtime for chain SDKs)</td><td>Hobby tier</td></tr>
+<tr><td>Keeper</td><td>Vercel Cron → <code>POST /api/keeper/run</code> (Sun 04:30 UTC) plus the "Buy now" button; idempotent per batch ID</td><td>One run ≈ 30–90 s; split per venue if it nears the function timeout</td></tr>
+<tr><td>Gmail scanner</td><td>Called on app open, plus Vercel Cron every 6 h</td><td>30-day window, max 50 messages per run</td></tr>
+<tr><td>Database</td><td>Neon Postgres (one branch for dev, one for demo)</td><td>Free tier</td></tr>
+<tr><td>Secrets</td><td>Vercel env vars: Circle API key + entity secret, 0G key, Google OAuth secret, Arkiv writer key, relay key, VAPID keys</td><td>Relay key funded with ~$0.10 SOL for fees only</td></tr>
+<tr><td>Monitoring</td><td>Vercel logs + a <code>events</code> table that drives Activity</td><td>Enough to debug on stage</td></tr>
+</table></div>
+
+<h2 id="gas">Gasless on every chain</h2>
+<p><b>Rule:</b> users only ever hold dollars (USDC). They never need ETH, SOL or any other gas token, on any chain. Every network fee is either paid by us (sponsored) or taken in USDC from the amount being moved, and the app shows it in dollars before the user approves.</p>
+<div class="tbl"><table>
+<tr><th>Chain</th><th>Google users (Circle wallets)</th><th>Seed-phrase users (own keys)</th><th>Keeper / backend</th></tr>
+<tr><td><b>Arc</b></td><td>Gas is USDC natively. Circle Gas Station sponsors SCA wallets, so confirm and withdraw show "$0.00"</td><td>Gas is USDC natively; the user pays a fraction of a cent from their USDC. No native token exists to buy</td><td>Circle developer wallet + Gas Station</td></tr>
+<tr><td><b>Base · Ethereum · Arbitrum</b></td><td>Circle Gas Station sponsors the SCA's transactions (Gateway deposit, withdraw)</td><td>Circle Paymaster: pays gas in USDC through ERC-4337 or an EIP-7702-upgraded account (Arbitrum, Base, Ethereum on EntryPoint v0.8). Fallback: user signs a USDC <code>receiveWithAuthorization</code> (EIP-3009) and our relayer submits it</td><td>Developer wallet + Gas Station</td></tr>
+<tr><td><b>Solana</b></td><td>Circle Gas Station fee payer covers fees and token-account rent</td><td>Kora (Solana Foundation's fee relayer, self-hosted): we co-sign as fee payer; sponsored, or charged in USDC</td><td>Relay pays SOL; Jupiter's <code>payer</code> parameter for swaps (no minimum size)</td></tr>
+<tr><td><b>Cross-chain moves</b></td><td colspan="3">Gateway charges its fee in USDC (0.005% + a small gas fee, capped by <code>maxFee</code>); the Forwarding Service mints on the destination with no gas there ($0.20 + gas, in USDC). CCTP from the vault is executed by the keeper.</td></tr>
+</table></div>
+<h3>Who pays, and how it shows</h3>
+<ul>
+<li><b>Demo (hackathon):</b> sponsor everything with Gas Station and Kora. Fund the Gas Station policy and the Kora fee payer with about $10. Every screen says "Network fee $0.00 (we cover it)".</li>
+<li><b>After launch:</b> keep sponsoring deposits and confirms; take the actual network cost of the weekly buy in USDC from the batch (already shown as "fees $0.05" on Review and Done). Seed-phrase users on EVM pay through Circle Paymaster in USDC.</li>
+<li><b>Limits so sponsorship can't be drained:</b> a Gas Station policy with per-user daily caps and an allowlist of contracts (USDC, Gateway Wallet, OwnbackVault); Kora configured to sign only those program calls; rate limits on our relayer.</li>
+</ul>
+<h3>Verify before relying on it</h3>
+<ul>
+<li>Gas Station's chain list includes Arc mainnet (the docs table we read was cut off).</li>
+<li>Circle Paymaster's fee: the docs say 10% of gas on Arbitrum and Base; check current pricing.</li>
+<li>Whether the Gateway Wallet accepts a signed authorization deposit, so EOAs can deposit without gas. If not, seed-phrase users deposit on Arc or Solana, or use Paymaster.</li>
+<li>Kora's current setup steps and whether the hackathon can use a hosted Kora node instead of running one.</li>
+</ul>
+
+<h2 id="flows">Key flows</h2>
+<h3>1 · Sign in</h3>
+<ol class="steps">
+<li><b>Google:</b> PWA → Circle Web SDK social login → Circle returns a user token. Backend creates (first time) an <code>ARC</code> SCA wallet and a <code>SOL</code> wallet for that user and stores both addresses.</li>
+<li><b>Seed phrase:</b> PWA creates or imports 12/24 words, derives both addresses, keeps the encrypted words on the device and sends only the addresses plus a signed login message (SIWE-style) to the backend.</li>
+<li>Set your rules → backend calls nothing on-chain yet; the vault reads rules when the user first allocates.</li>
+</ol>
+<h3>2 · Deposit</h3>
+<ol class="steps">
+<li>User picks the chain they're sending from; the app shows the EVM or Solana address.</li>
+<li>Arc deposits land directly. Other chains: the app asks the user to approve moving USDC into the Gateway Wallet (Gas Station pays EVM gas), giving one balance.</li>
+<li>When jars need dollars on Arc, the app mints from the Gateway balance on Arc and deposits into the vault in one signed step.</li>
+</ol>
+<h3>3 · Add a purchase (Gmail or camera)</h3>
+<ol class="steps">
+<li><b>Gmail:</b> scanner lists messages from a shop allowlist (Amazon, Flipkart, Myntra, Croma, Nykaa, Swiggy Instamart, Blinkit…) in the last 30 days, skips IDs already processed, and sends the text body to 0G (private mode). Bodies are dropped after extraction.</li>
+<li><b>Camera / upload / voice / typed:</b> the image or audio goes straight to 0G; nothing is written to disk.</li>
+<li>0G vision/LLM returns <code>{shop, items[], total, currency, date, is_product}</code> with a request ID.</li>
+<li>Backend fetches the FX rate for that date, converts to USD and saves rate, source and time with the purchase.</li>
+<li>Match: brand → maker (0G tool-calling model + Wikidata) → Arkiv <code>company</code> and <code>asset</code> lookups → <code>supplier-of</code> and materials from Arkiv → keep only assets with a verified token and a live Jupiter quote. Unknown or private brand → fallback screen.</li>
+<li>Split 70 / 20 / 10 across what's buyable; respect monthly limit and max per company (same rules the vault checks).</li>
+</ol>
+<h3>4 · Confirm</h3>
+<ol class="steps">
+<li>User taps "Confirm $47.75 across 6" → one Arc transaction: <code>vault.allocate(purchaseId, assets[], amounts[])</code>, signed in Circle's challenge (Google users) or locally (seed users).</li>
+<li>Vault checks limits, moves USDC from the user's free balance into the jars and emits <code>Allocated</code>. Backend mirrors it into Postgres and shows "Saved".</li>
+</ol>
+<h3>5 · Buy (user approves, keeper executes)</h3>
+<ol class="steps">
+<li>Sunday reminder (or any time): Buy review quotes every enabled venue and picks the cheapest all-in route; reference price check (≤ 2%); fees vs the user's cap. The user signs a BuyApproval (typed data).</li>
+<li>Keeper (Circle developer wallet) calls <code>vault.execute(batchId, domain, orders)</code> with the signed approvals, which the vault verifies. The vault burns the total through CCTP to the fixed relay token account on Solana and records each user's share in <code>Executed</code>.</li>
+<li>Poll Circle's attestation; call <code>receiveMessage</code> on Solana to mint USDC to the relay.</li>
+<li>For each entry: Jupiter swap USDC → asset with output to the user's own token account (create the ATA if missing; relay pays rent and fees).</li>
+<li>Write one Arkiv <code>proof</code> per entry (asset, amount, tx hashes, 0G request ID; no address). Push "Sunday buy done".</li>
+<li>If a swap fails, USDC stays in the relay and is retried next run; after two failures it is sent back to Arc and returned to that user's free balance.</li>
+</ol>
+<h3>6 · Withdraw and share</h3>
+<ol class="steps">
+<li>Withdraw: <code>vault.withdraw(amount)</code> sends free USDC only to the caller. Shares never pass through us after the swap; they are already in the user's wallet.</li>
+<li>Share: <code>/card/[id].png</code> renders the card; the shared link <code>/u/[code]</code> shows it with the referral code and a sign-in button.</li>
+</ol>
+
+<h2 id="vault">Vault contract (Arc)</h2>
+<pre>// Sketch only. The frozen spec is contracts/vault-spec.md (v3): signed BuyApproval in execute,
+// receiveDeposit from forwarders, per-asset cap with the fallback exempt, 48 h Solana recipient change.
+contract OwnbackVault {
+  // per user
+  struct Rules { uint16 rateBps; uint64 monthlyCap; uint16 maxPerAssetBps; bytes32 fallbackAsset; }
+  mapping(address =&gt; Rules) public rules;               // rateBps must be 200..1000 (2–10%)
+  mapping(address =&gt; uint256) public free;              // USDC not yet in a jar
+  mapping(address =&gt; mapping(bytes32 =&gt; uint256)) public jar;   // asset id → USDC
+  mapping(address =&gt; mapping(uint32 =&gt; uint256)) public spentInMonth;
+
+  function setRules(Rules calldata r) external;           // checks bounds
+  function deposit(uint256 amount) external;              // USDC transferFrom
+  function allocate(bytes32 purchaseId, bytes32[] calldata assets, uint256[] calldata amounts) external;
+      // reverts over monthly cap or max per asset; purchaseId can't be reused
+  function cancelJar(bytes32 asset) external;             // jar → free
+  function withdraw(uint256 amount) external;             // free → msg.sender only
+
+  // keeper only
+  function execute(bytes32 batchId, Entry[] calldata e) external onlyKeeper;
+      // each entry: user, asset, amount ≤ jar, amount ≥ $5; burns total via CCTP
+      // to the venue's fixed relay (set at deploy, changeable only after a 48 h timelock)
+  event Allocated(address indexed user, bytes32 purchaseId, bytes32 asset, uint256 amount);
+  event Executed(bytes32 indexed batchId, address indexed user, bytes32 asset, uint256 amount, uint32 domain);
+}</pre>
+<p><b>Tests (in Studio, then Foundry):</b> rate outside 2–10% reverts · allocation over the monthly cap reverts · the same purchase ID twice reverts · withdraw only ever pays the caller · execute below $5 or above the jar reverts · non-keeper execute reverts · relay change before the timelock reverts.</p>
+
+<h2 id="data">Data model (Postgres)</h2>
+<div class="tbl"><table>
+<tr><th>Table</th><th>Key columns</th></tr>
+<tr><td><code>users</code></td><td>id, auth_kind (google | seed), email (google only), evm_address, sol_address, circle_user_id, referral_code, referred_by</td></tr>
+<tr><td><code>rules</code></td><td>user_id, rate_bps, monthly_cap, max_per_asset_bps, fallback_asset, split (70/20/10), buy_day</td></tr>
+<tr><td><code>purchases</code></td><td>id, user_id, source (gmail | photo | voice | typed), shop, items json, amount_local, currency, fx_rate, fx_source, fx_at, amount_usd, status (matched | review | saved | bought | skipped), og_request_ids[], gmail_message_id</td></tr>
+<tr><td><code>allocations</code></td><td>purchase_id, asset_id, role (maker | supplier | material | fallback), amount_usd, arc_tx</td></tr>
+<tr><td><code>buys</code></td><td>batch_id, user_id, asset_id, amount_usd, qty, venue, arc_tx, cctp_nonce, sol_tx, arkiv_key, status</td></tr>
+<tr><td><code>gmail_connections</code></td><td>user_id, google_sub, scopes, refresh_token (encrypted), last_scan_at, state (none | no_access | scanning | ok | revoked)</td></tr>
+<tr><td><code>events</code></td><td>user_id, kind, payload, created_at · drives the Activity screen and push</td></tr>
+</table></div>
+<p>Receipt images, audio and email bodies are never stored. "Delete all receipt data" removes <code>purchases.items</code>, shop names and Gmail IDs and keeps only amounts needed for limits.</p>
+
+<h2 id="arkiv">Arkiv schema</h2>
+<div class="tbl"><table>
+<tr><th>Entity</th><th>Attributes we filter on</th><th>Owner</th><th>Expires</th><th>Screen that reads it</th></tr>
+<tr><td><code>brand</code></td><td>name, aliases, country, parent_company_id</td><td>Ownback registry wallet</td><td>180 days (refreshed by import)</td><td>Fix the match (search), match pipeline</td></tr>
+<tr><td><code>company</code></td><td>name, ticker, exchange, wikidata_id, listed</td><td>registry wallet</td><td>180 days</td><td>Confirm, Holdings</td></tr>
+<tr><td><code>supplier-of</code></td><td>supplier_id, customer_id, product, role ("makes the A19 chip"), source_url, quote</td><td>registry wallet</td><td>180 days (Arkiv max ≈ 182), refreshed weekly</td><td>Confirm ("Behind the product", "Why these companies?")</td></tr>
+<tr><td><code>asset</code></td><td>company_id or material, chain, mint/address, issuer, verified_from (issuer list URL)</td><td>registry wallet</td><td>30 days (re-verified)</td><td>Match pipeline (guards against fake pools)</td></tr>
+<tr><td><code>proof</code></td><td>asset, amount_usd, arc_tx, cctp_nonce, sol_tx, og_request_id, week</td><td>keeper wallet</td><td>180 days, extended while held (tx hashes stay on-chain)</td><td>Holding proof trail, public explorer</td></tr>
+</table></div>
+<p>No wallet address, email or shop name ever goes into an Arkiv entity. Required repo files: <code>/arkiv/schema.md</code>, <code>/arkiv/friction.md</code>, <code>/arkiv/reach.md</code>, <code>/arkiv/why-arkiv.md</code>, <code>/arkiv/how-you-use-arkiv.md</code>, plus the writer wallet addresses and one runnable query in the README.</p>
+
+<h2 id="ai">AI on 0G</h2>
+<div class="tbl"><table>
+<tr><th>Job</th><th>Model class on 0G</th><th>Input → output</th></tr>
+<tr><td>Read receipt / screenshot</td><td>Qwen vision (multimodal)</td><td>image → <code>{shop, items, total, currency, date}</code></td></tr>
+<tr><td>Read Gmail invoice</td><td>Fast LLM (Qwen3.7-Flash or GLM-5.3-Flash), JSON mode</td><td>email text → same JSON + <code>is_product</code></td></tr>
+<tr><td>Brand → maker → ticker</td><td>Same LLM with tool calls (Wikidata, Arkiv search)</td><td>item + brand → company id + confidence</td></tr>
+<tr><td>Suppliers (precompute ~10 products)</td><td>GLM-5.3 long context</td><td>10-K text → supplier rows with the quoted sentence; no quote, no row</td></tr>
+<tr><td>Voice entry</td><td>Whisper Large v3</td><td>audio → text → same pipeline</td></tr>
+<tr><td>Fuzzy brand search</td><td>Qwen3 Embedding</td><td>"thums up" → Coca-Cola</td></tr>
+</table></div>
+<p>All calls use the private trust mode. <b>The sentence 0G asks for:</b> without 0G, Ownback can't read a receipt or an invoice, or tell which companies are behind a product, so no purchase ever becomes a share and no buy has a verifiable reason.</p>
+
+<h2 id="api">API surface</h2>
+<div class="tbl"><table>
+<tr><th>Route</th><th>Does</th></tr>
+<tr><td><code>POST /api/auth/circle</code> · <code>POST /api/auth/seed</code></td><td>Create session; first time creates wallets / stores addresses</td></tr>
+<tr><td><code>GET/PUT /api/rules</code></td><td>Rate, limits, split, fallback, buy day</td></tr>
+<tr><td><code>GET /api/balance</code></td><td>Total, by type (stocks &amp; commodities, stablecoins, crypto) and by chain</td></tr>
+<tr><td><code>POST /api/purchases</code></td><td>Image, audio or text → read + FX + match; returns the Confirm payload</td></tr>
+<tr><td><code>GET /api/gmail/state</code> · <code>POST /api/gmail/scan</code> · <code>GET /api/gmail/invoices</code></td><td>The six Gmail states and the invoice list</td></tr>
+<tr><td><code>POST /api/purchases/:id/confirm</code></td><td>Builds the <code>allocate</code> call for the wallet to sign; records the tx</td></tr>
+<tr><td><code>GET /api/receipts</code> · <code>GET /api/receipts/:id</code> · <code>DELETE /api/receipts</code></td><td>Receipts tab, detail, delete my data</td></tr>
+<tr><td><code>GET /api/holdings</code> · <code>GET /api/holdings/:asset</code></td><td>Holdings and the proof trail</td></tr>
+<tr><td><code>POST /api/keeper/run</code></td><td>Cron or "Buy now"; idempotent by batch ID</td></tr>
+<tr><td><code>GET /card/[id].png</code> · <code>GET /u/[code]</code></td><td>Share card image and shared-link page</td></tr>
+</table></div>
+
+<h2 id="trust">Security and trust</h2>
+<ul>
+<li><b>What Ownback can never do:</b> move tokens out of a user's wallet, withdraw anyone's free USDC, or send jar money anywhere except the venue relay for that jar.</li>
+<li><b>The one custody gap:</b> for about a minute per weekly run, bought-to-be USDC sits in the relay on Solana between the CCTP mint and the swap. It is capped by the batch, logged per user on-chain, and proven on Arkiv. Post-hackathon fix: a small Solana program that swaps and enforces the destination.</li>
+<li><b>Keys:</b> users' keys are with Circle (Google users) or on their device (seed users). The keeper's Arc key is a Circle developer-controlled wallet. Only the Solana relay key and the Arkiv writer key live in our env vars, and both hold dust.</li>
+<li><b>Token safety:</b> every buy checks the mint against the Arkiv <code>asset</code> entry, which came from the issuer's official list; DexScreener shows fake PAXG/XAUt pools on Solana.</li>
+<li><b>Privacy:</b> images, audio and email bodies are processed in 0G private mode and not stored. Gmail access is read-only, asked for on tap, revocable, and limited to shop senders.</li>
+<li><b>Rules:</b> xStocks aren't for US persons, so geo-block US. No advice, no promise of returns; the user picks the rule, we execute it.</li>
+</ul>
+
+<h2 id="docs">Docs to write before building</h2>
+<p>What we have: PRD, wireframes (36 screens with states), this architecture doc, brand kit. They describe <i>what</i> to build. To build backend, contracts and frontend in parallel without integration bugs, the teams also need agreed <i>contracts between the parts</i>. Ordered by when they're needed.</p>
+<div class="tbl"><table>
+<tr><th>#</th><th>Doc</th><th>What it fixes</th><th>Status</th><th>Needed by</th></tr>
+<tr><td>1</td><td><b>Spike results</b></td><td>Answers to "Verify first": CCTP Arc → Solana with $2, Studio to mainnet, Jupiter destination account, Gas Station on Arc, Gateway deposit by authorization. Decides several designs.</td><td><span class="pill no">missing</span></td><td>Thu 23:00</td></tr>
+<tr><td>2</td><td><b>Chain config</b></td><td>One file of every address and ID: USDC, CCTP contracts, Gateway Wallet/Minter, domains, RPCs, explorers, verified token mints per asset. Everyone imports it; no hard-coded addresses.</td><td><span class="pill no">missing</span></td><td>Thu 23:00</td></tr>
+<tr><td>3</td><td><b>State machines</b></td><td>Exact states and transitions for purchase, jar, deposit, buy batch, buy entry, Gmail connection, withdraw. The wireframe state boards become shared enums, so the UI and API can't disagree.</td><td><span class="pill chk">in wireframes, not formal</span></td><td>Thu 23:00</td></tr>
+<tr><td>4</td><td><b>Vault contract spec</b></td><td>Storage, functions, events, custom errors, roles, invariants, test list; ABI frozen before the frontend wires it.</td><td><span class="pill chk">sketch here</span></td><td>Fri 01:00</td></tr>
+<tr><td>5</td><td><b>API contract</b></td><td>Every route's request, response and error shape as shared TypeScript types (zod), plus error codes. Frontend builds against mocks of it from hour one.</td><td><span class="pill no">missing</span></td><td>Fri 01:00</td></tr>
+<tr><td>6</td><td><b>Database schema</b></td><td>Columns, types, indexes, unique keys (purchase ID, Gmail message ID, batch ID) as a Drizzle file + first migration.</td><td><span class="pill chk">table list here</span></td><td>Fri 01:00</td></tr>
+<tr><td>7</td><td><b>AI spec + test set</b></td><td>Model per job, prompts, JSON output schemas, and 20 real receipts/emails with expected output. Lets us change prompts without breaking the match.</td><td><span class="pill no">missing</span></td><td>Fri 03:00</td></tr>
+<tr><td>8</td><td><b>Registry seed data</b></td><td>~10 products: brand → maker → suppliers (with source quote) → materials → verified token per chain. Blocks the Confirm screen and the Arkiv import.</td><td><span class="pill no">missing</span></td><td>Fri 05:00</td></tr>
+<tr><td>9</td><td><b>Arkiv schema</b> (<code>/arkiv/schema.md</code>)</td><td>Entities, attributes, owners, expiries, and the queries screens run. Also a prize requirement.</td><td><span class="pill chk">table here</span></td><td>Fri 05:00</td></tr>
+<tr><td>10</td><td><b>Gas and fee policy</b></td><td>Who pays which fee on which chain, sponsor caps, and how fees appear in USDC on screen.</td><td><span class="pill ok">section above</span></td><td>Fri 05:00</td></tr>
+<tr><td>11</td><td><b>Copy and error catalog</b></td><td>Every user-facing message from the state boards, keyed by error code. Stops raw errors reaching the UI.</td><td><span class="pill no">missing</span></td><td>Fri 12:00</td></tr>
+<tr><td>12</td><td><b>Design tokens</b></td><td>Chosen logo, colours and fonts as a Tailwind config. Waits on the brand pick.</td><td><span class="pill chk">waiting on pick</span></td><td>Fri 12:00</td></tr>
+<tr><td>13</td><td><b>Test and demo plan</b></td><td>Acceptance test per requirement (R1–R16), the mainnet money budget, and the exact on-stage script with a backup recording.</td><td><span class="pill chk">requirements in PRD</span></td><td>Fri 20:00</td></tr>
+<tr><td>14</td><td><b>Accounts and secrets checklist</b></td><td>Who creates the Circle console app, Google OAuth client and test users, 0G key, Arkiv key, Neon DB, Vercel; where each secret lives.</td><td><span class="pill chk">env list here</span></td><td>Thu 21:30</td></tr>
+<tr><td>15</td><td><b>Submission pack</b></td><td>README, the five <code>/arkiv/*.md</code> files, AI-use note, Arc Studio URL, video script.</td><td><span class="pill no">later</span></td><td>Sat 03:00</td></tr>
+</table></div>
+<p>Docs 2, 3, 5 and the vault ABI from 4 should live in the repo as code (<code>packages/shared</code>), not as prose, so the compiler catches mismatches between frontend and backend.</p>
+
+<h2 id="verify">Verify first (Thursday night)</h2>
+<div class="tbl"><table>
+<tr><th>Question</th><th>Status</th><th>If no</th></tr>
+<tr><td>CCTP Arc (26) → Solana (5) with $2 real USDC</td><td><span class="pill ok">both domains listed</span> not yet sent</td><td>Arc → Base (6) and buy AAPLc on Base</td></tr>
+<tr><td>Arc Studio can deploy to Arc mainnet</td><td><span class="pill chk">unknown</span></td><td>Build and test in Studio, deploy with Foundry, show both</td></tr>
+<tr><td>Jupiter Swap V2 accepts a destination token account</td><td><span class="pill chk">unknown</span></td><td>Swap to relay, then SPL transfer in the same transaction</td></tr>
+<tr><td>Circle social login works for non-owner Google accounts</td><td><span class="pill chk">needs publish</span></td><td>Publish the consent screen; seed path as fallback</td></tr>
+<tr><td>Gmail restricted scope for judges</td><td><span class="pill chk">add as test users</span></td><td>Demo with the team's own inbox</td></tr>
+<tr><td>Gateway deposit from Solana into the unified balance</td><td><span class="pill ok">listed (domain 5)</span></td><td>Accept Solana USDC directly in the Solana wallet and skip Gateway for it</td></tr>
+<tr><td>0G "sign in with 0G account" API</td><td><span class="pill chk">ask at booth</span></td><td>Skip the bonus</td></tr>
+<tr><td>Tokens for TSMC, Qualcomm, Corning on any venue</td><td><span class="pill chk">unknown</span></td><td>Show them as "not tokenized yet"; demo with Apple, gold, S&amp;P 500</td></tr>
+</table></div>
+
+<h2 id="prize">Prize checklist</h2>
+<div class="grid3">
+<div class="card"><div class="who p-arc">Arc</div><ul><li>Project started in Arc Studio; Studio URL in the submission</li><li>Studio shown in the video</li><li>Working frontend and backend</li><li>This architecture diagram</li><li>State the bounty: DeFi / Onchain Finance</li><li>Circle tools used: Wallets, Gateway, CCTP via App Kit, USDC</li><li>GitHub repo</li></ul></div>
+<div class="card"><div class="who p-og">0G</div><ul><li>0G inference in the main flow with request IDs shown (Reading, Confirm, proof trail)</li><li>The "what breaks without 0G" sentence</li><li>Bonus: user signs in with 0G and the credit balance goes down</li></ul></div>
+<div class="card"><div class="who p-arkiv">Arkiv</div><ul><li>Writes with <code>@arkiv-network/sdk</code> to the current testnet</li><li>Features users see read from Arkiv</li><li>README: writer addresses + one query</li><li>Five <code>/arkiv/*.md</code> files</li><li>Public repo, open-source license, AI-use note</li></ul></div>
+</div>
+
+<h2 id="repo">Repo layout and env</h2>
+<pre>ownback/
+  app/                 Next.js PWA + route handlers (api/, card/, u/)
+  lib/circle/          wallets, gateway, bridge (App Kit)
+  lib/og/              0G client, prompts, schemas
+  lib/arkiv/           entity types, reads, writes
+  lib/venues/          jupiter.ts, base.ts, router.ts
+  workers/             keeper.ts, gmail-scan.ts
+  contracts/           OwnbackVault.sol, tests (from Arc Studio), foundry.toml
+  scripts/             import-registry.ts (brands, suppliers, verified mints → Arkiv)
+  arkiv/               schema.md friction.md reach.md why-arkiv.md how-you-use-arkiv.md
+  docs/architecture.svg
+
+CIRCLE_API_KEY  CIRCLE_ENTITY_SECRET  CIRCLE_APP_ID
+OG_API_KEY  ARKIV_RPC  ARKIV_WRITER_KEY
+GOOGLE_CLIENT_ID  GOOGLE_CLIENT_SECRET
+DATABASE_URL  SOLANA_RPC  RELAY_SOL_KEY  VAULT_ADDRESS
+VAPID_PUBLIC  VAPID_PRIVATE</pre>
+
+<h2 id="sources">Sources</h2>
+<ul style="font-size:14px">
+<li>ETHGlobal Mumbai prizes page: Arc, 0G and Arkiv tracks (read 5 Nov)</li>
+<li><a href="https://developers.circle.com/cctp/concepts/supported-chains-and-domains">Circle: CCTP supported chains and domains</a> (Arc 26, Solana 5, Base 6, Ethereum 0, Arbitrum 3)</li>
+<li><a href="https://developers.circle.com/gateway/references/supported-blockchains">Circle: Gateway supported blockchains</a></li>
+<li><a href="https://developers.circle.com/wallets/supported-blockchains">Circle: Wallets supported blockchains</a> (ARC EOA/SCA, SOL EOA, no Solana contract execution)</li>
+<li><a href="https://developers.circle.com/w3s/create-your-first-wallet-with-social-logins">Circle: user-controlled wallets with social login</a></li>
+<li><a href="https://docs.arc.io/app-kit/references/supported-blockchains">Arc: App Kit supported blockchains</a></li>
+<li><a href="https://www.theblock.co/news/ecosystems/2026-09-16-circle-launches-arc-mainnet-blackrock-and-visa-among-validators-mints-10-billion-arc-tokens-415250">The Block: Arc mainnet launch, 16 Sep 2026</a></li>
+<li><a href="https://0g.ai/pc/page.md">0G Private Computer</a> (router base URL, private trust mode)</li>
+<li><a href="https://arkiv.dev.golem.network/docs">Arkiv docs</a> (SDK, expiresIn, queries)</li>
+<li><a href="https://developers.jup.ag/docs/ultra/execute-order">Jupiter developer docs</a> (Ultra superseded by Swap V2)</li>
+<li><a href="https://support.google.com/cloud/answer/15549945">Google: unverified apps and user caps</a></li>
+<li><a href="https://developers.circle.com/paymaster">Circle Paymaster</a> (gas in USDC, ERC-4337 v0.7/v0.8, EIP-7702)</li>
+<li><a href="https://developers.circle.com/wallets/gas-station">Circle Gas Station</a> and <a href="https://developers.circle.com/wallets/wallets-on-solana">Wallets on Solana</a> (fee payers)</li>
+<li><a href="https://developers.circle.com/gateway/references/fees">Circle Gateway fees</a> and <a href="https://developers.circle.com/gateway/howtos/forwarding-service">Forwarding Service</a></li>
+<li><a href="https://solana.com/docs/tools/kora/getting-started">Kora, Solana fee relayer</a></li>
+<li><a href="https://developers.jup.ag/docs/ultra/add-payer">Jupiter: integrator payer</a></li>
+</ul>
+</main>
+</div>
