@@ -19,7 +19,7 @@ Write and run these in Arc Studio first (Arc prize rule), then keep them in Foun
 | U11 | Allocate more than `free` | `InsufficientFree` |
 | U12 | `depositAndAllocate` with free = 35.40 and deposit 12.35 → allocate 47.75 | Pass |
 | U13 | Month rollover: allocate at the cap on 30 Nov 23:59 UTC, warp to 1 Dec 00:00 → allocate again | Pass |
-| U14 | `MonthIndex.of` against known dates (leap years, 31 Dec → 1 Jan) | Matches |
+| U14 | `MonthIndex.monthOf` against known dates (leap years, 31 Dec → 1 Jan) | Matches |
 | U15 | `cancelJar` → free up, jar 0, monthly spent unchanged | Pass |
 | U16 | `withdraw` pays `msg.sender` only; another user can't withdraw someone's free balance | Pass / underflow revert |
 | U17 | `withdrawCrossChain` to domain 5 without `solanaRecipient` | `NoSolanaRecipient` |
@@ -57,7 +57,7 @@ Write and run these in Arc Studio first (Arc prize rule), then keep them in Foun
 
 - `allocate` with random arrays, lengths 1–16 and amounts 1..1e12: either reverts with a known error, or `Σjar + free` is unchanged for the user.
 - `execute` with random entries: `Σ jar` drops by exactly the burned total.
-- `MonthIndex.of(t)` is non-decreasing in `t`, and increases by exactly 1 across each month boundary.
+- `MonthIndex.monthOf(t)` is non-decreasing in `t`, and increases by exactly 1 across each month boundary.
 
 ## Invariant tests (`test/Invariants.t.sol`)
 

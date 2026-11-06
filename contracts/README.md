@@ -15,7 +15,15 @@ Two contracts:
 
 Read [docs/03](../docs/03-decisions-and-open-questions.md) (Q1, Q3, Q7) and [docs/10](../docs/10-security-audit.md) (A2, A5, A6, A14) first.
 
-## Layout (once code exists)
+## Build and test
+
+```bash
+cd contracts && forge build && forge test
+```
+
+Dependencies are vendored in `lib/` (forge-std v1.11.0, OpenZeppelin v5.4.0), not git submodules.
+
+## Layout
 
 ```
 contracts/
@@ -26,7 +34,8 @@ contracts/
   src/interfaces/ITokenMessengerV2.sol, IMessageTransmitterV2.sol
   test/OwnbackVault.t.sol        unit + fuzz
   test/Invariants.t.sol
-  test/Fork.t.sol                Anvil fork of Arc mainnet
+  test/OwnbackDepositForwarder.t.sol
+  test/Fork.t.sol                Anvil fork of Arc mainnet (not written yet)
   script/Deploy.s.sol
 ```
 

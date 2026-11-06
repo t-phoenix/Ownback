@@ -175,13 +175,43 @@ The constructor sets the immutables, owner, keeper, initial relays (5 = Solana r
 
 ## Views
 
-`currentMonth()` · `remainingThisMonth(user)` · `jarsOf(user, assets[])` · `approvalRemaining(h, i)` · `hashApproval(BuyApproval)`
+`currentMonth()` · `remainingThisMonth(user)` · `jarsOf(user, assets[])` · `approvalRemaining(BuyApproval a, uint256 i)` (takes the approval: item amounts aren't stored; 0 if cancelled or expired) · `hashApproval(BuyApproval)` · `domainSeparator()`
 
 ## Custom errors
 
 `RateOutOfBounds` · `InvalidRules` · `RulesNotSet` · `ZeroAmount` · `LengthMismatch` · `TooManyItems` · `AssetsNotSorted` · `PurchaseUsed` · `InsufficientFree(uint256)` · `OverMonthlyCap(uint256 remaining)` · `BatchUsed` · `UnknownRelay` · `OverJar` · `OverBatchCap` · `BadSignature` · `ApprovalExpired` · `ApprovalCancelledErr` · `OverApproval(uint256 i)` · `WrongDomain` · `NotKeeper` · `NotOwner` · `IsPaused` · `NoSolanaRecipient` · `UnsupportedDomain` · `FeeTooHigh` · `OverExecuted` · `NoSurplus` · `UnknownForwarder` · `BadDeposit` · `TimelockNotReady` · `NothingPending`
 
 No `OverAssetCap`: per-company max was removed (Q1 revised).
+
+## Events
+
+```solidity
+RulesSet(address indexed user, uint16 rateBps, uint64 monthlyCap, bytes32 fallbackAsset)
+SolanaRecipientProposed(address indexed user, bytes32 ata, uint64 eta) · SolanaRecipientSet(address indexed user, bytes32 ata)
+Deposited(address indexed user, uint256 amount, uint32 sourceDomain)           // 26 for Arc deposits
+Allocated(address indexed user, bytes32 indexed purchaseId, bytes32 indexed asset, uint256 amount)
+JarCancelled(address indexed user, bytes32 indexed asset, uint256 amount)
+ApprovalCancelled(address indexed user, bytes32 indexed approvalHash) · BuyApproved(address indexed user, bytes32 indexed approvalHash)
+Withdrawn(address indexed user, uint256 amount, uint32 domain, bytes32 recipient) // bytes32: EVM address or Solana ATA
+Executed(bytes32 indexed batchId, address indexed user, bytes32 indexed asset, uint256 amount, uint32 domain, bytes32 approvalHash, uint256 maxPriceUsd6, uint256 maxFeeUsd6)
+BatchSent(bytes32 indexed batchId, uint32 domain, uint256 total)
+ReturnedToJar(bytes32 indexed batchId, address indexed user, bytes32 indexed asset, uint256 amount)
+Paused(bool) · RelayProposed/ForwarderProposed(uint32 indexed domain, bytes32 value, uint64 eta) · RelaySet/ForwarderSet(uint32 indexed domain, bytes32 value)
+KeeperProposed(address keeper, uint64 eta) · KeeperSet(address keeper) · OwnershipTransferStarted(from, to) · OwnershipTransferred(from, to)
+// Forwarder: Forwarded(address indexed user, uint256 amount, uint256 maxFee) · RelayerProposed(address, uint64 eta) · RelayerSet(address)
+```
+
+## Implementation notes (code in `src/`, Solidity 0.8.28, via-IR)
+
+Choices the spec above left open; the code follows these:
+
+- `MonthIndex.of` is `MonthIndex.monthOf` (`of` is a reserved word in Solidity).
+- Error choices: a caller who isn't `a.user` on `cancelApproval` / `approveBuy` → `BadSignature`. `setSolanaRecipient(0)` → `NoSolanaRecipient`. Empty `assets` / `itemIndex` arrays → `LengthMismatch`; `orders` of 0 or > 50, or approval items of 0 or > 16 → `TooManyItems`. `cancelJar` on an empty jar → `ZeroAmount`. Withdraw above `free` → `InsufficientFree(free)`.
+- `withdrawCrossChain` burns with `minFinalityThreshold = 2000` (standard, same as `execute`).
+- `receiveDeposit` also requires the CCTP header `recipient` = Arc TokenMessengerV2. That proves the message is a real burn, so the body's `messageSender` can be trusted. It also requires `feeExecuted < amount`, a non-zero hookData user, and a 32-byte hookData word.
+- `returnToJar` lowers `executedIn` by the amount returned (that's how I7 is enforced).
+- Forwarder: `owner` is immutable (set in the constructor). The relayer changes via `proposeRelayer` / `activateRelayer` (48 h). Errors: `NotRelayer` · `NotOwner` · `ZeroAmount` · `FeeTooHigh` · `TimelockNotReady` · `NothingPending`.
+- Constructor: `(usdc, tokenMessenger, messageTransmitter, maxBatchUsd6, owner, keeper, DomainValue[] relays, DomainValue[] forwarders)` with `DomainValue { uint32 domain; bytes32 value; }`.
 
 ## Invariants
 
