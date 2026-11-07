@@ -21,3 +21,11 @@ fail_on_revert = false
 
 [fuzz]
 runs = 512
+
+[rpc_endpoints]
+arc = "${RPC_ARC}"
+
+# Verification: pass CLI flags (explorer.arc.io is Cloudflare-gated from forge).
+#   forge verify-contract … --verifier-url https://explorer.arc.io/api \
+#     --etherscan-api-key $ARCSCAN_API_KEY --chain 5042
+# Or verify in the browser UI.

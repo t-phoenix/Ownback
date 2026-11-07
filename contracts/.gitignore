@@ -2,3 +2,7 @@ out/
 cache/
 broadcast/
 .arc-studio/
+.env
+.env.*
+!.env.example
+verify-kit/
