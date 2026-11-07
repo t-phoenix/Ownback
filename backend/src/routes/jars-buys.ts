@@ -1,3 +1,4 @@
+import { assetDisplayName } from '../lib/asset-name.js';
 import { Hono } from 'hono';
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
@@ -39,7 +40,7 @@ jarsBuysRoutes.get('/jars', async (c) => {
     `;
     const jars = rows.map((r) => ({
       assetId: r.asset_id,
-      name: r.asset_id,
+      name: assetDisplayName(r.asset_id),
       role: r.role,
       amountUsd6: toUsd6(r.amt),
       readyMinUsd6: toUsd6(readyMin),
@@ -105,7 +106,7 @@ jarsBuysRoutes.get('/buys/review', async (c) => {
       const selectable = feeWithinCap(fee, r.amt, maxFeeBps) && mockChain();
       return {
         assetId: r.asset_id,
-        name: r.asset_id,
+        name: assetDisplayName(r.asset_id),
         amountUsd6: toUsd6(r.amt),
         token: undefined as string | undefined,
         chain: 'solana' as const,

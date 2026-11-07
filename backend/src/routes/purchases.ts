@@ -16,6 +16,9 @@ import {
 } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { mockChain } from '../lib/env.js';
+import { readPurchase, type ReadInput } from '../lib/og/read.js';
+import { getCatalogCompany } from '../lib/registry/catalog.js';
+import { getAsset, verifiedMint } from '../shared/assets.js';
 
 export const purchaseRoutes = new Hono();
 
@@ -38,7 +41,9 @@ async function loadPurchase(userId: string, id: string) {
     SELECT asset_id, role, amount_usd6, selected, why, source_url
     FROM allocations WHERE purchase_id = ${id}::uuid
   `;
-  return { p: rows[0], allocs };
+  const og = await sql<{ og_request_id: string }[]>`SELECT og_request_id FROM ai_runs WHERE purchase_id = ${id}::uuid AND og_request_id IS NOT NULL ORDER BY created_at`;
+  const p: Record<string, unknown> = { ...rows[0], og_request_ids: og.map((r) => r.og_request_id) };
+  return { p, allocs };
 }
 
 function purchaseJson(
@@ -87,17 +92,25 @@ function purchaseJson(
     ...(p.invest_usd6 != null ? { investUsd6: toUsd6(p.invest_usd6 as bigint) } : {}),
     ...(p.rate_bps != null ? { rateBps: p.rate_bps as number } : {}),
     ...(p.split ? { split: p.split } : {}),
-    allocations: allocs.map((a) => ({
-      assetId: a.asset_id,
-      name: a.asset_id,
-      role: a.role,
-      tokenized: true,
-      amountUsd6: toUsd6(a.amount_usd6),
-      selected: a.selected,
-      why: a.why ?? undefined,
-      sourceUrl: a.source_url ?? undefined,
-    })),
-    ogRequestIds: [],
+    allocations: allocs.map((a) => {
+      const cat = getCatalogCompany(a.asset_id);
+      const buyable = Boolean(verifiedMint(a.asset_id, 'solana'));
+      return {
+        assetId: a.asset_id,
+        name: getAsset(a.asset_id)?.name ?? cat?.name ?? a.asset_id,
+        role: a.role,
+        tokenized: buyable || Boolean(cat?.tokenized),
+        verifiedBuyable: buyable,
+        venue: buyable ? 'jupiter' : undefined,
+        token: buyable ? verifiedMint(a.asset_id, 'solana')?.symbol : cat?.tokens[0]?.symbol,
+        chain: buyable ? 'solana' : cat?.tokens[0]?.chain,
+        amountUsd6: toUsd6(a.amount_usd6),
+        selected: a.selected,
+        why: a.why ?? undefined,
+        sourceUrl: a.source_url ?? undefined,
+      };
+    }),
+    ogRequestIds: (p.og_request_ids as string[] | undefined) ?? [],
     ...(p.rest_usd6 && (p.rest_usd6 as bigint) > 0n
       ? { restPendingUsd6: toUsd6(p.rest_usd6 as bigint) }
       : {}),
@@ -115,12 +128,16 @@ purchaseRoutes.post('/purchases', async (c) => {
     let source: 'photo' | 'voice' | 'typed' = 'typed';
     let text: { product: string; amount: string; currency: string; maker?: string } | null = null;
 
+    let media: File | null = null;
     if (ct.includes('multipart/form-data')) {
       const form = await c.req.parseBody();
-      if (form['image']) source = 'photo';
-      else if (form['audio']) source = 'voice';
+      const image = form['image'], audio = form['audio'];
+      if (image instanceof File) { source = 'photo'; media = image; }
+      else if (audio instanceof File) { source = 'voice'; media = audio; }
       else throw new ApiError('UNSUPPORTED_MEDIA');
-      // shortcut: size check deferred to busboy when upload pipeline lands; 0G read is async job
+      if (media.size > 8 * 1024 * 1024) throw new ApiError('UPLOAD_TOO_LARGE');
+      const okType = source === 'photo' ? /^image\/(jpeg|png|webp|heic|heif)$/ : /^audio\//;
+      if (!okType.test(media.type)) throw new ApiError('UNSUPPORTED_MEDIA');
     } else {
       const body = z
         .object({
@@ -136,7 +153,8 @@ purchaseRoutes.post('/purchases', async (c) => {
       source = 'typed';
     }
 
-    const hash = createHash('sha256').update(JSON.stringify({ source, text })).digest('hex');
+    const mediaBytes = media ? Buffer.from(await media.arrayBuffer()) : null;
+    const hash = createHash('sha256').update(JSON.stringify({ source, text })).update(mediaBytes ?? Buffer.alloc(0)).digest('hex');
     const out = await withIdempotency(user.id, key, hash, async () => {
       const sql = getSql();
       const id = newId();
@@ -145,62 +163,18 @@ purchaseRoutes.post('/purchases', async (c) => {
       `;
       const r = rules[0]!;
 
-      if (text && mockChain()) {
-        // Typed path completes sync under MOCK_CHAIN using registry-free fallback only when maker given.
-        const amountLocal = Number(text.amount);
-        const amountUsd6 = BigInt(Math.round(amountLocal * 1_000_000)); // identity FX when currency=USD; INR needs fx_rates
-        let usd = amountUsd6;
-        let fxRate = '1';
-        let fxSource = 'identity';
-        if (text.currency !== 'USD') {
-          const fx = await sql<{ rate: string }[]>`
-            SELECT rate::text FROM fx_rates WHERE currency = ${text.currency} ORDER BY date DESC LIMIT 1
-          `;
-          if (fx[0]) {
-            fxRate = fx[0].rate;
-            fxSource = 'cache';
-            usd = BigInt(Math.round((amountLocal / Number(fxRate)) * 1_000_000));
-          }
-        }
-        const makers = text.maker
-          ? [{ assetId: text.maker.startsWith('co:') ? text.maker : `co:${text.maker.toLowerCase()}`, role: 'maker' as const }]
-          : [];
-        const split = splitInvest({
-          amountUsd6: usd,
-          rateBps: r.rate_bps,
-          split: { maker: r.split_maker, behind: r.split_behind, materials: r.split_materials },
-          makers,
-          behind: [],
-          materials: [],
-          fallbackAsset: r.fallback_asset,
-        });
-        const status = split.notListed ? 'not_listed' : 'ready';
-        await sql`
-          INSERT INTO purchases (
-            id, user_id, source, status, shop, items, purchased_on, amount_local, currency,
-            fx_rate, fx_source, fx_date, amount_usd6, rate_bps, invest_usd6, split, created_at, updated_at
-          ) VALUES (
-            ${id}::uuid, ${user.id}::uuid, ${source}, ${status}, 'Typed',
-            ${sql.json([{ name: text.product, brand: text.maker ?? null, qty: 1 }])}::jsonb,
-            CURRENT_DATE, ${text.amount}, ${text.currency},
-            ${fxRate}, ${fxSource}, CURRENT_DATE, ${usd.toString()}::bigint, ${r.rate_bps}, ${split.investUsd6.toString()}::bigint,
-            ${sql.json({ maker: r.split_maker, behind: r.split_behind, materials: r.split_materials })}::jsonb,
-            now(), now()
-          )
-        `;
-        for (const row of split.rows) {
-          await sql`
-            INSERT INTO allocations (id, purchase_id, asset_id, role, amount_usd6, selected)
-            VALUES (${newId()}::uuid, ${id}::uuid, ${row.assetId}, ${row.role}, ${row.amountUsd6.toString()}::bigint, true)
-          `;
-        }
-      } else {
-        await sql`
-          INSERT INTO purchases (id, user_id, source, status, created_at, updated_at)
-          VALUES (${id}::uuid, ${user.id}::uuid, ${source}, 'reading', now(), now())
-        `;
-        // Photo/voice stay `reading` until 0G job (integrations.md); not invented here.
-      }
+      await sql`
+        INSERT INTO purchases (id, user_id, source, status, created_at, updated_at)
+        VALUES (${id}::uuid, ${user.id}::uuid, ${source}, 'reading', now(), now())
+      `;
+      // Read on 0G inside the request (works on serverless; the client polls GET /purchases/:id either way).
+      const input: ReadInput =
+        source === 'photo'
+          ? { kind: 'image', dataUrl: `data:${media!.type};base64,${mediaBytes!.toString('base64')}` }
+          : source === 'voice'
+            ? { kind: 'audio', file: new Blob([mediaBytes!], { type: media!.type }), filename: media!.name || 'note.webm' }
+            : { kind: 'text', text: `${text!.product}, total ${text!.amount} ${text!.currency}`, makerHint: text!.maker };
+      await readPurchase(id, user.id, r, input);
       return { purchaseId: id };
     });
     return c.json(out);
@@ -312,14 +286,17 @@ purchaseRoutes.put('/purchases/:id/assets', async (c) => {
 purchaseRoutes.get('/makers/search', async (c) => {
   try {
     await requireUser(c);
-    const q = (c.req.query('q') ?? '').toLowerCase();
-    // Registry JSON not filled (☐ mints). Return empty until database/registry seed is verified.
-    const known = [
-      { companyId: 'co:apple', name: 'Apple Inc.', ticker: 'AAPL', listed: true, tokenized: false },
-      { companyId: 'co:nike', name: 'Nike Inc.', ticker: 'NKE', listed: true, tokenized: false },
-      { companyId: 'co:unilever', name: 'Unilever', ticker: 'UL', listed: true, tokenized: false },
-    ].filter((x) => !q || x.name.toLowerCase().includes(q) || x.companyId.includes(q));
-    return c.json({ items: known });
+    const { searchCompanies } = await import('../lib/registry/catalog.js');
+    const q = c.req.query('q') ?? '';
+    const items = searchCompanies(q, 30).map((x) => ({
+      companyId: x.assetId,
+      name: x.name,
+      ticker: x.ticker ?? undefined,
+      listed: x.listed,
+      tokenized: x.tokenized,
+      verifiedBuyable: x.verifiedBuyable,
+    }));
+    return c.json({ items });
   } catch (e) {
     return jsonError(c, e);
   }

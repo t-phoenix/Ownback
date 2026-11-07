@@ -4,3 +4,4 @@
 .env.*
 *.pem
 node_modules/
+scripts/smoke/node_modules/

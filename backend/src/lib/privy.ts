@@ -40,8 +40,10 @@ export async function resolvePrivyIdentity(
   const appId = process.env.PRIVY_APP_ID || process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   const appSecret = process.env.PRIVY_APP_SECRET;
 
-  if (!appId || !appSecret || mockChain()) {
-    if (!mockChain() && (!appId || !appSecret)) throw new ApiError('UPSTREAM');
+  // Real keys present → always verify the JWT. MOCK_CHAIN only mocks the chain, never auth:
+  // mixing the two let any made-up token sign in whenever MOCK_CHAIN=1 (found 7 Nov).
+  if (!appId || !appSecret) {
+    if (!mockChain() || process.env.NODE_ENV === 'production') throw new ApiError('UPSTREAM');
     return mockIdentity(accessToken, extras);
   }
 
@@ -55,11 +57,12 @@ export async function resolvePrivyIdentity(
       id?: string;
       email?: { address?: string } | null;
       wallet?: { address?: string };
-      linked_accounts?: Array<{ type?: string; address?: string; chain_type?: string }>;
+      linked_accounts?: Array<{ type?: string; address?: string; chain_type?: string; email?: string }>;
     };
 
     const did = u.id || claims.user_id;
-    const email = u.email?.address ?? null;
+    // Google login puts the email on the linked google_oauth account, not on `email` (7 Nov live sign-in).
+    const email = u.email?.address ?? u.linked_accounts?.find((a) => a.type === 'google_oauth' && a.email)?.email ?? null;
     let evmAddress: string | null = u.wallet?.address ?? null;
     let solAddress: string | null = null;
     for (const a of u.linked_accounts ?? []) {

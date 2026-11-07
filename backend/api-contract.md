@@ -56,7 +56,7 @@ type Fees = { totalUsd6: Usd6; pctBps: number; capBps: number; overCap: boolean;
 
 **What the server puts in front of a vault action (in this order, only when needed):**
 1. `setRules` (if `onchainSynced` is false)
-2. `setSolanaRecipient(ata)` (if the vault has none). `ata` = the USDC associated token account of the user's own Solana address (Privy Solana or seed), derived by the server and re-derived by the PWA in `verifyAction` (A6).
+2. `setSolanaRecipient(ata)` (if the vault has none). Identity is the user's Privy/seed **Solana wallet** (`solAddress`). `ata` is only that wallet's **USDC** ATA (CCTP mintRecipient must be a token account). Derived by the server from `solAddress` + USDC mint + Token program; re-derived by the PWA in `verifyAction` (A6). Never a per-asset RWA ATA — those are derived at Jupiter swap time (D26, docs/03 O7).
 3. `usdc.approve(vault, exactAmount)` (before `deposit` / `depositAndAllocate`; exact amount, never unlimited)
 4. The action itself.
 
@@ -219,6 +219,22 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | GET | `/api/me/export` | — | JSON file (everything we hold) | — |
 | POST | `/api/og/connect` | — | `{ authUrl }` (iAI bonus, flag `OG_SIGNIN`) | `FEATURE_OFF` |
 
+### Asset catalog (curate → propose → promote)
+
+Verified mints only. Pipeline: [database/asset-discovery.md](../database/asset-discovery.md). AI may **propose**; promote requires issuer + index + on-chain evidence (A1).
+
+| Method | Path | Auth | Body / result |
+|---|---|---|---|
+| GET | `/api/assets` | public | `{ assets: { assetId; name; class; mints[] }[] }` — verified rows from `assets-curated.json` |
+| GET | `/api/catalog` | public | Counts + storage map for discovery catalog vs Arkiv |
+| GET | `/api/catalog/companies` | public | `?q=&limit=` company rows for Fix-the-match / Confirm |
+| GET | `/api/catalog/tokens` | public | `?chain=&issuer=&status=&limit=` long RWA token list |
+| GET | `/api/assets/candidates` | public | `{ candidates }` — proposed / verified / promoted |
+| POST | `/api/assets/candidates` | cron (`CRON_SECRET`); open when `MOCK_CHAIN=1` | Propose mint `{ assetId, name, class, chain, symbol, mint, issuer, venues?, evidence?, source? }` → `{ candidate, threeSource, promoteReady }` |
+| POST | `/api/assets/candidates/:id/verify` | public (rate-limit later) | On-chain decimals → attaches `onchain` evidence |
+| POST | `/api/assets/candidates/:id/promote` | cron; open when `MOCK_CHAIN=1` | Three-source gate → curated JSON + Arkiv write |
+| POST | `/api/jobs/registry/scrape-xstocks` | cron | Issuer scrape → candidates (issuer evidence only) |
+
 ### Public and jobs
 
 | Method | Path | Auth | Does |
@@ -234,6 +250,8 @@ type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: 
 | POST | `/api/jobs/rest-pending` | cron, 1st of month | Q7 notifications |
 | POST | `/api/jobs/arkiv/refresh` | weekly | Extend Arkiv entities with < 30 days left (A17) |
 | POST | `/api/jobs/relay/watch` | every 1 min | Alert on stuck/suspicious relay outflows (A3) |
+| POST | `/api/jobs/registry/scrape-xstocks` | cron | See asset catalog above |
+
 
 ## Errors
 

@@ -45,8 +45,12 @@ Only gold (GLDx / XAUt / PAXG) and silver (SLVon) have liquid tokens today. The 
                   "role": "Makes the A19 chip", "sourceUrl": "☐", "quote": "☐ exact sentence", "year": 2026 }],
   "materialOf":[{ "product_cat": "smartphone", "material": "mat:gold", "use": "Circuit board contacts" }],
   "assets":   [{ "asset_id": "co:apple", "chain": "solana", "issuer": "xStocks", "symbol": "AAPLx",
-                 "mint": "☐", "decimals": "☐ read on-chain", "verifiedFrom": "☐ issuer list URL" }]
+                 "mint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", "decimals": 8,
+                 "verifiedFrom": "xstocks.com featured + coingecko apple-xstock + on-chain 2026-11-07" }]
 }
+
+Live curated file: [registry/assets-curated.json](registry/assets-curated.json). Discovery pipeline: [asset-discovery.md](asset-discovery.md).
+
 ```
 
 The import script refuses any file with a `☐` left in it, and any `supplierOf` row whose `quote` is shorter than 20 characters. Check `decimals` against the mint on-chain.

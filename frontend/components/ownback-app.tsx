@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Home as HomeIcon, Plus, ReceiptText, RefreshCw, Settings as SettingsIcon, Upload, WalletCards } from "lucide-react";
 import { Logo } from "./logo";
 import { App, type Navigate } from "./app-context";
-import { haptic, Ring } from "./ui";
-import { week } from "../lib/fixtures";
+import { haptic } from "./ui";
+import { SessionProvider, useSession } from "./session";
+import { refreshAll } from "../lib/use-api";
 import { Home, Activity } from "./screens/home";
 import { Holdings, Holding } from "./screens/holdings";
-import { AddPurchase, Reading, Confirm, Saved } from "./screens/add";
+import { AddPurchase, Reading, ReadError, TypeIt, Confirm, Saved, startRead } from "./screens/add";
 import { Jars, BuyReview, BuyDone } from "./screens/buy";
 import { Receipts } from "./screens/receipts";
 import { Settings, Funds } from "./screens/settings";
@@ -24,6 +25,11 @@ const tabs = [
 const tabPaths = tabs.map(t => t.path);
 
 export function OwnbackApp({ initialPath = "/" }: { initialPath?: string }) {
+  return <SessionProvider><Shell initialPath={initialPath} /></SessionProvider>;
+}
+
+function Shell({ initialPath }: { initialPath: string }) {
+  const { me } = useSession();
   const [path, setPath] = useState(initialPath);
   const [dir, setDir] = useState<"fwd" | "back" | "left" | "right">("fwd");
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
@@ -32,9 +38,9 @@ export function OwnbackApp({ initialPath = "/" }: { initialPath?: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => { setPath(window.location.pathname); }, []);
+  useEffect(() => { setPath(window.location.pathname + window.location.search); }, []);
   useEffect(() => {
-    const onPop = () => { setDir("back"); setPath(window.location.pathname); };
+    const onPop = () => { setDir("back"); setPath(window.location.pathname + window.location.search); };
     addEventListener("popstate", onPop); return () => removeEventListener("popstate", onPop);
   }, []);
   useEffect(() => {
@@ -42,8 +48,8 @@ export function OwnbackApp({ initialPath = "/" }: { initialPath?: string }) {
   }, []);
 
   const navigate: Navigate = useCallback((next, opts) => {
-    if (next === window.location.pathname) return;
-    const from = tabPaths.indexOf(window.location.pathname), to = tabPaths.indexOf(next);
+    if (next === window.location.pathname + window.location.search) return;
+    const from = tabPaths.indexOf(window.location.pathname), to = tabPaths.indexOf(next.split("?")[0]);
     setDir(opts?.dir ?? (from > -1 && to > -1 ? (to > from ? "left" : "right") : "fwd"));
     history.pushState({}, "", next); setPath(next);
     scrollTo({ top: 0 });
@@ -55,8 +61,16 @@ export function OwnbackApp({ initialPath = "/" }: { initialPath?: string }) {
   }, []);
   const ctx = useMemo(() => ({ navigate, notify, path }), [navigate, notify, path]);
 
-  const isTab = tabPaths.includes(path);
-  const isBare = path === "/signin" || path.startsWith("/onboarding");
+  const [route, query] = path.split("?");
+  const isTab = tabPaths.includes(route);
+  const isBare = route === "/signin" || route.startsWith("/onboarding");
+
+  /* Session gate: signed out → Sign in; signed in on Sign in → rules (first time) or Home. */
+  useEffect(() => {
+    if (me === undefined) return;
+    if (me === null && route !== "/signin") { history.replaceState({}, "", "/signin"); setPath("/signin"); }
+    if (me && route === "/signin") { const to = me.onboarded ? "/" : "/onboarding/rules"; history.replaceState({}, "", to); setPath(to); }
+  }, [me, route]);
 
   /* Desktop: single-key shortcuts. Reaching for the keyboard is faster than the mouse for regulars. */
   useEffect(() => {
@@ -77,10 +91,16 @@ export function OwnbackApp({ initialPath = "/" }: { initialPath?: string }) {
     const enter = (e: DragEvent) => { if (!hasFiles(e)) return; depth++; setDropping(true); };
     const leave = (e: DragEvent) => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) setDropping(false); };
     const over = (e: DragEvent) => { if (hasFiles(e)) e.preventDefault(); };
-    const drop = (e: DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); depth = 0; setDropping(false); navigate("/add/reading", { dir: "fwd" }); };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return; e.preventDefault(); depth = 0; setDropping(false);
+      const f = e.dataTransfer?.files[0];
+      if (f && f.type.startsWith("image/")) startRead({ kind: "image", file: f, name: f.name }, navigate);
+    };
     const paste = (e: ClipboardEvent) => {
       if ((e.target as HTMLElement).closest?.("input, textarea")) return;
-      if (Array.from(e.clipboardData?.items ?? []).some(i => i.type.startsWith("image/"))) { e.preventDefault(); navigate("/add/reading", { dir: "fwd" }); }
+      const item = Array.from(e.clipboardData?.items ?? []).find(i => i.type.startsWith("image/"));
+      const f = item?.getAsFile();
+      if (f) { e.preventDefault(); startRead({ kind: "image", file: f, name: f.name || "screenshot.png" }, navigate); }
     };
     addEventListener("dragenter", enter); addEventListener("dragleave", leave); addEventListener("dragover", over); addEventListener("drop", drop); addEventListener("paste", paste);
     return () => { removeEventListener("dragenter", enter); removeEventListener("dragleave", leave); removeEventListener("dragover", over); removeEventListener("drop", drop); removeEventListener("paste", paste); };
@@ -103,41 +123,47 @@ export function OwnbackApp({ initialPath = "/" }: { initialPath?: string }) {
     const s = touch.current; touch.current = null; if (!s || !s.ok) return;
     const t = e.changedTouches[0]; const dx = t.clientX - s.x;
     if (s.axis === "x" && Math.abs(dx) > 80) {
-      const i = tabPaths.indexOf(path); const ni = dx < 0 ? i + 1 : i - 1;
+      const i = tabPaths.indexOf(route); const ni = dx < 0 ? i + 1 : i - 1;
       if (ni >= 0 && ni < tabPaths.length) { haptic(6); navigate(tabPaths[ni]); }
     }
     if (pull > 64) {
       haptic([6, 30, 6]); setRefreshing(true); setPull(56);
-      setTimeout(() => { setRefreshing(false); setPull(0); notify("Updated just now"); }, 900);
+      refreshAll();
+      setTimeout(() => { setRefreshing(false); setPull(0); notify("Updated just now"); }, 700);
     } else if (!refreshing) setPull(0);
   };
 
+  const seg = route.split("/").filter(Boolean);
   let screen: React.ReactNode;
-  if (path === "/signin") screen = <SignIn />;
-  else if (path === "/onboarding/rules") screen = <Rules />;
-  else if (path === "/funds") screen = <Funds />;
-  else if (path === "/activity") screen = <Activity />;
-  else if (path === "/add/reading") screen = <Reading />;
-  else if (path === "/add/confirm") screen = <Confirm />;
-  else if (path === "/add/saved") screen = <Saved />;
-  else if (path === "/jars") screen = <Jars />;
-  else if (path === "/buy/review") screen = <BuyReview />;
-  else if (path === "/buy/done") screen = <BuyDone />;
-  else if (path.startsWith("/holdings/")) screen = <Holding id={path.split("/")[2]} />;
-  else if (path === "/holdings") screen = <Holdings />;
-  else if (path === "/add") screen = <AddPurchase />;
-  else if (path === "/receipts") screen = <Receipts />;
-  else if (path === "/settings") screen = <Settings />;
+  if (me === undefined) screen = <div className="splash" aria-busy="true"><Logo /></div>;
+  else if (route === "/signin" || me === null) screen = <SignIn />;
+  else if (route === "/onboarding/rules") screen = <Rules />;
+  else if (route === "/funds") screen = <Funds />;
+  else if (route === "/activity") screen = <Activity />;
+  else if (route === "/add/reading") screen = <Reading />;
+  else if (route === "/add/error") screen = <ReadError />;
+  else if (route === "/add/type") screen = <TypeIt />;
+  else if (seg[0] === "add" && seg[1] && seg[2] === "saved") screen = <Saved id={seg[1]} />;
+  else if (seg[0] === "add" && seg[1]) screen = <Confirm id={seg[1]} />;
+  else if (route === "/jars") screen = <Jars />;
+  else if (route === "/buy/review") screen = <BuyReview all={query === "all"} />;
+  else if (seg[0] === "buy" && seg[1]) screen = <BuyDone batchId={seg[1]} />;
+  else if (seg[0] === "holdings" && seg[1]) screen = <Holding id={decodeURIComponent(seg[1])} />;
+  else if (route === "/holdings") screen = <Holdings />;
+  else if (route === "/add") screen = <AddPurchase />;
+  else if (route === "/receipts") screen = <Receipts />;
+  else if (route === "/settings") screen = <Settings />;
   else screen = <Home />;
 
+  const bare = isBare || !me;
   return <App.Provider value={ctx}>
-    <div className={`shell ${isBare ? "bare" : ""} ${isTab ? "has-tabs" : ""}`}>
-      {!isBare && <Sidebar path={path} navigate={navigate} />}
+    <div className={`shell ${bare ? "bare" : ""} ${isTab && me ? "has-tabs" : ""}`}>
+      {!bare && <Sidebar path={route} navigate={navigate} />}
       <main className="stage" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
         {isTab && <div className={`ptr ${refreshing ? "spin" : ""}`} style={{ height: pull, opacity: Math.min(1, pull / 60) }} aria-hidden="true"><RefreshCw size={18} style={{ transform: `rotate(${pull * 3}deg)` }} /></div>}
         <div key={path} className={`screen enter-${dir}`}>{screen}</div>
       </main>
-      {isTab && <TabBar path={path} navigate={navigate} />}
+      {isTab && me && <TabBar path={route} navigate={navigate} />}
       {toast && <div key={toast.id} className="toast" role="status">{toast.text}</div>}
       {dropping && <div className="drop-veil" aria-hidden="true"><div className="drop-card"><Upload size={28} /><strong>Drop your receipt</strong><span>Read by a private AI model on 0G. The photo is deleted after reading.</span></div></div>}
     </div>
@@ -158,7 +184,6 @@ function TabBar({ path, navigate }: { path: string; navigate: Navigate }) {
 }
 
 function Sidebar({ path, navigate }: { path: string; navigate: Navigate }) {
-  const added = week.added.filter(Boolean).length;
   return <aside className="sidebar" aria-label="Main navigation">
     <button className="sidebar-logo" onClick={() => navigate("/")} aria-label="Ownback home"><Logo /></button>
     <button className="button primary full sidebar-add" onClick={() => navigate("/add")}><Plus size={18} strokeWidth={2.4} /> Add a purchase <kbd>A</kbd></button>
@@ -169,11 +194,11 @@ function Sidebar({ path, navigate }: { path: string; navigate: Navigate }) {
           <Icon size={19} strokeWidth={active ? 2.2 : 1.75} /><span>{label}</span><kbd>{key}</kbd>
         </button>;
       })}
-      <button className={`side-item ${path === "/activity" ? "active" : ""}`} onClick={() => navigate("/activity")}><Bell size={19} strokeWidth={1.75} /><span>Activity</span><span className="side-count">3</span></button>
+      <button className={`side-item ${path === "/activity" ? "active" : ""}`} onClick={() => navigate("/activity")}><Bell size={19} strokeWidth={1.75} /><span>Activity</span><kbd>N</kbd></button>
     </nav>
     <div className="side-ritual">
-      <Ring value={(added / 7) * 100} size={42} stroke={4}><strong>{added}</strong></Ring>
-      <div><strong>Buy day is Sunday</strong><span>{added} receipts this week · 3 jars ready</span></div>
+      <span className="ritual-icon"><Bell size={18} /></span>
+      <div><strong>Buy day is Sunday</strong><span>We'll remind you when jars are ready.</span></div>
     </div>
     <p className="side-foot">Drop a receipt anywhere, or paste a screenshot.</p>
   </aside>;

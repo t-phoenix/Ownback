@@ -25,11 +25,11 @@ When two sources disagree, the higher one wins:
 | Area | Rule | Spec |
 |---|---|---|
 | Signing | Every user action goes through one `SignableAction`. Google (Privy) and seed both use `evm_calls` / `sol_tx` / `typed_data`. PWA runs them via Privy or local keys. `circle_challenge` is legacy | [api-contract § Signable actions](../backend/api-contract.md#signable-actions) |
-| Before a vault action | The server prepends, only when needed: `setRules` → `setSolanaRecipient(user's USDC ATA)` → `usdc.approve(vault, exactAmount)` → the action | same |
+| Before a vault action | The server prepends, only when needed: `setRules` → `setSolanaRecipient(USDC ATA derived from Privy `solAddress`)` → `usdc.approve(vault, exactAmount)` → the action. Never invent ATAs; never store RWA ATAs on the vault | same |
 | Auth | Session cookie after `POST /api/auth/privy` or `/api/auth/seed`. No `x-circle-user-token` | [api-contract § Conventions](../backend/api-contract.md#conventions) |
 | Trust | The server never trusts a client's "it succeeded". It reads Arc receipts and events before changing state. The PWA decodes every action (`verifyAction`) before the user signs | docs/02, A5 |
 | Arc gas buffer | Deposits leave $0.10 USDC in the user's Arc wallet for gas (Google and seed) | [docs/05](05-gasless-and-fees.md) |
-| Solana buys | Relay pays gas/rent; Jupiter `payer` = relay, destination = user ATA; never airdrop SOL for buys (D26) | docs/05, Q9 |
+| Solana buys | Relay pays gas/rent; Jupiter `payer` = relay, destination = ATA(`solAddress`, mint, token program) derived at swap time; never airdrop SOL (D26). Vault `solanaRecipient` is USDC-withdraw / CCTP only | docs/05, Q9, docs/03 O7 |
 | Arkiv reads | Always `.createdBy(WRITER).ownedBy(WRITER)`. A mint must also match `assets.ts` | [database/arkiv-schema.md](../database/arkiv-schema.md), A1 |
 | Keeper | EOA (`KEEPER_*`). Executes only stored, unexpired, signature-checked approvals. Re-simulates before each irreversible step. Anything not bought goes back to the jar (we pay) | [backend/keeper-and-jobs.md](../backend/keeper-and-jobs.md) |
 | Privacy | Never store images, audio or email bodies. Never put an address, email or shop name on Arkiv or in logs | [docs/06](06-security.md) |

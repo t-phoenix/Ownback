@@ -1,0 +1,117 @@
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { PrivyProvider, useLogin, useLogout, useModalStatus, usePrivy, useSignTypedData, useWallets } from "@privy-io/react-auth";
+import { api, ApiError, type Me } from "../lib/api";
+import { clearApiCache } from "../lib/use-api";
+import { setPrivyBridge } from "../lib/sign-action";
+
+const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
+
+type Session = {
+  /** undefined = still checking, null = signed out */
+  me: Me | null | undefined;
+  refresh: () => Promise<Me | null>;
+  signIn: () => void;
+  signOut: () => Promise<void>;
+  busy: boolean;
+  error: string | null;
+  configured: boolean;
+};
+
+const Ctx = createContext<Session>({ me: undefined, refresh: async () => null, signIn: () => {}, signOut: async () => {}, busy: false, error: null, configured: false });
+export const useSession = () => useContext(Ctx);
+
+async function fetchMe(): Promise<Me | null> {
+  try { return await api.me(); }
+  catch (e) { if (e instanceof ApiError && (e.status === 401 || e.code === "UNAUTHENTICATED")) return null; throw e; }
+}
+
+/** Privy owns Google sign-in and the embedded wallets; our API owns the session cookie. */
+function PrivySession({ children }: { children: ReactNode }) {
+  const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { ready, authenticated, getAccessToken, user } = usePrivy();
+  const synced = useRef(false);
+  const { logout } = useLogout();
+  const { signTypedData } = useSignTypedData();
+  const { wallets } = useWallets();
+
+  const refresh = useCallback(async () => { const m = await fetchMe().catch(() => null); setMe(m); return m; }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const exchange = useCallback(async () => {
+    setBusy(true); setError(null);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new ApiError("AUTH_INVALID", 401);
+      const { user } = await api.authPrivy(token);
+      clearApiCache(); setMe(user);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.code : "AUTH_INVALID");
+    } finally { setBusy(false); }
+  }, [getAccessToken]);
+
+  const { login } = useLogin({ onComplete: () => { exchange(); }, onError: () => setBusy(false) });
+
+  // If the Privy window closes without a login here (cancelled, or finished in another tab), reset the button.
+  const { isOpen } = useModalStatus();
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (isOpen) { wasOpen.current = true; return; }
+    if (wasOpen.current && !authenticated) { wasOpen.current = false; setBusy(false); }
+  }, [isOpen, authenticated]);
+
+  // Privy remembers the Google login; if our session cookie expired, swap a fresh token silently.
+  useEffect(() => { if (ready && authenticated && me === null && !busy) exchange(); }, [ready, authenticated, me, busy, exchange]);
+
+  // Privy creates the embedded Solana wallet just after login, so the first exchange can miss it. Re-sync once it exists.
+  useEffect(() => {
+    if (!me || me.solAddress || synced.current || busy) return;
+    const hasSol = user?.linkedAccounts.some(a => a.type === "wallet" && "chainType" in a && a.chainType === "solana");
+    if (hasSol) { synced.current = true; exchange(); }
+  }, [me, user, busy, exchange]);
+
+  // Wallet bridge for SignableActions. Typed data (buy approvals) via the embedded EVM wallet.
+  useEffect(() => {
+    const evm = wallets.find(w => w.walletClientType === "privy");
+    setPrivyBridge({
+      signTypedData: async (td) => (await signTypedData(td as Parameters<typeof signTypedData>[0], evm ? { address: evm.address } : undefined)).signature,
+      sendCalls: async () => { throw Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" }); },
+      signAndSendSol: async () => { throw Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" }); },
+    });
+    return () => setPrivyBridge(null);
+  }, [wallets, signTypedData]);
+
+  const value = useMemo<Session>(() => ({
+    me, refresh, busy, error, configured: true,
+    signIn: () => { setError(null); if (authenticated) exchange(); else { setBusy(true); login({ loginMethods: ["google"] }); } },
+    signOut: async () => { await api.logout().catch(() => {}); await logout().catch(() => {}); clearApiCache(); setMe(null); },
+  }), [me, refresh, busy, error, authenticated, exchange, login, logout]);
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+/** Without a Privy app ID the app still renders, but sign-in says it isn't set up. */
+function UnconfiguredSession({ children }: { children: ReactNode }) {
+  const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const refresh = useCallback(async () => { const m = await fetchMe().catch(() => null); setMe(m); return m; }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  const value = useMemo<Session>(() => ({
+    me, refresh, busy: false, configured: false, error: "NOT_CONFIGURED",
+    signIn: () => {}, signOut: async () => { await api.logout().catch(() => {}); clearApiCache(); setMe(null); },
+  }), [me, refresh]);
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  if (!PRIVY_APP_ID) return <UnconfiguredSession>{children}</UnconfiguredSession>;
+  return <PrivyProvider appId={PRIVY_APP_ID} config={{
+    loginMethods: ["google"],
+    appearance: { theme: "light", accentColor: "#0F7B4F", landingHeader: "Sign in to Ownback", showWalletLoginFirst: false },
+    embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" }, solana: { createOnLogin: "users-without-wallets" } },
+  }}>
+    <PrivySession>{children}</PrivySession>
+  </PrivyProvider>;
+}

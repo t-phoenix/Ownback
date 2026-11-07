@@ -12,6 +12,26 @@ export function fmtUsd(c: bigint, opts: { sign?: boolean } = {}): string {
   return `${neg ? "−" : opts.sign ? "+" : ""}$${whole}.${frac}`;
 }
 
+/** Usd6 digit string (micro-USDC) → whole cents, half-up. Display only. */
+export function centsOf(usd6: string | bigint | undefined | null): bigint {
+  if (usd6 == null || usd6 === "") return 0n;
+  const n = typeof usd6 === "bigint" ? usd6 : BigInt(usd6);
+  return (n + 5_000n) / 10_000n;
+}
+
+export const fmtUsd6 = (usd6: string | bigint | undefined | null) => fmtUsd(centsOf(usd6));
+
+/** "79900.00" + "INR" → "₹79,900". Keeps the receipt's own digits; no float maths. */
+export function fmtLocal(amount: string, currency: string): string {
+  const [w, f = ""] = amount.split(".");
+  const sym: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+  const grouped = currency === "INR"
+    ? w.replace(/(\d)(?=(\d\d)+\d$)/g, "$1,")
+    : w.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const frac = f && /[1-9]/.test(f) ? `.${f.padEnd(2, "0")}` : "";
+  return `${sym[currency] ?? `${currency} `}${grouped}${frac}`;
+}
+
 /** Split for typographic display: "$234" and ".20". */
 export function splitUsd(c: bigint): [string, string] {
   const s = fmtUsd(c);

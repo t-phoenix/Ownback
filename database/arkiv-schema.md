@@ -129,3 +129,4 @@ const { entityKey, txHash } = await walletClient.createEntity(
 - 6 Nov: `u64` columns need the `u64()` constructor (a bare `bigint` doesn't type-check).
 - 6 Nov: a schema-less `select().limit()` without `where` throws. Add a filter.
 - 6 Nov: `ownedBy` alone isn't safe because `changeOwnership` exists. Use `createdBy` too.
+- 7 Nov: `str` columns reject >128 UTF-8 bytes. `asset.verified_from` stores a short key (`issuer:kinds:date`); full evidence lives in `database/registry/assets-curated.json`.

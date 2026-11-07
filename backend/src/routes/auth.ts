@@ -13,9 +13,9 @@ import {
   setSessionCookies,
   type AuthedUser,
 } from '../lib/http.js';
-import { mockChain } from '../lib/env.js';
 import { newId, referralCode } from '../lib/ids.js';
 import { resolvePrivyIdentity } from '../lib/privy.js';
+import { verifySeedSignIn } from '../lib/seed-verify.js';
 
 export const authRoutes = new Hono();
 
@@ -144,9 +144,15 @@ authRoutes.post('/auth/seed', async (c) => {
     if (!n || n.expires_at.getTime() < Date.now()) throw new ApiError('AUTH_INVALID');
     if (n.used_at) throw new ApiError('NONCE_USED');
 
-    // Full ECDSA + ed25519 verify lands with packages/shared + viem. MOCK_CHAIN accepts non-empty sigs.
-    if (!mockChain()) throw new ApiError('UPSTREAM');
-    if (!body.evmSignature || !body.solSignature) throw new ApiError('AUTH_INVALID');
+    // Both seed keys must sign the exact nonce message from GET /auth/seed/nonce.
+    const ok = await verifySeedSignIn({
+      evmAddress: body.evmAddress as `0x${string}`,
+      solAddress: body.solAddress,
+      message: `Ownback sign-in\nnonce:${body.nonce}`,
+      evmSignature: body.evmSignature,
+      solSignature: body.solSignature,
+    });
+    if (!ok) throw new ApiError('AUTH_INVALID');
 
     await sql`UPDATE auth_nonces SET used_at = now() WHERE nonce = ${body.nonce}`;
 

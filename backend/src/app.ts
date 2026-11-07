@@ -7,6 +7,7 @@ import { purchaseRoutes } from './routes/purchases.js';
 import { jarsBuysRoutes } from './routes/jars-buys.js';
 import { activityRoutes } from './routes/activity.js';
 import { jobRoutes } from './routes/jobs.js';
+import { assetRoutes } from './routes/assets.js';
 
 export function createApp() {
   const app = new Hono().basePath('/api');
@@ -28,6 +29,7 @@ export function createApp() {
   app.route('/', jarsBuysRoutes);
   app.route('/', activityRoutes);
   app.route('/', jobRoutes);
+  app.route('/', assetRoutes);
 
   return app;
 }

@@ -1,0 +1,305 @@
+{
+  "updatedAt": "2026-11-06",
+  "candidates": [
+    {
+      "id": "1f1cfed5-9b39-4e2f-bdfa-2d7b89e28c78",
+      "assetId": "co:netflix",
+      "name": "Netflix",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "NFLXx",
+      "mint": "XsEH7wWfJJu2ZT3UCFeVfALnVA6CP5ur7Ee11KmzVpL",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for NFLXx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "48a4a8c1-f0d3-4ae3-9e29-30a4f7f47bc1",
+      "assetId": "co:meta",
+      "name": "Meta",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "METAx",
+      "mint": "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for METAx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "bae366ff-b36b-4ef8-9236-2ebbbc340774",
+      "assetId": "co:robinhood",
+      "name": "Robinhood",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "HOODx",
+      "mint": "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for HOODx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "fbe99b78-1493-4f17-bacc-e044ea55e321",
+      "assetId": "co:coinbase",
+      "name": "Coinbase",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "COINx",
+      "mint": "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for COINx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "ffb16506-8d28-484d-b413-621e5d5e9e1f",
+      "assetId": "co:amazon",
+      "name": "Amazon",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "AMZNx",
+      "mint": "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for AMZNx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "62b39e0c-fafa-49aa-84a5-08d062259cb4",
+      "assetId": "co:nvidia",
+      "name": "NVIDIA",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "NVDAx",
+      "mint": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for NVDAx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "39bebf11-d6a0-4fe2-9cb5-55092f897f1d",
+      "assetId": "co:merck",
+      "name": "Merck",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "MRKx",
+      "mint": "XsnQnU7AdbRZYe2akqqpibDdXjkieGFfSkbkjX1Sd1X",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for MRKx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "5b6a13a2-873b-44d6-a375-0c7126b295ca",
+      "assetId": "co:apple",
+      "name": "Apple",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "AAPLx",
+      "mint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for AAPLx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "602c39c1-b615-4f62-8f1f-6de337b59854",
+      "assetId": "co:astrazeneca",
+      "name": "AstraZeneca",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "AZNx",
+      "mint": "Xs3ZFkPYT2BN7qBMqf1j1bfTeTm1rFzEFSsQ1z3wAKU",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for AZNx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "e5d40888-2a6b-4165-9222-6debfc317099",
+      "assetId": "co:mcdonalds",
+      "name": "McDonald's",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "MCDx",
+      "mint": "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for MCDx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "69ac94f8-3e37-4eda-b18d-7bcb719ec34a",
+      "assetId": "co:tesla",
+      "name": "Tesla",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "TSLAx",
+      "mint": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for TSLAx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    },
+    {
+      "id": "4a555d6f-6d0b-43be-8ca8-538d41ab9d9a",
+      "assetId": "co:microsoft",
+      "name": "Microsoft",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "MSFTx",
+      "mint": "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX",
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "proposed",
+      "createdAt": "2026-11-06T23:47:57.575Z",
+      "updatedAt": "2026-11-06T23:47:57.575Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/",
+          "note": "featuredProducts addresses.solana for MSFTx",
+          "checkedAt": "2026-11-06"
+        }
+      ]
+    }
+  ]
+}

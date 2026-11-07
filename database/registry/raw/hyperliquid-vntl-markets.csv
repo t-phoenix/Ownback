@@ -1,0 +1,16 @@
+venue,dex,market,maxLeverage,settlement
+hyperliquid_hip3,vntl,vntl:SPACEX,3,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:OPENAI,3,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:ANTHROPIC,3,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:MAG7,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:SEMIS,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:ROBOT,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:INFOTECH,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:NUCLEAR,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:DEFENSE,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:ENERGY,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:BIOTECH,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:GOLDJM,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:SILVERJM,20,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:WHEAT,10,USDC_perp_not_spot_token
+hyperliquid_hip3,vntl,vntl:SOY,10,USDC_perp_not_spot_token

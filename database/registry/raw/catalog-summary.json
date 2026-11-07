@@ -1,0 +1,31 @@
+{
+  "as_of": "2026-11-07",
+  "sources": {
+    "xstocks": "https://xstocks.com/products __NEXT_DATA__ products[]",
+    "ondo_csv": "https://www.dropbox.com/scl/fi/qjfxyg748mx0dwi6up86d/EXTERNAL-Ondo-GM-Tokens-Ondo-GM-Tokens.csv (from docs.ondo.finance addresses)",
+    "hyperliquid": "POST https://api.hyperliquid.xyz/info type=perpDexs|meta"
+  },
+  "counts": {
+    "xstocks_solana_mints": 1435,
+    "ondo_solana_mints": 458,
+    "ondo_csv_total_rows": 458,
+    "hyperliquid_hip3_markets": 324,
+    "hyperliquid_xyz_markets": 143,
+    "xstocks_commodity_like": 65,
+    "ondo_commodity_like": 40
+  },
+  "swap_routes": {
+    "xstocks_solana": [
+      "Jupiter USDC\u2192mint",
+      "CEX partners listed on xstocks.com"
+    ],
+    "ondo_solana": [
+      "Primary: Ondo GM mint/redeem via USDon (USDC\u2192USDon atomic)",
+      "Secondary: Jupiter / 1inch on Solana"
+    ],
+    "hyperliquid": [
+      "HIP-3 perp DEXes (xyz=trade.xyz etc); USDC margin/settle; NOT spot RWA tokens"
+    ]
+  },
+  "ondo_usdon_solana": "ZPFtoCe7WWqG4N3ZFRccS8T9SMBeHsd1Vmgv2i7ondo"
+}

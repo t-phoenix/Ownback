@@ -1,3 +1,4 @@
+import { assetDisplayName } from '../lib/asset-name.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
@@ -226,7 +227,7 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
     const assetId = c.req.param('assetId');
     return c.json({
       assetId,
-      name: assetId,
+      name: assetDisplayName(assetId),
       subtitle: '',
       valueUsd6: '0',
       spentThisYearUsd6: '0',

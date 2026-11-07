@@ -1,0 +1,9 @@
+overrides:
+  # 1.0.30001823 is younger than the 1-day minimumReleaseAge; pin the previous data release.
+  caniuse-lite: 1.0.30001822
+# Optional native add-ons pulled in by Privy's wallet SDKs; all have pure-JS fallbacks. Don't run their install scripts.
+allowBuilds:
+  '@reown/appkit': false
+  bufferutil: false
+  keccak: false
+  utf-8-validate: false

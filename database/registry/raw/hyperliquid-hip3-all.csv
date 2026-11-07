@@ -1,0 +1,325 @@
+venue,dex,deployer,market,maxLeverage,onlyIsolated,marginMode,settlement,swap_note,file
+hyperliquid_hip3,abcd,,abcd:USA500,25,,,USDC_perp_not_spot_token,,hyperliquid-abcd-markets.csv
+hyperliquid_hip3,cash,,cash:USA500,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:TSLA,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:NVDA,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:HOOD,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:GOOGL,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:INTC,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:AMZN,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:MSFT,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:META,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:GOLD,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:SILVER,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:EWY,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:WTI,10,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:BTC,40,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:KWEB,20,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:ETH,40,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,cash,,cash:CAR,10,,,USDC_perp_not_spot_token,,hyperliquid-cash-markets.csv
+hyperliquid_hip3,flx,,flx:TSLA,10,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:NVDA,10,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:CRCL,5,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:COIN,10,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:XMR,10,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:GOLD,25,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:SILVER,25,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:OIL,15,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:GAS,5,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:BTC,1,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:COPPER,20,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:PALLADIUM,25,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:PLATINUM,25,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:USDE,20,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:USA500,30,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,flx,,flx:USA100,30,,,USDC_perp_not_spot_token,,hyperliquid-flx-markets.csv
+hyperliquid_hip3,hyna,,hyna:BTC,40,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:ETH,25,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:HYPE,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:SOL,20,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:LIT,3,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:ZEC,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:XRP,20,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:LIGHTER,5,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:BNB,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:DOGE,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:SUI,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:PUMP,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:FARTCOIN,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:ENA,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:XMR,5,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:LTC,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:LINK,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:XPL,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:IP,3,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:BCH,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:ADA,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:1000PEPE,10,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:SILVER,25,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:GOLD,25,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,hyna,,hyna:BASED,3,,,USDC_perp_not_spot_token,,hyperliquid-hyna-markets.csv
+hyperliquid_hip3,io,,io:OAI,6,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:ANTH,15,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:SNDK,15,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:IONQ,10,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:NBIS,15,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:EWY,25,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:GPRO,5,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:SBE,6,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:TCNT,10,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:DRAM,25,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:PRL,3,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:XIAOMI,10,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:H100,10,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:MOONSHOT,6,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:NVDA,25,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:SKHX,25,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:AAPL,25,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:CRCL,15,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:GOOGL,25,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,io,,io:MU,15,,,USDC_perp_not_spot_token,,hyperliquid-io-markets.csv
+hyperliquid_hip3,km,,km:US500,25,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:BABA,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:EUR,50,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:USBOND,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:SMALL2000,20,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:USTECH,25,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:USENERGY,15,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:USOIL,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:TSLA,12,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:SILVER,20,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:GOLD,25,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:AAPL,15,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:GOOGL,15,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:SEMI,15,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:GLDMINE,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:NVDA,12,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:TENCENT,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:JPN225,25,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:MU,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:PLTR,12,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:XIAOMI,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:BMNR,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,km,,km:RTX,10,,,USDC_perp_not_spot_token,,hyperliquid-km-markets.csv
+hyperliquid_hip3,mkts,,mkts:US500,25,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:BABA,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:EUR,50,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:USBOND,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:SMALL2000,20,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:USTECH,25,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:USENERGY,15,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:USOIL,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:TSLA,12,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:SILVER,20,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:GOLD,25,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:AAPL,15,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:GOOGL,15,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:SEMI,15,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:GLDMINE,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:NVDA,12,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:TENCENT,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:JPN225,25,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:MU,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:PLTR,12,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:XIAOMI,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:BMNR,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:RTX,10,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,mkts,,mkts:BVIV,5,,,USDC_perp_not_spot_token,,hyperliquid-mkts-markets.csv
+hyperliquid_hip3,para,,para:TOTAL2,20,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:OTHERS,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:BTCD,20,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:H100,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:AVGO,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:COHR,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:GLW,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:CRDO,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:LRCX,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:NET,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:STX,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:IREN,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:VST,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:TER,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:AAOI,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:10Y,20,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:CIEN,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:NAVER,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:RDDT,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:UNITREE,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:CRWD,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:TENCENT,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:CAMBRICON,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:MELI,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:SMCI,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:ANSEM,3,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:INNOLIGHT,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:30Y,20,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:2Y,20,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:IGV,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:SOFI,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:ANTH,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:TTWO,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:CIFR,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:TREAD,5,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:DRV,5,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:GDX,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:SMH,10,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:PAPER,3,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,para,,para:HYPE2,3,,,USDC_perp_not_spot_token,,hyperliquid-para-markets.csv
+hyperliquid_hip3,vntl,,vntl:SPACEX,3,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:OPENAI,3,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:ANTHROPIC,3,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:MAG7,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:SEMIS,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:ROBOT,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:INFOTECH,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:NUCLEAR,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:DEFENSE,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:ENERGY,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:BIOTECH,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:GOLDJM,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:SILVERJM,20,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:WHEAT,10,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,vntl,,vntl:SOY,10,,,USDC_perp_not_spot_token,,hyperliquid-vntl-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:XYZ100,30,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:TSLA,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NVDA,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:GOLD,25,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:HOOD,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:INTC,10,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:PLTR,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:COIN,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:META,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:AAPL,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MSFT,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ORCL,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:GOOGL,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:AMZN,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:AMD,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MU,10,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SNDK,10,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MSTR,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CRCL,10,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NFLX,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:COST,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:LLY,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SKHX,10,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:TSM,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:JPY,50,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:EUR,50,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SILVER,25,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:RIVN,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BABA,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CL,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:COPPER,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NATGAS,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:URANIUM,10,True,strictIsolated,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ALUMINIUM,20,True,strictIsolated,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SMSN,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:PLATINUM,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:USAR,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CRWV,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:URNM,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:PALLADIUM,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:DXY,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:GME,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:KR200,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SOFTBANK,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:JP225,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:HYUNDAI,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:KIOXIA,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:EWY,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:EWJ,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BRENTOIL,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:VIX,3,True,strictIsolated,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:HIMS,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SP500,50,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:DKNG,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:LITE,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CORN,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:XLE,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:WHEAT,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:TTF,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BX,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:PURRDAT,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MRVL,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:RKLB,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BIRD,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:VOL,10,True,strictIsolated,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:DRAM,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CBRS,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:EWZ,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:KRW,50,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ZM,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:EBAY,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:H100,10,True,strictIsolated,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NIFTY,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ARM,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:EWT,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:GBP,50,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SPCX,20,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:IBOV,20,True,strictIsolated,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ASML,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MINIMAX,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BB,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:QNT,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:DELL,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:IBM,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:AVGO,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NOW,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NBIS,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:WDC,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NOK,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SMH,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BE,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ZHIPU,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:QCOM,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:STRC,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BOT,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:AMAT,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:IBIDEN,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:GIGADEV,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SHAZ,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SKHY,10,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:KSTR,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CXMT,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:GEV,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:KORU,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:UNITREE,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:LYTE,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NCLD,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SOXL,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MAGS,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:IREN,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NET,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CRWD,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:RDDT,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:AAOI,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MRNA,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:XBI,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SHEIN,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:YMTC,5,True,strictIsolated,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:BMNR,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SNXX,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CVX,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:TLT,20,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:HO,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:OURA,5,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:LRCX,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:UMC,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CAMBRICON,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:TWST,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:GLW,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ACN,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:INNOLIGHT,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:AMEC,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:CATL,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:RELIANCE,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:JIO,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:SNAP,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:TTWO,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MUU,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ANT,10,,,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:NU,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:ICE,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:MELI,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv
+hyperliquid_hip3,xyz,trade.xyz,xyz:STX,10,True,noCross,USDC_perp_not_spot_token,HIP-3 equity/index perp; margin/settle USDC on Hyperliquid; not redeemable shares,hyperliquid-xyz-markets.csv

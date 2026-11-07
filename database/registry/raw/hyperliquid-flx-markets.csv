@@ -1,0 +1,17 @@
+venue,dex,market,maxLeverage,settlement
+hyperliquid_hip3,flx,flx:TSLA,10,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:NVDA,10,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:CRCL,5,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:COIN,10,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:XMR,10,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:GOLD,25,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:SILVER,25,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:OIL,15,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:GAS,5,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:BTC,1,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:COPPER,20,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:PALLADIUM,25,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:PLATINUM,25,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:USDE,20,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:USA500,30,USDC_perp_not_spot_token
+hyperliquid_hip3,flx,flx:USA100,30,USDC_perp_not_spot_token

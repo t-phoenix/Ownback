@@ -74,6 +74,7 @@ export async function ogChat(opts: {
       model: cfg.id,
       messages: opts.messages,
       max_tokens: opts.maxTokens ?? cfg.maxTokens ?? 1024,
+      ...(cfg.extraBody ?? {}),
       ...(opts.responseFormat ? { response_format: opts.responseFormat } : {}),
     }),
     signal: AbortSignal.timeout(opts.timeoutMs ?? (opts.job === 'read_receipt' ? 20_000 : 10_000)),

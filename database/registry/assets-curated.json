@@ -1,0 +1,41 @@
+{
+  "updatedAt": "2026-11-07",
+  "assets": [
+    {
+      "assetId": "co:apple",
+      "name": "Apple",
+      "class": "stock",
+      "mints": [
+        {
+          "chain": "solana",
+          "symbol": "AAPLx",
+          "mint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+          "decimals": 8,
+          "issuer": "xStocks",
+          "venues": ["jupiter"],
+          "verified": true,
+          "evidence": [
+            {
+              "kind": "issuer",
+              "url": "https://xstocks.com/",
+              "note": "featuredProducts[].addresses.solana for symbol AAPLx",
+              "checkedAt": "2026-11-07"
+            },
+            {
+              "kind": "index",
+              "url": "https://api.coingecko.com/api/v3/coins/apple-xstock",
+              "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+              "checkedAt": "2026-11-07"
+            },
+            {
+              "kind": "onchain",
+              "url": "solana:getTokenSupply",
+              "note": "decimals=8 supply ok",
+              "checkedAt": "2026-11-07"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

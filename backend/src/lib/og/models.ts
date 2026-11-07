@@ -21,6 +21,11 @@ export type OgModelConfig = {
   endpoint: 'chat' | 'embeddings' | 'audio';
   /** Default max_tokens for chat (reasoning models need headroom before content) */
   maxTokens?: number;
+  /**
+   * Extra request-body fields. The vision model is a reasoning model: with thinking on it spends
+   * the whole token budget reasoning (36 s, no JSON). Thinking off returns clean JSON in ~5 s (7 Nov live test).
+   */
+  extraBody?: Record<string, unknown>;
 };
 
 /** Live private TeeML endpoints verified 7 Nov 2026 */
@@ -34,6 +39,7 @@ export const OG_MODELS = {
     provider: '0xf4FB8d2bD856e672b5f9848b0eD235A20079B250',
     endpoint: 'chat',
     maxTokens: 1024,
+    extraBody: { chat_template_kwargs: { enable_thinking: false } },
   },
   /**
    * Text LLM — invoices, spoken/typed parse, find_maker, offline extract.
@@ -44,6 +50,8 @@ export const OG_MODELS = {
     provider: '0xD179F4526064846dE9a9E9D93683AF75CB72E503',
     endpoint: 'chat',
     maxTokens: 1024,
+    /** GLM's switch (chat_template_kwargs is ignored here): 4.9 s vs 7.1 s, same answer (7 Nov live test). */
+    extraBody: { thinking: { type: 'disabled' } },
   },
   /** Fix-the-match brand embeddings */
   embed: {

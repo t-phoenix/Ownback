@@ -1,103 +1,106 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronRight, CircleDollarSign, Clock3, Copy, Eye, EyeOff, Share2 } from "lucide-react";
+import { Check, ChevronRight, Copy, Eye, EyeOff, Share2 } from "lucide-react";
 import { useApp } from "../app-context";
 import { Logo } from "../logo";
 import { Creative, Money, Monogram, Tilt } from "../ui";
-import { brands, holdings, totals } from "../../lib/fixtures";
-import { pct } from "../../lib/money";
+import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
+import { api, type HoldingRow as Row } from "../../lib/api";
+import { useApi } from "../../lib/use-api";
+import { assetName, toneFor } from "../../lib/assets";
+import { centsOf, fmtUsd6, pct } from "../../lib/money";
 import { FlowHead } from "./home";
 
-type H = typeof holdings[number];
+const sectionTitle: Record<string, string> = { stablecoins: "Your dollars", makers: "Makers", behind: "Behind the product", commodities: "Materials", index: "Index", crypto: "Crypto" };
 
-export function HoldingRow({ h }: { h: H }) {
+export function HoldingRow({ h }: { h: Row }) {
   const { navigate } = useApp();
-  return <button className="row" onClick={() => navigate(`/holdings/${h.id}`)}>
-    <Monogram name={h.name} tone={h.tone} />
-    <span className="row-main"><span className="row-title">{h.name}</span><span className="row-sub">{h.qty} {h.token}</span></span>
-    <span className="row-end"><span className="row-value">{h.value}</span><span className="row-sub">In your wallet</span></span>
+  const name = assetName(h.assetId, h.name);
+  const isUsd = h.assetId === "usdc";
+  return <button className="row" onClick={() => navigate(isUsd ? "/funds" : `/holdings/${encodeURIComponent(h.assetId)}`)}>
+    <Monogram name={isUsd ? undefined : name} tone={isUsd ? "green" : toneFor(h.assetId)}>{isUsd ? "$" : undefined}</Monogram>
+    <span className="row-main"><span className="row-title">{name}</span><span className="row-sub">{h.qty && h.token ? `${h.qty} ${h.token}` : h.subtitle}</span></span>
+    <span className="row-end"><span className="row-value">{fmtUsd6(h.valueUsd6)}</span></span>
     <ChevronRight size={16} className="row-chev" />
   </button>;
 }
 
-const filters = ["All", "Companies", "Materials", "Solana"];
-
 export function Holdings() {
   const { navigate } = useApp();
-  const [f, setF] = useState("All");
-  const shown = holdings.filter(h => f === "All" || f === "Solana" || (f === "Companies" ? h.kind === "Company" : h.kind === "Material"));
+  const h = useApi("holdings", api.holdings);
+  const b = h.data?.balance;
+  const owned = centsOf(b?.byType.stocksCommodities), total = centsOf(b?.totalUsd6);
+  const sections = h.data?.sections ?? [];
   return <div className="page">
     <header className="page-head">
       <div><p className="kicker">Your portfolio</p><h1 className="h-page">Holdings</h1></div>
       <button className="link" onClick={() => navigate("/settings")}>Wallet <ChevronRight size={15} /></button>
     </header>
+    <ErrorState error={h.error} onRetry={h.reload} />
 
-    <section className="card alloc" aria-label="What you own, by asset">
+    {h.loading ? <Skeleton h={150} /> : <section className="card alloc" aria-label="Balance">
       <div className="alloc-top">
-        <div><p className="micro">You own</p><Money cents={totals.owned} className="alloc-num" /><p className="sub">Across 11 assets</p></div>
-        <div className="alloc-right"><p className="micro">Dollars</p><Money cents={totals.dollars} className="alloc-num muted-num" /><p className="sub">Free + in jars</p></div>
+        <div><p className="micro">You own</p><Money cents={owned} className="alloc-num" /><p className="sub">Companies and materials</p></div>
+        <div className="alloc-right"><p className="micro">Dollars</p><Money cents={centsOf(b?.byType.stablecoins)} className="alloc-num muted-num" /><p className="sub">Free + in jars</p></div>
       </div>
-      <div className="alloc-bar" role="img" aria-label={holdings.map(h => `${h.name} ${h.value}`).join(", ")}>
-        {holdings.map(h => <span key={h.id} className={`tone-bg-${h.tone}`} style={{ flexGrow: Number(h.valueC) }} />)}
+      <div className="alloc-bar" role="img" aria-label={`${pct(owned, total || 1n)}% owned`}>
+        <span className="tone-bg-gold" style={{ flexGrow: Number(owned) || 0 }} />
+        <span className="tone-bg-green" style={{ flexGrow: Number(total - owned) || 1 }} />
       </div>
-      <ul className="alloc-legend">
-        {holdings.map(h => <li key={h.id}><i className={`tone-bg-${h.tone}`} />{h.name}<b>{pct(h.valueC, totals.owned)}%</b></li>)}
-      </ul>
-    </section>
+      {b?.stale && <p className="sub">Prices may be out of date.</p>}
+    </section>}
 
-    <div className="chips h-scroll" role="tablist" aria-label="Filter">
-      {filters.map(x => <button key={x} role="tab" aria-selected={f === x} className={`chip ${f === x ? "on" : ""}`} onClick={() => setF(x)}>{x}</button>)}
-    </div>
+    {h.data && !sections.some(s => s.rows.length) && <Empty title="Nothing owned yet" body="When a jar fills and you approve the buy, the shares land in your own wallet and show up here." />}
 
     <div className="two-col">
-      <section className="block" aria-labelledby="own">
-        <div className="block-head"><h2 id="own" className="h-section">What you own</h2><span className="sub">Updated just now</span></div>
-        <div className="card list">{shown.map(h => <HoldingRow key={h.id} h={h} />)}</div>
-      </section>
-      <section className="block" aria-labelledby="usd">
-        <div className="block-head"><h2 id="usd" className="h-section">Your dollars</h2></div>
-        <div className="card list">
-          <button className="row" onClick={() => navigate("/funds")}><Monogram tone="green">$</Monogram><span className="row-main"><span className="row-title">Free to use</span><span className="row-sub">Across 4 chains</span></span><span className="row-value">$64.12</span><ChevronRight size={16} className="row-chev" /></button>
-          <button className="row" onClick={() => navigate("/jars")}><Monogram tone="gold"><CircleDollarSign size={19} /></Monogram><span className="row-main"><span className="row-title">Waiting in jars</span><span className="row-sub">3 ready · 4 filling</span></span><span className="row-value">$43.63</span><ChevronRight size={16} className="row-chev" /></button>
-        </div>
-      </section>
+      {sections.filter(s => s.rows.length).map(s => <section key={s.key} className="block">
+        <div className="block-head"><h2 className="h-section">{sectionTitle[s.key] ?? s.key}</h2><span className="sub">{fmtUsd6(s.totalUsd6)}</span></div>
+        <div className="card list">{s.rows.map(r => <HoldingRow key={r.assetId} h={r} />)}</div>
+      </section>)}
     </div>
   </div>;
 }
 
 export function Holding({ id }: { id: string }) {
   const { notify } = useApp();
-  const h = holdings.find(x => x.id === id) ?? holdings[0];
-  const b = brands.find(x => x.id === h.id);
+  const d = useApi(`holding:${id}`, () => api.holding(id));
   const [hide, setHide] = useState(true);
-  const proof = ["Receipt matched to " + h.name, "Dollars moved into your jar", `${h.name} bought at $296.31`, "Ownership record published"];
+  const name = assetName(id, d.data?.name);
+  const proof = d.data?.proof;
+  const steps = [
+    { label: `Receipt matched to ${name}`, sub: proof?.ogRequestId ? `0G request ${proof.ogRequestId.slice(0, 8)}…` : undefined, done: !!proof?.ogRequestId },
+    { label: "Dollars moved into your jar", sub: proof?.arcTx ? "Arc tx" : undefined, done: !!proof?.arcTx },
+    { label: `${name} bought`, sub: proof?.venueTx ? "Solana tx" : undefined, done: !!proof?.venueTx },
+    { label: "Ownership record published", sub: proof?.arkivKey ? "Arkiv" : "Pending", done: !!proof?.arkivKey },
+  ];
+  const shareText = `I bought something I love. Now I own a piece of ${name}.`;
   return <div className="page flow wide">
-    <FlowHead title={h.name} kicker={h.token} back="/holdings" />
+    <FlowHead title={name} kicker={d.data?.token} back="/holdings" />
+    <ErrorState error={d.error} onRetry={d.reload} />
     <div className="two-col">
       <div>
-        <section className="card holding-hero">
-          <Monogram name={h.name} tone={h.tone} size={60} />
-          <div><p className="micro">{h.name} · {h.token}</p><Money cents={h.valueC} className="holding-num" /><p className="sub">{h.qty} {h.token} in your wallet</p></div>
-        </section>
+        {d.loading ? <Skeleton h={100} /> : <section className="card holding-hero">
+          <Monogram name={name} tone={toneFor(id)} size={60} />
+          <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}</p></div>
+        </section>}
 
-        {b && <section className="card versus" aria-label="Spent versus owned">
-          <p className="versus-copy">You spent <b>{b.spent}</b> on {h.name} this year. You now own <b className="pos">{b.own}</b> of {h.name}.</p>
+        {d.data && BigInt(d.data.spentThisYearUsd6 || "0") > 0n && <section className="card versus" aria-label="Spent versus owned">
+          <p className="versus-copy">You spent <b>{fmtUsd6(d.data.spentThisYearUsd6)}</b> on {name} this year. You now own <b className="pos">{fmtUsd6(d.data.valueUsd6)}</b> of {name}.</p>
           <div className="versus-bars">
-            <div><span className="sub">Spent</span><span className="vbar"><i style={{ width: "100%" }} /></span><b>{b.spent}</b></div>
-            <div><span className="sub">Own</span><span className="vbar own"><i style={{ width: `${Math.max(2, pct(b.ownC, b.spentC))}%` }} /></span><b>{b.own}</b></div>
+            <div><span className="sub">Spent</span><span className="vbar"><i style={{ width: "100%" }} /></span><b>{fmtUsd6(d.data.spentThisYearUsd6)}</b></div>
+            <div><span className="sub">Own</span><span className="vbar own"><i style={{ width: `${Math.max(2, pct(BigInt(d.data.valueUsd6), BigInt(d.data.spentThisYearUsd6)))}%` }} /></span><b>{fmtUsd6(d.data.valueUsd6)}</b></div>
           </div>
         </section>}
 
         <section className="block" aria-labelledby="proof">
           <h2 id="proof" className="h-section">Proof trail for the last buy</h2>
-          <ol className="timeline card">
-            {proof.map((s, i) => <li key={s} className={i === 3 ? "pending" : ""}>
-              <span className="tl-dot">{i === 3 ? <Clock3 size={13} /> : <Check size={13} strokeWidth={2.6} />}</span>
-              <span className="row-main"><span className="row-title">{s}</span><span className={`row-sub ${i === 0 ? "mono" : ""}`}>{i === 0 ? "0G request 7f3a…9c2" : i === 3 ? "Pending · Arkiv write queued" : "View proof"}</span></span>
-              <ChevronRight size={16} className="row-chev" />
+          {d.loading ? <SkeletonList rows={4} /> : <ol className="timeline card">
+            {steps.map(s => <li key={s.label} className={s.done ? "" : "pending"}>
+              <span className="tl-dot">{s.done ? <Check size={13} strokeWidth={2.6} /> : null}</span>
+              <span className="row-main"><span className="row-title">{s.label}</span>{s.sub && <span className="row-sub mono">{s.sub}</span>}</span>
             </li>)}
-          </ol>
+          </ol>}
         </section>
       </div>
 
@@ -109,16 +112,16 @@ export function Holding({ id }: { id: string }) {
           <div className="share-card">
             <Tilt className="share-art" strength={6}><Creative name="coin" /></Tilt>
             <p className="micro gold">Own what you buy.</p>
-            <h3 className="share-line">I bought an iPhone.<br />Now I own a piece of {h.name}.</h3>
-            {!hide && <p className="share-amt">{b?.own ?? h.value} of {h.name}</p>}
+            <h3 className="share-line">Now I own a piece of {name}.</h3>
+            {!hide && d.data && <p className="share-amt">{fmtUsd6(d.data.valueUsd6)} of {name}</p>}
             <span className="share-logo"><Logo /></span>
           </div>
           <div className="btn-row">
-            <button className="button secondary" onClick={() => notify("Share text copied")}><Copy size={16} /> Copy text</button>
-            <button className="button quiet" onClick={() => { if (navigator.share) navigator.share({ text: `I bought an iPhone. Now I own a piece of ${h.name}.` }).catch(() => {}); else notify("Share card ready"); }}><Share2 size={16} /> More</button>
+            <button className="button secondary" onClick={() => { navigator.clipboard?.writeText(shareText).then(() => notify("Share text copied"), () => {}); }}><Copy size={16} /> Copy text</button>
+            <button className="button quiet" onClick={() => { if (navigator.share) navigator.share({ text: shareText }).catch(() => {}); else notify("Share text copied"); }}><Share2 size={16} /> More</button>
           </div>
         </section>
-        <p className="fineprint">{h.token} is issued by a third party; it tracks {h.name} stock but is not a share registered in your name.</p>
+        {d.data?.issuerNote && <p className="fineprint">{d.data.issuerNote}</p>}
       </div>
     </div>
   </div>;

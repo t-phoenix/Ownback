@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowRight, Check, ChevronsRight } from "lucide-react";
-import type { Tone } from "../lib/fixtures";
+import type { Tone } from "../lib/assets";
 import { splitUsd } from "../lib/money";
 
 /* ───────────────────────── Feel ───────────────────────── */
