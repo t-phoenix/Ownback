@@ -1,9 +1,10 @@
+import { freeByChain } from '../lib/wallet-sync.js';
 import { assetDisplayName } from '../lib/asset-name.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
 import { ApiError } from '../shared/errors.js';
-import { toUsd6 } from '../shared/money.js';
+import { formatUsd, toUsd6 } from '../shared/money.js';
 import { envFlag } from '../lib/env.js';
 import {
   assertIdempotencyKey,
@@ -33,11 +34,14 @@ activityRoutes.get('/activity', async (c) => {
     const todayItems = [];
     const earlierItems = [];
     for (const r of rows) {
+      // copy-and-errors.md § Activity titles: deposit_added → "{amount} added" · "From {chain}"
+      const amt = typeof r.payload?.amountUsd6 === 'string' ? formatUsd(r.payload.amountUsd6) : null;
+      const chainName = r.payload?.chain === 'arc' ? 'Arc' : typeof r.payload?.chain === 'string' ? r.payload.chain : null;
       const item = {
         id: r.id,
         kind: r.kind,
-        title: r.kind,
-        body: '',
+        title: r.kind === 'deposit_added' && amt ? `${amt} added` : r.kind,
+        body: r.kind === 'deposit_added' && chainName ? `From ${chainName}` : '',
         link: r.link ?? '/',
         at: r.created_at.toISOString(),
       };
@@ -194,18 +198,14 @@ activityRoutes.get('/holdings', async (c) => {
   try {
     const user = await requireUser(c);
     const sql = getSql();
-    const freeRows = await sql<{ amount: bigint }[]>`
-      SELECT COALESCE(SUM(amount_usd6), 0) AS amount FROM deposits
-      WHERE user_id = ${user.id}::uuid AND status = 'added'
-    `;
-    const free = freeRows[0]?.amount ?? 0n;
+    const free = (await freeByChain(user)).total;
     return c.json({
       balance: {
         totalUsd6: toUsd6(free),
         byType: { stocksCommodities: '0', stablecoins: toUsd6(free), crypto: '0' },
-        byChain: { arc: '0', solana: '0', base: '0', ethereum: '0', arbitrum: '0', bnb: '0' },
+        byChain: { arc: toUsd6(free), solana: '0', base: '0', ethereum: '0', arbitrum: '0', bnb: '0' },
         pricesAt: new Date().toISOString(),
-        stale: true,
+        stale: false,
         usdc: { freeUsd6: toUsd6(free), inJarsUsd6: '0', arrivingUsd6: '0' },
       },
       sections: [

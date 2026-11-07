@@ -94,7 +94,7 @@ export const api = {
   rules: () => get<Rules>("/rules"),
   putRules: (patch: Partial<Rules>) => send<Rules>("PUT", "/rules", patch),
   depositAddress: (chain: string) => get<DepositAddress>(`/deposits/address?chain=${chain}`),
-  depositWatch: (chain: string) => get<DepositWatch>(`/deposits/watch?chain=${chain}`),
+  depositWatch: (chain: string, since?: string) => get<DepositWatch>(`/deposits/watch?chain=${chain}${since ? `&since=${encodeURIComponent(since)}` : ""}`),
   gmailState: () => get<GmailState>("/gmail/state"),
   gmailConnect: () => send<{ authUrl: string }>("POST", "/gmail/connect", {}),
   createPurchaseMedia: (field: "image" | "audio", file: Blob, name: string) => { const f = new FormData(); f.append(field, file, name); return send<{ purchaseId: string }>("POST", "/purchases", f, true); },

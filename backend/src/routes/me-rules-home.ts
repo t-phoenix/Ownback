@@ -1,3 +1,4 @@
+import { freeByChain } from '../lib/wallet-sync.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
@@ -163,11 +164,8 @@ meRulesHomeRoutes.get('/home', async (c) => {
       FROM purchases
       WHERE user_id = ${user.id}::uuid AND status NOT IN ('deleted', 'read_failed', 'skipped')
     `;
-    const byChain = await sql<{ chain: string; amount: bigint }[]>`
-      SELECT chain, COALESCE(SUM(amount_usd6), 0) AS amount
-      FROM deposits WHERE user_id = ${user.id}::uuid AND status = 'added'
-      GROUP BY chain
-    `;
+    // Live Arc wallet balance (records any new deposits as a side effect) + other chains' deposits.
+    const funds = await freeByChain(user);
     const chainMap: Record<string, string> = {
       arc: '0',
       solana: '0',
@@ -176,11 +174,8 @@ meRulesHomeRoutes.get('/home', async (c) => {
       arbitrum: '0',
       bnb: '0',
     };
-    let free = 0n;
-    for (const row of byChain) {
-      chainMap[row.chain] = toUsd6(row.amount);
-      free += row.amount;
-    }
+    for (const [chain, amount] of Object.entries(funds.byChain)) chainMap[chain] = toUsd6(amount);
+    const free = funds.total;
     const inJars = (stats[0]?.jars as bigint) ?? 0n;
     const rules = await sql<{ ready_min_usd6: bigint }[]>`
       SELECT ready_min_usd6 FROM rules WHERE user_id = ${user.id}::uuid
@@ -273,16 +268,12 @@ meRulesHomeRoutes.get('/wallet', async (c) => {
   try {
     const user = await requireUser(c);
     const sql = getSql();
-    const freeRows = await sql<{ amount: bigint }[]>`
-      SELECT COALESCE(SUM(amount_usd6), 0) AS amount FROM deposits
-      WHERE user_id = ${user.id}::uuid AND status = 'added'
-    `;
     const jarRows = await sql<{ amount: bigint }[]>`
       SELECT COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amount
       FROM allocations a JOIN purchases p ON p.id = a.purchase_id
       WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved'
     `;
-    const free = freeRows[0]?.amount ?? 0n;
+    const free = (await freeByChain(user)).total;
     const jars = jarRows[0]?.amount ?? 0n;
     return c.json({
       vault: {

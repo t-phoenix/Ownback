@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Copy, Monitor, Moon, Plus, Sun, UserRound, WalletCards } from "lucide-react";
 import QRCode from "qrcode";
 import { useApp } from "../app-context";
@@ -116,10 +116,16 @@ export function Funds() {
   const { navigate, notify } = useApp();
   const [chain, setChain] = useState<(typeof chains)[number][0]>("arc");
   const addr = useApi(`deposit:${chain}`, () => api.depositAddress(chain));
-  const watch = useApi(`watch:${chain}`, () => api.depositWatch(chain), { pollMs: 5000 });
+  // Only deposits that land while this screen is open (2 min grace for a send made just before opening it).
+  const [since] = useState(() => new Date(Date.now() - 120_000).toISOString());
+  const watch = useApi(`watch:${chain}:${since}`, () => api.depositWatch(chain, since), { pollMs: 5000 });
   const [ago, setAgo] = useState(0);
+  const announced = useRef<string | null>(null);
   useEffect(() => { const t = setInterval(() => setAgo(watch.data ? Math.max(0, Math.round((Date.now() - new Date(watch.data.checkedAt).getTime()) / 1000)) : 0), 1000); return () => clearInterval(t); }, [watch.data]);
-  useEffect(() => { if (watch.data?.deposit?.status === "added") { notify(`${fmtUsd6(watch.data.deposit.amountUsd6)} added`); refreshAll(); } }, [watch.data?.deposit?.status, watch.data?.deposit?.amountUsd6, notify]);
+  useEffect(() => {
+    const d = watch.data?.deposit;
+    if (d?.status === "added" && announced.current !== d.id) { announced.current = d.id; haptic([10, 40, 10]); notify(`${fmtUsd6(d.amountUsd6)} added`); refreshAll(); }
+  }, [watch.data?.deposit, notify]);
   const label = chains.find(c => c[0] === chain)![1];
   const sol = chain === "solana";
   const a = addr.data?.address;
@@ -145,7 +151,7 @@ export function Funds() {
       <div>
         <button className="watching" onClick={() => watch.reload()}>
           <span className="pulse" aria-hidden="true" />
-          <div><strong>{watch.data?.deposit ? `${fmtUsd6(watch.data.deposit.amountUsd6)} on its way` : `Watching ${label} for your USDC… checked ${ago} s ago`}</strong><p className="sub">Checks every 5 s while this screen is open. Pull down or tap to check now.</p></div>
+          <div><strong>{watch.data?.deposit ? `${fmtUsd6(watch.data.deposit.amountUsd6)} ${watch.data.deposit.status === "added" ? "added" : "on its way"}` :`Watching ${label} for your USDC… checked ${ago} s ago`}</strong><p className="sub">Checks every 5 s while this screen is open. Pull down or tap to check now.</p></div>
         </button>
         <div className="insight"><span>Only USDC, only on {label}.{!sol && " Solana has its own address."} Network fee $0.00 · we cover it.</span></div>
         <button className="button quiet full" style={{ marginTop: 16 }} onClick={() => navigate("/", { dir: "back" })}>Skip for now · we'll tell you when it lands</button>

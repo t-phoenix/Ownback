@@ -1,3 +1,4 @@
+import { syncArcWallet } from '../lib/wallet-sync.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
@@ -71,6 +72,8 @@ depositRoutes.get('/deposits/watch', async (c) => {
     const user = await requireUser(c);
     const chain = c.req.query('chain') ?? '';
     if (!isDepositChain(chain)) throw new ApiError('CHAIN_UNSUPPORTED');
+    // Arc: read the wallet (throttled to 15 s) so a new transfer is recorded before we look for it.
+    if (chain === 'arc') await syncArcWallet(user);
     const sql = getSql();
     const since = c.req.query('since');
     const rows = since
