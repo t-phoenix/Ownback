@@ -77,7 +77,8 @@ export async function ogChat(opts: {
       ...(cfg.extraBody ?? {}),
       ...(opts.responseFormat ? { response_format: opts.responseFormat } : {}),
     }),
-    signal: AbortSignal.timeout(opts.timeoutMs ?? (opts.job === 'read_receipt' ? 20_000 : 10_000)),
+    // GLM private parse often lands 12–20s; 10s default aborted typed receipts (demo 7 Nov).
+    signal: AbortSignal.timeout(opts.timeoutMs ?? (opts.job === 'read_receipt' ? 45_000 : 45_000)),
   });
   const raw = await res.json().catch(() => ({}));
   if (!res.ok) {

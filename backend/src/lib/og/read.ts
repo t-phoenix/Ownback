@@ -17,7 +17,7 @@ import { extractJson, MakerMatch, normaliseRead, ReceiptRead } from './schemas.j
 
 export type ReadInput =
   | { kind: 'image'; dataUrl: string }
-  | { kind: 'text'; text: string; makerHint?: string }
+  | { kind: 'typed'; product: string; amount: string; currency: string; maker?: string }
   | { kind: 'audio'; file: Blob; filename: string };
 
 type Rules = { rate_bps: number; fallback_asset: string; split_maker: number; split_behind: number; split_materials: number };
@@ -34,7 +34,7 @@ async function logRun(purchaseId: string, job: OgJob, promptVersion: string, r: 
 async function chatJson(purchaseId: string, job: OgJob, promptVersion: string, messages: unknown[]) {
   const t0 = Date.now();
   try {
-    const res = await ogChat({ job, messages, maxTokens: 1024, timeoutMs: job === 'read_receipt' ? 25_000 : 15_000 });
+    const res = await ogChat({ job, messages, maxTokens: 1024, timeoutMs: job === 'read_receipt' ? 45_000 : 45_000 });
     await logRun(purchaseId, job, promptVersion, { ...res, ok: true });
     return extractJson(res.content);
   } catch (e) {
@@ -60,6 +60,13 @@ async function transcribe(purchaseId: string, file: Blob, filename: string): Pro
 }
 
 async function readFields(purchaseId: string, input: ReadInput): Promise<ReceiptRead> {
+  // Typed entries are already structured; asking the model to re-parse them timed out (>15s) and failed the read.
+  if (input.kind === 'typed') {
+    return ReceiptRead.parse(normaliseRead({
+      isReceipt: true, shop: null, currency: input.currency, total: input.amount, confidence: 1,
+      items: [{ name: input.product, brand: input.maker ?? null, qty: 1, lineTotal: input.amount }],
+    }));
+  }
   let raw: unknown;
   if (input.kind === 'image') {
     raw = await chatJson(purchaseId, 'read_receipt', READ_RECEIPT.version, [
@@ -70,7 +77,7 @@ async function readFields(purchaseId: string, input: ReadInput): Promise<Receipt
       ] },
     ]);
   } else {
-    const text = input.kind === 'audio' ? await transcribe(purchaseId, input.file, input.filename) : input.text;
+    const text = await transcribe(purchaseId, input.file, input.filename);
     raw = await chatJson(purchaseId, 'parse_spoken', PARSE_TYPED.version, [
       { role: 'system', content: PARSE_TYPED.system },
       { role: 'user', content: text.slice(0, 2000) },
@@ -141,7 +148,7 @@ export async function readPurchase(purchaseId: string, userId: string, rules: Ru
   const seen = new Set<string>();
   const makers: { assetId: string; role: 'maker'; why: string }[] = [];
   let lowConfidence = confidence < 0.7;
-  const hint = input.kind === 'text' ? input.makerHint : undefined;
+  const hint = input.kind === 'typed' ? input.maker : undefined;
   for (const item of products) {
     const brand = hint ?? item.brand;
     const key = (brand ?? item.name).toLowerCase();

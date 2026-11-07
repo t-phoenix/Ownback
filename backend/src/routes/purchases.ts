@@ -173,7 +173,7 @@ purchaseRoutes.post('/purchases', async (c) => {
           ? { kind: 'image', dataUrl: `data:${media!.type};base64,${mediaBytes!.toString('base64')}` }
           : source === 'voice'
             ? { kind: 'audio', file: new Blob([mediaBytes!], { type: media!.type }), filename: media!.name || 'note.webm' }
-            : { kind: 'text', text: `${text!.product}, total ${text!.amount} ${text!.currency}`, makerHint: text!.maker };
+            : { kind: 'typed', ...text! };
       await readPurchase(id, user.id, r, input);
       return { purchaseId: id };
     });
@@ -208,6 +208,9 @@ purchaseRoutes.put('/purchases/:id/split', async (c) => {
       .refine((s) => s.maker + s.behind + s.materials === 100)
       .parse(await c.req.json());
     const { p, allocs } = await loadPurchase(user.id, c.req.param('id'));
+    if (p.status === 'reading' || p.status === 'read_failed' || p.amount_usd6 == null || p.rate_bps == null) {
+      throw new ApiError('VALIDATION', { reason: 'purchase_not_ready_for_split' });
+    }
     const sql = getSql();
     if (body.saveForFuture) {
       await sql`
