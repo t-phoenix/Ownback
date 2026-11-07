@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760" font-family="Inter, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#334155"/>
+    </marker>
+    <style>
+      .box{stroke-width:2;rx:14}
+      .t{font-size:18px;font-weight:700;fill:#0f172a}
+      .s{font-size:13.5px;fill:#334155}
+      .tag{font-size:12px;font-weight:700;letter-spacing:.06em}
+      .l{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#a)}
+      .lt{font-size:12.5px;fill:#475569}
+    </style>
+  </defs>
+  <rect width="1200" height="760" fill="#ffffff"/>
+  <text x="40" y="48" font-size="26" font-weight="800" fill="#0f172a">Ownback · architecture</text>
+  <text x="40" y="74" class="s">A share of every purchase goes into USDC jars on Arc. The user signs each buy; tokenized shares land in their own wallet.</text>
+
+  <!-- User / PWA -->
+  <rect x="40" y="120" width="250" height="150" class="box" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="60" y="152" class="t">User · PWA</text>
+  <text x="60" y="178" class="s">Snap receipt or import Gmail</text>
+  <text x="60" y="198" class="s">Privy Google login →</text>
+  <text x="60" y="216" class="s">EVM + Solana wallets</text>
+  <text x="60" y="240" class="s">Decodes and signs every action</text>
+  <text x="60" y="258" class="s">(verifyAction before signing)</text>
+
+  <!-- Backend -->
+  <rect x="380" y="120" width="300" height="150" class="box" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="400" y="152" class="t">API + Keeper</text>
+  <text x="400" y="178" class="s">Builds SignableActions</text>
+  <text x="400" y="198" class="s">Splits purchase into jars (whole cents)</text>
+  <text x="400" y="218" class="s">Keeper runs only signed, unexpired</text>
+  <text x="400" y="236" class="s">BuyApprovals; re-simulates each step</text>
+  <text x="400" y="258" class="s">Reads receipts/events before state changes</text>
+
+  <!-- 0G -->
+  <rect x="770" y="100" width="390" height="110" class="box" fill="#f5f3ff" stroke="#7c3aed"/>
+  <text x="790" y="126" class="tag" fill="#7c3aed">0G</text>
+  <text x="790" y="150" class="t">0G Private Computer</text>
+  <text x="790" y="174" class="s">Reads receipts/invoices · finds maker, suppliers,</text>
+  <text x="790" y="192" class="s">materials · request IDs shown in the proof trail</text>
+
+  <!-- Arkiv -->
+  <rect x="770" y="228" width="390" height="110" class="box" fill="#ecfdf5" stroke="#059669"/>
+  <text x="790" y="254" class="tag" fill="#059669">ARKIV · RABDI TESTNET</text>
+  <text x="790" y="278" class="t">Public registry + proofs</text>
+  <text x="790" y="302" class="s">Verified tokens, brands, supplier links, buy proofs</text>
+  <text x="790" y="320" class="s">Reads filtered by createdBy + ownedBy writer</text>
+
+  <!-- Postgres -->
+  <rect x="380" y="300" width="300" height="70" class="box" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="400" y="330" class="t">Postgres (Neon)</text>
+  <text x="400" y="352" class="s">Private data only: users, purchases, buys</text>
+
+  <!-- top arrows -->
+  <path class="l" d="M290 195H378"/>
+  <text x="300" y="186" class="lt">API calls</text>
+  <path class="l" d="M680 170H768"/>
+  <text x="692" y="162" class="lt">AI jobs</text>
+  <path class="l" d="M680 230C720 230 730 283 768 283"/>
+  <text x="692" y="304" class="lt">read / write</text>
+  <path class="l" d="M530 270V298"/>
+
+  <!-- Money path band -->
+  <rect x="40" y="420" width="1120" height="300" rx="18" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2"/>
+  <text x="60" y="450" class="tag" fill="#1d4ed8">MONEY PATH · MAINNET · USER HOLDS ONLY USDC</text>
+
+  <rect x="60" y="470" width="300" height="220" class="box" fill="#ffffff" stroke="#2563eb"/>
+  <text x="80" y="496" class="tag" fill="#2563eb">ARC · CIRCLE</text>
+  <text x="80" y="522" class="t">OwnbackVault on Arc</text>
+  <text x="80" y="546" class="s">Built and tested in Arc Studio</text>
+  <text x="80" y="570" class="s">USDC deposit → jars per company</text>
+  <text x="80" y="590" class="s">Monthly limit, fee cap</text>
+  <text x="80" y="614" class="s">execute() only with the user's</text>
+  <text x="80" y="632" class="s">EIP-712 BuyApproval (ERC-1271 ok)</text>
+  <text x="80" y="658" class="s">Gas paid in USDC (~$0.01/flow)</text>
+
+  <rect x="440" y="470" width="300" height="220" class="box" fill="#ffffff" stroke="#2563eb"/>
+  <text x="460" y="496" class="tag" fill="#2563eb">CIRCLE CCTP V2</text>
+  <text x="460" y="522" class="t">Arc → Solana</text>
+  <text x="460" y="546" class="s">Vault burns USDC (TokenMessenger)</text>
+  <text x="460" y="570" class="s">Iris attestation</text>
+  <text x="460" y="594" class="s">Relay mints on Solana; relay pays</text>
+  <text x="460" y="612" class="s">gas and rent — user needs no SOL</text>
+
+  <rect x="820" y="470" width="320" height="220" class="box" fill="#ffffff" stroke="#2563eb"/>
+  <text x="840" y="496" class="tag" fill="#2563eb">SOLANA · JUPITER</text>
+  <text x="840" y="522" class="t">Buy tokenized shares</text>
+  <text x="840" y="546" class="s">Jupiter swap USDC → xStock (e.g. AAPLx)</text>
+  <text x="840" y="570" class="s">Destination: user's own token account</text>
+  <text x="840" y="594" class="s">Unspent USDC returns to the jar</text>
+  <text x="840" y="626" class="t" fill="#1d4ed8">→ shares in the user's wallet</text>
+
+  <path class="l" d="M360 580H438"/>
+  <path class="l" d="M740 580H818"/>
+
+  <!-- backend to money path -->
+  <path class="l" d="M210 270V468"/>
+  <text x="218" y="392" class="lt">user signs</text>
+  <path class="l" d="M400 270V285H330V468"/>
+  <text x="338" y="404" class="lt">keeper executes</text>
+  <path class="l" d="M1000 468V340" stroke-dasharray="6 5"/>
+  <text x="1008" y="410" class="lt">anonymous proof</text>
+</svg>

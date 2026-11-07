@@ -48,6 +48,30 @@ Brand kit (not ranked; it covers only the look; picked: Logo C, Ledger Green, Br
 | No buy without the user | Every buy needs the user's signed BuyApproval; the vault checks it. |
 | No personal data in public | Nothing that identifies a user (email, wallet address, shop name) goes on Arkiv or into logs. |
 
+## Architecture
+
+![Ownback architecture](docs/architecture.svg)
+
+## Arkiv
+
+Rabdi testnet (chain ID 7794095), `@arkiv-network/sdk` 1.0.1. Prize files: [arkiv/](arkiv/) (schema, how we use it, why Arkiv, reach, friction).
+
+| Writer | Address |
+|---|---|
+| Registry (also writes buy proofs until the keeper gets its own) | `0xd20b3D166410e08BF58dbf2dc060E7580366B012` |
+
+Runnable query (Apple's suppliers, filtered to our writer; returns 0 rows until the registry import writes supplier links):
+
+```bash
+ARKIV_ACCESS_KEY=<your key> npx tsx scripts/arkiv-check.ts read 0xd20b3D166410e08BF58dbf2dc060E7580366B012
+```
+
+The query code is in [arkiv/schema.md](arkiv/schema.md#runnable-query-for-the-readme-prize-rule). Every read filters with `.createdBy(WRITER).ownedBy(WRITER)`.
+
+## License
+
+[MIT](LICENSE)
+
 ## Code layout (planned)
 
 ```

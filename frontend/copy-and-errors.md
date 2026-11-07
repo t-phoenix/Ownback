@@ -107,7 +107,7 @@ The UI never shows the code itself.
 | Reminder push | "{n} jars ready · review and buy" |
 | Jar filling | "Filling · {why}" |
 | No venue (Q5) | "Buys when available" |
-| Review | "Prices update live · next in {s} s" · "Price now {price} per {token}" · "You get about {qty} {token}" · "Won't buy above {max} (+1%)" · "Price protection 1% · if the price moves more, that jar waits" · "Shares go straight to your Solana wallet {addr}." |
+| Review | "Prices update live · next in {s} s" · "Price now {price} per {token}" · "You get about {qty} {token}" · "Won't buy above {max} (+1%)" · "Price protection 1% · if the price moves more, that jar waits" · "Shares go straight to your Solana wallet {addr}." · "Token verified on Arkiv" (links to the Arkiv explorer record; shown only when the registry record matches) |
 | Fees (review) | Row: "Fees {fee} ({pct}%)" · footer: "Fees {total} ({pct}% · your limit {cap}%)" · approval sheet: "Buy {n} assets · up to {total} · max fees {maxFee}" |
 | Fees (done) | "Bought {bought} · fees {fees} · left in jars {left}" |
 | Progress | "{k} of {n} bought" · "Took {total} from your jars" · "Moved to Solana" · "Bought {asset} {qty} {token} at {fill} (quote {quote}) · {amount}" · "You can leave this screen. We'll notify you when it's done. If a price moves more than 1%, that jar keeps its dollars until you approve again." |

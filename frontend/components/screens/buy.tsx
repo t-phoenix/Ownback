@@ -112,6 +112,7 @@ export function BuyReview({ all = false }: { all?: boolean }) {
             <div className="row-main"><div className="row-title">{name} {q.token && <span className="sub">{q.token}</span>}</div><div className="row-sub">{q.selectable ? `Best price on ${q.chain === "solana" ? "Solana" : q.chain}` : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(1)}%)` : "Buys when available"}</div></div>
             <strong className="num">{fmtUsd6(q.amountUsd6)}</strong>
           </header>
+          {q.arkiv && <a className="fineprint" href={q.arkiv.url} target="_blank" rel="noreferrer"><ShieldCheck size={14} /> Token verified on Arkiv</a>}
           {BigInt(q.price.usd6PerUnit || "0") > 0n && <dl className="quote-grid">
             <div><dt>Price now</dt><dd>{fmtUsd6(q.price.usd6PerUnit)}{q.token ? ` per ${q.token}` : ""}</dd></div>
             <div><dt>You get about</dt><dd>{q.estQty} {q.token}</dd></div>

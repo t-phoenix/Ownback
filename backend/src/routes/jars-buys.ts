@@ -18,6 +18,7 @@ import {
   withIdempotency,
 } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
+import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
 import { ARC_CHAIN_ID } from '../shared/chains.js';
 
 export const jarsBuysRoutes = new Hono();
@@ -100,7 +101,9 @@ jarsBuysRoutes.get('/buys/review', async (c) => {
     // Venue quotes need Jupiter/etc. MOCK_CHAIN: zero fee, venue jupiter, no live prices invented as verified.
     const quoteId = newId();
     const expiresAt = new Date(Date.now() + QUOTE_REFRESH_MS).toISOString();
-    const reviewRows = filtered.map((r) => {
+    // Arkiv read (A1): the token record the user sees comes from the public registry, not our DB
+    const proofs = await Promise.all(filtered.map((r) => readAssetFromArkiv(r.asset_id, 'solana')));
+    const reviewRows = filtered.map((r, i) => {
       const fee = 0n;
       const fees = buildFees([{ label: 'Jupiter route', usd6: fee }], r.amt, maxFeeBps, false);
       const selectable = feeWithinCap(fee, r.amt, maxFeeBps) && mockChain();
@@ -118,6 +121,7 @@ jarsBuysRoutes.get('/buys/review', async (c) => {
         fees,
         selectable,
         ...(selectable ? {} : { reason: 'no_venue' as const }),
+        ...(proofs[i] ? { arkiv: proofs[i] } : {}),
       };
     });
     const total = filtered.reduce((a, r) => a + r.amt, 0n);

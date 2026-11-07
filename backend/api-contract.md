@@ -182,7 +182,7 @@ type Purchase = {
 |---|---|---|---|---|
 | GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; price?: Price; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
 | POST | `/api/jars/:assetId/cancel` | — | `{ action: SignableAction }` | — |
-| GET | `/api/buys/review?include=ready\|all` | — | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; token; chain; venue; price: Price; refPriceUsd6; estQty: string; maxPriceUsd6; fees: Fees; selectable: boolean; reason?: 'fees_high' \| 'price_off_reference' \| 'no_venue' }[]; totalUsd6; fees: Fees; destination: string; approval: { kind: 'typed_data'; typedData } }` | `NO_READY_JARS` |
+| GET | `/api/buys/review?include=ready\|all` | — | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; token; chain; venue; price: Price; refPriceUsd6; estQty: string; maxPriceUsd6; fees: Fees; selectable: boolean; reason?: 'fees_high' \| 'price_off_reference' \| 'no_venue'; arkiv?: { key; url } /* ownback.asset.v1 read from Arkiv: createdBy+ownedBy writer AND mint = curated mint; omitted if not found */ }[]; totalUsd6; fees: Fees; destination: string; approval: { kind: 'typed_data'; typedData } }` | `NO_READY_JARS` |
 | POST | `/api/buys` | `{ quoteId, approval, signature }` + Idempotency-Key | `{ batchIds: string[] }` | `QUOTE_EXPIRED`, `PRICE_MOVED`, `FEES_TOO_HIGH`, `BAD_SIGNATURE`, `KEEPER_DISABLED` |
 | POST | `/api/buys/approvals/:hash/cancel` | — | `{ action: SignableAction }` (`cancelApproval`) | — |
 | GET | `/api/buys/:batchId` | — | `BuyProgress` (poll every 2 s) | — |
