@@ -105,7 +105,7 @@ Rules that follow:
 | O4 | **Smart wallet not enabled in the PWA yet (7 Nov).** The PWA uses Privy Google login and creates embedded EVM + Solana wallets on login; the API stores those addresses. Q9's smart wallet needs `SmartWalletsProvider` plus smart-wallet config for Arc in the Privy dashboard. Until then the EVM address is the embedded EOA. | Open — needs Privy dashboard + Arc support check |
 | O5 | **Seed-phrase sign-in UI not built (7 Nov).** `POST /api/auth/seed` now verifies the EVM and Solana signatures over the nonce (it used to accept any non-empty signature under MOCK_CHAIN). `/signin/seed` (create/import, reveal, PIN) isn't built, so Sign in hides "Use a seed phrase" until it is. | Open — screen to build |
 | O6 | **Money moves are still MOCK_CHAIN (7 Nov).** Confirm returns a no-op vault call, and `/buys/review` has no venue prices; `/buys` doesn't verify EIP-712 yet. The PWA never broadcasts a call with empty calldata and submits without a tx hash, which the API accepts only under MOCK_CHAIN. Before mainnet: real `deposit`/`setRules` calldata, Jupiter quotes, EIP-712 + ERC-1271 verify (S20), then MOCK_CHAIN=0. | Open — blocks real money |
-| O7 | **Solana identity vs ATA on the vault (7 Nov).** Product identity = Privy-linked `solAddress` (wallet pubkey). Per-asset ATAs (AAPLx, etc.) are never stored — keeper derives them at swap time (mint + token program, incl. Token-2022). Vault `solanaRecipient` today stores the **USDC ATA** because CCTP `depositForBurn` mintRecipient on Solana must be a token account, not the owner. **Decide:** (A) keep storing derived USDC ATA (server/PWA derive from `solAddress`, A6 check), or (B) store Solana owner on-chain and pass USDC ATA only as calldata on `withdrawCrossChain` (EVM cannot verify Solana PDA math). | Open — ask user |
+| O7 | **Solana identity vs ATA on the vault (7 Nov).** | **Closed → D28** |
 | — | Spikes S1–S20 + **S-Privy**; Circle wallet spikes (S4, S6, S7, S12, S20) use Privy/EOA fallbacks from Q9 | ([08](08-build-plan-and-checklists.md)) |
 
 ## Decisions (settled)
@@ -139,6 +139,7 @@ Rules that follow:
 | D25 | Stack for this build: Privy (Google wallets) + Arc vault + CCTP V2 direct + EOA keeper/relays. No CCIP as primary bridge. Circle Console optional later | Q9 |
 | D26 | Solana venue buys: relay pays gas/rent (`payer` = relay, destination = **ATA of the user's Privy `solAddress` for that mint** — derived at swap time, not stored on the vault); fees from buy amount; never fund user SOL for buys | Q9 / O3 |
 | D27 | Google Fund default = Arc; EVM auto-add off until gas-sponsor spike passes | Q9 / O3 |
+| D28 | **Solana identity = Privy/seed `solAddress`.** Vault `solanaRecipient` + DB `sol_usdc_ata` store that wallet's **derived USDC ATA** only (CCTP mintRecipient must be a token account; Arc cannot derive Solana PDAs). Server/PWA derive from `solAddress` + USDC mint + Tokenkeg (A6). Per-asset RWA ATAs are derived at Jupiter time (mint + token program, incl. Token-2022) and never stored on the vault. Product UI shows the Solana wallet, not ATAs. | O7-A, user 7 Nov |
 
 ## Wireframe demo data
 

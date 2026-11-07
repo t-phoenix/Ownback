@@ -6,7 +6,7 @@ This is the one place every **public** address lives. It becomes `packages/share
 
 | Kind | Examples | Where it comes from | In this file? |
 |---|---|---|---|
-| **Per-user, dynamic** | Each user's EVM and Solana addresses, Solana USDC token account | Created at sign-up (Circle wallet), or derived on the device (seed phrase) → stored in `users` | **No** |
+| **Per-user, dynamic** | Each user's EVM + Solana **wallet** (`solAddress`); USDC ATA is **derived** from `solAddress` (D28) | Privy (Google) or seed at sign-up → `users.sol_address` + derived `sol_usdc_ata` | **No** (never invent; derive) |
 | **Ours, set at deploy** | OwnbackVault, forwarders, keeper, relays, Arkiv writer | Our deploy scripts and accounts | Yes, filled after deploy |
 | **Public protocol contracts** | USDC, CCTP, Gateway, token mints | Circle / Arc / issuers | Yes, **verified** |
 
@@ -93,7 +93,8 @@ Mints come **only** from the issuer's official list, then are checked on-chain (
 
 | Slug | Display | Class | Token | Venue options (Q5) | Mint | ✓ |
 |---|---|---|---|---|---|---|
-| `co:apple` | Apple | stock | AAPLx / AAPLc / AAPLon | Solana · Base · Ethereum | ☐ | ☐ |
+| `co:apple` | Apple | stock | AAPLx | Solana (Jupiter) | `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp` (8) | ✓ xstocks.com featured + CoinGecko platforms.solana + on-chain getTokenSupply 2026-11-07; Eth/Base still ☐ |
+
 | `co:tsmc` | TSMC | stock | ☐ | ☐ | ☐ | ☐ (S9) |
 | `co:qualcomm` | Qualcomm | stock | ☐ | ☐ | ☐ | ☐ (S9) |
 | `co:corning` | Corning | stock | ☐ | Base | ☐ | ☐ (S9, S15) |

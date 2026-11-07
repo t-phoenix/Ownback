@@ -21,7 +21,7 @@ Conventions:
 | display_name | text | First name or "You" |
 | evm_address | text UNIQUE NULL | Checksummed. Same on Arc, Base, Ethereum, Arbitrum (S6) |
 | sol_address | text UNIQUE NULL | |
-| sol_usdc_ata | text NULL | Must equal the vault's `solanaRecipient`; changes take 48 h on-chain (A6) |
+| sol_usdc_ata | text NULL | USDC ATA **derived** from `sol_address` (D28). Must equal vault `solanaRecipient`. Not an RWA ATA. On-chain changes take 48 h (A6) |
 | referral_code | text UNIQUE | e.g. `ABHI42` |
 | referred_by | uuid NULL FK users | From the `ob_ref` cookie at sign-up |
 | country | text NULL | From the edge at sign-up |

@@ -8,7 +8,7 @@ How we call each external service: SDK or endpoint, what we send, limits, and wh
 |---|---|---|---|
 | **Google login** | Sign-in | PWA: Privy SDK Google login → access token. `POST /api/auth/privy` verifies with Privy server API / JWT; upserts user with EVM smart-wallet address + Solana address | `AUTH_INVALID`. Seed path stays available |
 | **EVM smart wallet** | Rules, deposit, allocate, cancel, withdraw, BuyApproval | PWA runs `SignableAction` `evm_calls` / `typed_data` via Privy. Vault verifies BuyApproval with ERC-1271 (`SignatureChecker`). S20 fallback: on-chain `approveBuy` if typed-data with arrays fails | `CHALLENGE_FAILED` / tx revert; nothing moved |
-| **Solana wallet** | One-tap Solana deposits; `setSolanaRecipient` ATA | Privy Solana signer for `sol_tx`. Fee payer = Kora or deposit relay (not the user) | User retries; seed Solana path available |
+| **Solana wallet** | One-tap Solana deposits; `setSolanaRecipient` = **USDC ATA derived from Privy `solAddress`** (D28) | Privy Solana signer for `sol_tx`. Fee payer = Kora or deposit relay (not the user). RWA ATAs derived at Jupiter swap time | User retries; seed Solana path available |
 
 Env: `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, `NEXT_PUBLIC_PRIVY_APP_ID`. Never store Privy access tokens server-side beyond the login request.
 

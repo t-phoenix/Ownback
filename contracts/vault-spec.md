@@ -54,7 +54,7 @@ mapping(bytes32 => mapping(uint256 => uint256)) public approvalUsed;   // approv
 mapping(bytes32 => bool) public approvalCancelled;
 mapping(bytes32 => bool) public onchainApproval;                // S20 fallback only: approvalHash → approved by approveBuy
 mapping(bytes32 => mapping(address => mapping(bytes32 => uint256))) public executedIn; // batch → user → asset
-mapping(address => bytes32) public solanaRecipient;           // user's USDC ATA on Solana (A6)
+mapping(address => bytes32) public solanaRecipient;           // CCTP mintRecipient for Solana USDC withdraws = user's USDC ATA (A6). Not the Solana wallet pubkey; not per-asset RWA ATAs. Derived off-chain from Privy `solAddress` (see docs/03 O7).
 mapping(address => Pending) public pendingSolanaRecipient;
 mapping(uint32 => bytes32) public relay;                      // venue domain → CCTP mintRecipient
 mapping(uint32 => bytes32) public forwarder;                  // source domain → OwnbackDepositForwarder (bytes32)
