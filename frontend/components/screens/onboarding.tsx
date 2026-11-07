@@ -35,6 +35,7 @@ export function SignIn() {
         {!configured && <p className="error" role="alert">Sign-in isn't set up on this deployment yet.</p>}
         {configured && error && <p className="error" role="alert">{errorCopy(error)}</p>}
         <p className="fineprint center">By continuing you accept the <a href="/terms">Terms</a> · <a href="/risks">Risks</a></p>
+        <p className="fineprint center"><a href="/how-it-works">How Ownback works</a></p>
       </div>
     </section>
   </div>;

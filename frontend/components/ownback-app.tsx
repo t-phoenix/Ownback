@@ -135,7 +135,9 @@ function Shell({ initialPath }: { initialPath: string }) {
 
   const seg = route.split("/").filter(Boolean);
   let screen: React.ReactNode;
-  if (me === undefined) screen = <div className="splash" aria-busy="true"><Logo /></div>;
+  // The landing renders on the server too, so crawlers and slow phones see real content, not a spinner.
+  if (me === undefined && route === "/signin") screen = <SignIn />;
+  else if (me === undefined) screen = <div className="splash" aria-busy="true"><Logo /></div>;
   else if (route === "/signin" || me === null) screen = <SignIn />;
   else if (route === "/onboarding/rules") screen = <Rules />;
   else if (route === "/funds") screen = <Funds />;
