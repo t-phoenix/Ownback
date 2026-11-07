@@ -3,6 +3,7 @@ import { verifyMessage } from 'viem';
 
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
+/** Decode a Solana base58 pubkey / signature. Shared by seed auth and ATA derivation. */
 export function base58Decode(s: string): Uint8Array {
   let n = 0n;
   for (const ch of s) {

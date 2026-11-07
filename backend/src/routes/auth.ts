@@ -16,6 +16,17 @@ import {
 import { newId, referralCode } from '../lib/ids.js';
 import { resolvePrivyIdentity } from '../lib/privy.js';
 import { verifySeedSignIn } from '../lib/seed-verify.js';
+import { usdcAtaForSolAddress } from '../lib/solana-ata.js';
+
+/** DB mirror of vault solanaRecipient: USDC ATA derived from solAddress (D28). */
+function derivedUsdcAta(sol: string | null | undefined): string | null {
+  if (!sol) return null;
+  try {
+    return usdcAtaForSolAddress(sol);
+  } catch {
+    return null;
+  }
+}
 
 export const authRoutes = new Hono();
 
@@ -77,6 +88,7 @@ authRoutes.post('/auth/privy', async (c) => {
     let userId: string;
     if (existing[0]) {
       userId = existing[0].id;
+      const ata = derivedUsdcAta(identity.solAddress);
       await sql`
         UPDATE users SET
           auth_kind = 'privy',
@@ -84,20 +96,22 @@ authRoutes.post('/auth/privy', async (c) => {
           email = COALESCE(${identity.email}, email),
           display_name = COALESCE(${identity.displayName}, display_name),
           evm_address = COALESCE(${identity.evmAddress}, evm_address),
-          sol_address = COALESCE(${identity.solAddress}, sol_address)
+          sol_address = COALESCE(${identity.solAddress}, sol_address),
+          sol_usdc_ata = COALESCE(${ata}, sol_usdc_ata)
         WHERE id = ${userId}::uuid
       `;
     } else {
       userId = newId();
       const name = identity.displayName || 'You';
+      const ata = derivedUsdcAta(identity.solAddress);
       await sql`
         INSERT INTO users (
           id, auth_kind, privy_did, circle_user_id, email, display_name,
-          evm_address, sol_address, referral_code, country, created_at
+          evm_address, sol_address, sol_usdc_ata, referral_code, country, created_at
         ) VALUES (
           ${userId}::uuid, 'privy', ${identity.did}, ${identity.did},
           ${identity.email}, ${name},
-          ${identity.evmAddress}, ${identity.solAddress},
+          ${identity.evmAddress}, ${identity.solAddress}, ${ata},
           ${referralCode(name)}, ${country ?? null}, now()
         )
       `;
@@ -160,14 +174,22 @@ authRoutes.post('/auth/seed', async (c) => {
       SELECT id FROM users WHERE evm_address = ${body.evmAddress} OR sol_address = ${body.solAddress} LIMIT 1
     `;
     let userId: string;
+    const ata = derivedUsdcAta(body.solAddress);
     if (existing[0]) {
       userId = existing[0].id;
+      await sql`
+        UPDATE users SET
+          evm_address = ${body.evmAddress},
+          sol_address = ${body.solAddress},
+          sol_usdc_ata = ${ata}
+        WHERE id = ${userId}::uuid
+      `;
     } else {
       userId = newId();
       await sql`
-        INSERT INTO users (id, auth_kind, display_name, evm_address, sol_address, referral_code, created_at)
+        INSERT INTO users (id, auth_kind, display_name, evm_address, sol_address, sol_usdc_ata, referral_code, created_at)
         VALUES (
-          ${userId}::uuid, 'seed', 'You', ${body.evmAddress}, ${body.solAddress},
+          ${userId}::uuid, 'seed', 'You', ${body.evmAddress}, ${body.solAddress}, ${ata},
           ${referralCode('You')}, now()
         )
       `;

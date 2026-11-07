@@ -150,6 +150,7 @@ jarsBuysRoutes.get('/buys/review', async (c) => {
       rows: reviewRows,
       totalUsd6: toUsd6(total),
       fees: totalFees,
+      // D28: wallet identity; keeper derives per-mint ATA at swap (not stored on vault).
       destination: user.solAddress ?? user.evmAddress ?? '',
       approval: { kind: 'typed_data' as const, typedData },
     });
@@ -283,6 +284,7 @@ jarsBuysRoutes.get('/buys/:batchId', async (c) => {
         ...(e.spent_usd6 != null ? { spentUsd6: toUsd6(e.spent_usd6) } : {}),
         ...(e.venue_tx ? { venueTx: e.venue_tx } : {}),
       })),
+      // D28: Solana wallet; RWA ATA derived at venue swap.
       destination: user.solAddress ?? user.evmAddress ?? '',
     });
   } catch (e) {
