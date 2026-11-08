@@ -93,24 +93,36 @@ You may only return a companyId that registry_search returned. Otherwise return 
 
 Code also rejects any `companyId` that isn't in the registry, and treats it as "not listed" (A9).
 
-## Match pipeline (`lib/match/`)
+## Match pipeline (`lib/match/`) — agent map
 
 ```
-ReceiptRead.items → for each item with a brand:
-  find_maker → companyId?
-  registry: supplier-of(customer=companyId, product≈item) → suppliers with role, sourceUrl, quote
-  registry: materials(product category) → gold / silver / …
-  buyable filter: Arkiv `asset` entry exists for the asset with a verified mint AND a live quote for ≥ $1
-  → maker[], behind[], materials[], notTokenized[]
-amount: investUsd6 = amountUsd6 × rateBps / 10000, rounded half-up to a whole cent (a multiple of 10_000 micro-USDC)
-split: maker 70 / behind 20 / materials 10 (user's split); an empty behind/materials group gives its share to the maker;
-       a maker that isn't tokenized gives its share to the user's fallback asset;
-       if nothing at all is buyable → not_listed (fallback screen)
-       amounts in whole cents (multiples of 10_000 micro-USDC), largest remainder, so the rows sum to investUsd6 exactly (D18)
-limits: pre-check against vault remainingThisMonth → `limit` block (no per-asset limit, Q1)
+ReceiptRead (vision / repair pass / whisper / typed)
+  → findMaker          lib/match/maker.ts      catalog hit or glm find_maker (registry-clipped)
+  → traceSupply        lib/match/supply.ts     product-graph.json seed, else glm trace_supply
+  → traceMaterials     lib/match/materials.ts  category seed / mat:gold|silver, else glm
+  → checkBuyable       lib/match/buyable.ts    verified mint + Jupiter price ≥ $1 (notes only)
+  → finalizeMatch      lib/match/finalize.ts   dedupe + splitInvest 70/20/10
+  → allocations.why    1–2 liner per company
 ```
 
-Several items from different makers on one receipt (Blinkit: Coke + chips): the split is applied per item, weighted by the line totals. With no line totals, split evenly. With more than 2 makers, `needs_review`.
+| Layer | Module | Role | Swap-out later |
+|---|---|---|---|
+| Vision | `og/read.ts` + `READ_RECEIPT` (+ repair pass) | Field extraction | Layout/OCR pass |
+| Speech | whisper → `PARSE_TYPED` | Voice → ReceiptRead | — |
+| Maker juror | `match/maker.ts` | Brand → listed parent | Wikidata tool |
+| Supply juror | `match/supply.ts` | Product → suppliers | Arkiv `supplier-of` |
+| Materials juror | `match/materials.ts` | Category → commodities | Arkiv `material-of` |
+| Buyability | `match/buyable.ts` | Mint + quote gate | Multi-venue |
+| Presider | `match/finalize.ts` | Merge + splitInvest | Tunable weights |
+| Seed graph | `database/registry/product-graph.json` | iPhone / CPG / cloud stubs | Full Arkiv seed |
+| Telemetry | `ai_runs` | Per-juror latency/ok | `pnpm eval:ai` |
+
+**Rules:** AI suggests; code + zod decide. Never invent `companyId` / mint / decimals. Empty behind/materials → share rolls to maker (`splitInvest`). Improve by adding `ai-testset` cases and tightening the product graph — not by loosening registry constraints.
+
+amount: investUsd6 = amountUsd6 × rateBps / 10000, whole cents (D18).
+limits: pre-check against vault remainingThisMonth → `limit` block (no per-asset limit, Q1).
+
+Several items from different makers on one receipt (Blinkit: Coke + chips): makers collected (max 3); >2 makers → `needs_review`. Supply/materials jury runs on the primary line.
 
 ## Test set
 

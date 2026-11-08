@@ -2,18 +2,17 @@
  * Purchase reading on 0G Private Computer (ai-spec.md § Match pipeline).
  * AI suggests; code decides: every model output is parsed with zod and checked in code
  * before anything is written. The image / audio is never stored (docs/06).
+ *
+ * Match jury: maker → supply → materials → buyable notes → finalize/split (lib/match/).
  */
 import { getSql } from '../../db/client.js';
-import { getAsset } from '../../shared/assets.js';
-import { getCatalogCompany, registryLinesForMaker } from '../registry/catalog.js';
 import { newId } from '../ids.js';
-import { splitInvest } from '../split.js';
 import { decimalToCents, localCentsToUsd6, rateToScaled, usdRate } from '../fx.js';
 import { ogChat, ogHeaders, type OgChatResult } from './client.js';
 import { configForJob, type OgJob } from './models.js';
-import { FIND_MAKER, PARSE_TYPED, READ_RECEIPT } from './prompts.js';
-import { extractJson, MakerMatch, normaliseRead, ReceiptRead } from './schemas.js';
-
+import { PARSE_TYPED, READ_RECEIPT } from './prompts.js';
+import { extractJson, normaliseRead, ReceiptRead } from './schemas.js';
+import { findMaker, finalizeMatch, lookupProductGraph, traceMaterials, traceSupply, type MatchParty } from '../match/index.js';
 
 export type ReadInput =
   | { kind: 'image'; dataUrl: string }
@@ -59,6 +58,11 @@ async function transcribe(purchaseId: string, file: Blob, filename: string): Pro
   return body.text;
 }
 
+const REPAIR_RECEIPT = {
+  version: 'repair_receipt.v1',
+  system: `You repair a partial receipt JSON. Fill null fields only when clearly visible in the image. Never invent a total. Return the same schema. List missing critical fields in "missing": string[].`,
+};
+
 async function readFields(purchaseId: string, input: ReadInput): Promise<ReceiptRead> {
   // Typed entries are already structured; asking the model to re-parse them timed out (>15s) and failed the read.
   if (input.kind === 'typed') {
@@ -76,40 +80,36 @@ async function readFields(purchaseId: string, input: ReadInput): Promise<Receipt
         { type: 'image_url', image_url: { url: input.dataUrl } },
       ] },
     ]);
-  } else {
-    const text = await transcribe(purchaseId, input.file, input.filename);
-    raw = await chatJson(purchaseId, 'parse_spoken', PARSE_TYPED.version, [
-      { role: 'system', content: PARSE_TYPED.system },
-      { role: 'user', content: text.slice(0, 2000) },
-    ]);
+    let read = ReceiptRead.parse(normaliseRead(raw));
+    // Pass 2: repair when confidence is low or critical fields missing.
+    if (read.confidence < 0.85 || !read.total || !read.currency || read.items.length === 0) {
+      try {
+        const repaired = await chatJson(purchaseId, 'read_receipt', REPAIR_RECEIPT.version, [
+          { role: 'system', content: REPAIR_RECEIPT.system },
+          { role: 'user', content: [
+            { type: 'text', text: `Partial JSON:\n${JSON.stringify(raw)}\nRepair from the image. Reply with JSON only.` },
+            { type: 'image_url', image_url: { url: input.dataUrl } },
+          ] },
+        ]);
+        read = ReceiptRead.parse(normaliseRead(repaired));
+      } catch {
+        /* keep first pass */
+      }
+    }
+    return read;
   }
-  return ReceiptRead.parse(normaliseRead(raw));
-}
-
-/** Registry-constrained maker lookup. Code rejects any id the catalog doesn't hold (A9). */
-async function findMaker(purchaseId: string, product: string, brand: string | null): Promise<MakerMatch | null> {
-  const registry = registryLinesForMaker();
-  // Cap prompt size: prefer verified/tokenized first, then head of list.
-  const ranked = [...registry].sort((a, b) => {
-    const score = (s: string) => (s.includes('buyable') ? 0 : s.includes('tokenized_candidate') ? 1 : 2);
-    return score(a) - score(b);
-  });
-  const clipped = ranked.slice(0, 400).join('\n');
-  const raw = await chatJson(purchaseId, 'find_maker', FIND_MAKER.version, [
-    { role: 'system', content: FIND_MAKER.system },
-    { role: 'user', content: `REGISTRY:\n${clipped}\n\nPRODUCT: ${product}\nBRAND: ${brand ?? 'unknown'}` },
+  const text = await transcribe(purchaseId, input.file, input.filename);
+  raw = await chatJson(purchaseId, 'parse_spoken', PARSE_TYPED.version, [
+    { role: 'system', content: PARSE_TYPED.system },
+    { role: 'user', content: text.slice(0, 2000) },
   ]);
-  const m = MakerMatch.parse(raw);
-  if (m.companyId && !getCatalogCompany(m.companyId) && !getAsset(m.companyId)) {
-    return { ...m, companyId: null, listed: false };
-  }
-  return m;
+  return ReceiptRead.parse(normaliseRead(raw));
 }
 
 export type ReadOutcome = { status: 'ready' | 'needs_review' | 'not_listed' | 'read_failed'; readError?: string };
 
 /**
- * Reads, converts, matches and splits one purchase, then writes the result.
+ * Reads, converts, matches (jury) and splits one purchase, then writes the result.
  * Runs inside the POST so it also works on serverless hosts (no background job runner yet).
  */
 export async function readPurchase(purchaseId: string, userId: string, rules: Rules, input: ReadInput): Promise<ReadOutcome> {
@@ -124,6 +124,10 @@ export async function readPurchase(purchaseId: string, userId: string, rules: Ru
   catch { return fail('not_a_receipt'); }
 
   if (!read.isReceipt) return fail('not_a_receipt');
+  // shortcut: TeeML sometimes sets isProduct=false on clear retail lines; trust items+total when present
+  if (!read.isProduct && read.items.length > 0 && read.total && read.currency) {
+    read = { ...read, isProduct: true, confidence: Math.min(read.confidence, 0.75) };
+  }
   if (!read.isProduct) return fail('no_product');
   if (!read.total || !read.currency) return fail('no_total');
   const localCents = decimalToCents(read.total);
@@ -143,10 +147,10 @@ export async function readPurchase(purchaseId: string, userId: string, rules: Ru
   try { fx = await usdRate(read.currency); } catch { return fail('no_total'); }
   const amountUsd6 = localCentsToUsd6(localCents, rateToScaled(fx.rate));
 
-  // Makers: one lookup per distinct brand (or the typed maker hint), at most 3.
+  // Jury: makers (≤3) → supply + materials for the primary product line.
   const products = read.items.length ? read.items : [{ name: read.shop ?? 'Purchase', brand: null, qty: 1, lineTotal: null }];
   const seen = new Set<string>();
-  const makers: { assetId: string; role: 'maker'; why: string }[] = [];
+  const makers: MatchParty[] = [];
   let lowConfidence = confidence < 0.7;
   const hint = input.kind === 'typed' ? input.maker : undefined;
   for (const item of products) {
@@ -154,24 +158,42 @@ export async function readPurchase(purchaseId: string, userId: string, rules: Ru
     const key = (brand ?? item.name).toLowerCase();
     if (seen.has(key) || seen.size >= 3) continue;
     seen.add(key);
+    // Seed graph maker hint can short-circuit catalog when brand is empty.
+    const graph = lookupProductGraph(item.name, brand);
     try {
-      const m = await findMaker(purchaseId, item.name, brand ?? null);
+      const m = await findMaker(purchaseId, item.name, brand ?? graph?.makerHint ?? null);
       if (m?.confidence !== undefined && m.confidence < 0.7) lowConfidence = true;
-      if (m?.companyId && !makers.some((x) => x.assetId === m.companyId)) makers.push({ assetId: m.companyId, role: 'maker', why: m.evidence });
+      if (m?.companyId && !makers.some((x) => x.assetId === m.companyId)) {
+        makers.push({ assetId: m.companyId, role: 'maker', why: m.evidence });
+      }
     } catch { lowConfidence = true; }
   }
   if (makers.length > 2) lowConfidence = true;
 
-  const split = splitInvest({
+  const primary = products[0]!;
+  const primaryBrand = hint ?? primary.brand;
+  const makerId = makers[0]?.assetId ?? null;
+  const [behind, materials] = await Promise.all([
+    traceSupply(purchaseId, primary.name, primaryBrand, makerId),
+    traceMaterials(purchaseId, primary.name, primaryBrand),
+  ]);
+
+  const jury = await finalizeMatch({
     amountUsd6,
     rateBps: rules.rate_bps,
     split: { maker: rules.split_maker, behind: rules.split_behind, materials: rules.split_materials },
-    makers,
-    behind: [],
-    materials: [],
     fallbackAsset: rules.fallback_asset,
+    makers,
+    behind,
+    materials,
+    lowConfidence,
   });
-  const status: ReadOutcome['status'] = makers.length === 0 ? 'not_listed' : lowConfidence ? 'needs_review' : 'ready';
+
+  const status: ReadOutcome['status'] =
+    makers.length === 0 && jury.split.notListed ? 'not_listed' : jury.lowConfidence ? 'needs_review' : 'ready';
+
+  const whyByAsset = new Map<string, string>();
+  for (const p of [...jury.makers, ...jury.behind, ...jury.materials]) whyByAsset.set(p.assetId, p.why);
 
   await sql`
     UPDATE purchases SET
@@ -180,14 +202,14 @@ export async function readPurchase(purchaseId: string, userId: string, rules: Ru
       purchased_on = ${date}, amount_local = ${read.total}, currency = ${read.currency},
       fx_rate = ${fx.rate}, fx_source = ${fx.source}, fx_date = ${fx.date},
       amount_usd6 = ${amountUsd6.toString()}::bigint, rate_bps = ${rules.rate_bps},
-      invest_usd6 = ${split.investUsd6.toString()}::bigint,
+      invest_usd6 = ${jury.split.investUsd6.toString()}::bigint,
       split = ${sql.json({ maker: rules.split_maker, behind: rules.split_behind, materials: rules.split_materials })}::jsonb,
       read_error = NULL, updated_at = now()
     WHERE id = ${purchaseId}::uuid AND user_id = ${userId}::uuid
   `;
   await sql`DELETE FROM allocations WHERE purchase_id = ${purchaseId}::uuid`;
-  for (const row of split.rows) {
-    const why = makers.find((m) => m.assetId === row.assetId)?.why ?? null;
+  for (const row of jury.split.rows) {
+    const why = whyByAsset.get(row.assetId) ?? null;
     await sql`
       INSERT INTO allocations (id, purchase_id, asset_id, role, amount_usd6, selected, why)
       VALUES (${newId()}::uuid, ${purchaseId}::uuid, ${row.assetId}, ${row.role}, ${row.amountUsd6.toString()}::bigint, true, ${why})

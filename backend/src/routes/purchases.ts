@@ -19,6 +19,8 @@ import { mockChain } from '../lib/env.js';
 import { readPurchase, type ReadInput } from '../lib/og/read.js';
 import { getCatalogCompany } from '../lib/registry/catalog.js';
 import { getAsset, verifiedMint } from '../shared/assets.js';
+import { freeByChain } from '../lib/wallet-sync.js';
+import { CENT_USD6 } from '../shared/timing.js';
 
 export const purchaseRoutes = new Hono();
 
@@ -390,35 +392,34 @@ purchaseRoutes.post('/purchases/:id/confirm', async (c) => {
       if (!selected.length) throw new ApiError('NOTHING_TO_BUY');
 
       const sql = getSql();
-      const rules = await sql<{ monthly_cap_usd6: bigint }[]>`
+      const rules = await sql<{ monthly_cap_usd6: bigint | string }[]>`
         SELECT monthly_cap_usd6 FROM rules WHERE user_id = ${user.id}::uuid
       `;
-      const usedRows = await sql<{ used: bigint }[]>`
+      const usedRows = await sql<{ used: bigint | string }[]>`
         SELECT COALESCE(SUM(invest_usd6 - rest_usd6), 0) AS used FROM purchases
         WHERE user_id = ${user.id}::uuid AND status = 'saved'
           AND date_trunc('month', created_at AT TIME ZONE 'UTC') = date_trunc('month', now() AT TIME ZONE 'UTC')
       `;
-      const freeRows = await sql<{ free: bigint }[]>`
-        SELECT COALESCE(SUM(amount_usd6), 0) AS free FROM deposits
-        WHERE user_id = ${user.id}::uuid AND status = 'added'
-      `;
-      // Free balance for confirm is vault free; deposits mirror until chain sync (schema mirror rules).
-      const invest = (p.invest_usd6 as bigint) ?? 0n;
+      // Live Arc free (same source as /home); floor to whole cents for D18 partials.
+      const freeLive = (await freeByChain(user)).total;
+      const freeUsd6 = (freeLive / CENT_USD6) * CENT_USD6;
+      const invest = BigInt(p.invest_usd6 != null ? String(p.invest_usd6) : '0');
       const partial = body.amountUsd6 ? parseUsd6(body.amountUsd6) : undefined;
       const check = precheckConfirm({
         investUsd6: invest,
-        usedUsd6: usedRows[0]?.used ?? 0n,
-        capUsd6: rules[0]!.monthly_cap_usd6,
-        freeUsd6: freeRows[0]?.free ?? 0n,
+        usedUsd6: BigInt(usedRows[0]?.used ?? 0),
+        capUsd6: BigInt(rules[0]!.monthly_cap_usd6),
+        freeUsd6,
         partialUsd6: partial,
       });
 
+      let payRows = selected.map((a) => ({
+        assetId: a.asset_id,
+        amountUsd6: BigInt(a.amount_usd6),
+      }));
       if (partial !== undefined && partial < invest) {
-        const scaled = scaleAllocations(
-          selected.map((a) => ({ assetId: a.asset_id, amountUsd6: a.amount_usd6 })),
-          check.amountUsd6,
-        );
-        for (const row of scaled) {
+        payRows = scaleAllocations(payRows, check.amountUsd6);
+        for (const row of payRows) {
           await sql`
             UPDATE allocations SET amount_usd6 = ${row.amountUsd6.toString()}::bigint
             WHERE purchase_id = ${c.req.param('id')}::uuid AND asset_id = ${row.assetId}
@@ -436,8 +437,8 @@ purchaseRoutes.post('/purchases/:id/confirm', async (c) => {
         WHERE id = ${c.req.param('id')}::uuid
       `;
 
-      const assets = selected.map((a) => a.asset_id);
-      const amounts = selected.map((a) => toUsd6(a.amount_usd6));
+      const assets = payRows.map((a) => a.assetId);
+      const amounts = payRows.map((a) => toUsd6(a.amountUsd6));
       return {
         action: mockEvmAction(
           `Move $${Number(check.amountUsd6 / 1_000_000n)}.${(check.amountUsd6 % 1_000_000n).toString().padStart(6, '0').slice(0, 2)} into ${selected.length} jars on Arc`,

@@ -1,0 +1,76 @@
+{
+  "updatedAt": "2026-11-08",
+  "note": "Seed product→supplier/material graph until Arkiv supplier-of is wired. companyIds must exist in catalog-companies.json.",
+  "products": [
+    {
+      "keys": ["iphone", "ipad", "macbook", "airpods", "apple watch"],
+      "category": "hardware_phone",
+      "makerHint": "Apple",
+      "behind": [
+        { "assetId": "co:tsmc", "why": "Fabricates Apple silicon chips." },
+        { "assetId": "co:qualcomm", "why": "Modem and RF components." },
+        { "assetId": "co:corning", "why": "Ceramic Shield / cover glass." }
+      ],
+      "materials": [
+        { "assetId": "mat:gold", "why": "Bond wires and connectors." },
+        { "assetId": "mat:silver", "why": "Conductive paste in electronics." }
+      ]
+    },
+    {
+      "keys": ["dove", "lux", "lifebuoy", "soap", "body wash", "shampoo"],
+      "category": "cpg_personal_care",
+      "makerHint": "Unilever",
+      "behind": [],
+      "materials": []
+    },
+    {
+      "keys": ["aws", "amazon web services", "ec2", "s3"],
+      "category": "digital_cloud",
+      "makerHint": "Amazon",
+      "behind": [],
+      "materials": []
+    },
+    {
+      "keys": ["google cloud", "gcp", "youtube premium", "google one"],
+      "category": "digital_cloud",
+      "makerHint": "Alphabet",
+      "makerAssetId": "co:googl",
+      "behind": [],
+      "materials": []
+    },
+    {
+      "keys": ["render", "vercel", "netlify"],
+      "category": "digital_saas",
+      "makerHint": null,
+      "behind": [
+        { "assetId": "co:amazon", "why": "Cloud infrastructure that hosts many digital services." }
+      ],
+      "materials": []
+    },
+    {
+      "keys": ["coke", "coca-cola", "thums up", "sprite"],
+      "category": "cpg_beverage",
+      "makerHint": "Coca-Cola",
+      "behind": [],
+      "materials": []
+    },
+    {
+      "keys": ["lays", "lay's", "kurkure", "pepsi"],
+      "category": "cpg_snack",
+      "makerHint": "PepsiCo",
+      "behind": [],
+      "materials": []
+    }
+  ],
+  "materialsByCategory": {
+    "hardware_phone": [
+      { "assetId": "mat:gold", "why": "Used in chip bonding and connectors." },
+      { "assetId": "mat:silver", "why": "Used in conductive electronics paste." }
+    ],
+    "cpg_personal_care": [],
+    "digital_cloud": [],
+    "digital_saas": [],
+    "cpg_beverage": [],
+    "cpg_snack": []
+  }
+}
