@@ -49,9 +49,17 @@ export async function resolvePrivyIdentity(
 
   try {
     const { PrivyClient } = await import('@privy-io/node');
-    const privy = new PrivyClient({ appId, appSecret });
+    const jwtVerificationKey = process.env.PRIVY_JWT_VERIFICATION_KEY;
+    const privy = new PrivyClient({
+      appId,
+      appSecret,
+      ...(jwtVerificationKey ? { jwtVerificationKey } : {}),
+    });
     const claims = await privy.utils().auth().verifyAccessToken(accessToken);
-    const user = await privy.users()._get(claims.user_id);
+    const userId = (claims as { user_id?: string; userId?: string }).user_id
+      ?? (claims as { userId?: string }).userId;
+    if (!userId) throw new Error('privy claims missing user id');
+    const user = await privy.users()._get(userId);
     // shortcut: linked account shapes vary; normalize EVM + Solana addresses
     const u = user as {
       id?: string;
@@ -60,7 +68,7 @@ export async function resolvePrivyIdentity(
       linked_accounts?: Array<{ type?: string; address?: string; chain_type?: string; email?: string }>;
     };
 
-    const did = u.id || claims.user_id;
+    const did = u.id || userId;
     // Google login puts the email on the linked google_oauth account, not on `email` (7 Nov live sign-in).
     const email = u.email?.address ?? u.linked_accounts?.find((a) => a.type === 'google_oauth' && a.email)?.email ?? null;
     let evmAddress: string | null = u.wallet?.address ?? null;

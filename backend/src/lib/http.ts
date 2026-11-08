@@ -21,6 +21,18 @@ export function jsonError(c: Context, err: unknown) {
     return c.json(err.body(), err.http as 400);
   }
   console.error(err);
+  const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : '';
+  // Neon/postgres connection blips → retryable UPSTREAM (not opaque 500 that breaks the session UI).
+  if (
+    code === 'CONNECT_TIMEOUT' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'ECONNREFUSED' ||
+    code === 'CONNECTION_ENDED' ||
+    code === 'CONNECTION_DESTROYED'
+  ) {
+    return c.json(new ApiError('UPSTREAM').body(), 502);
+  }
   const body = new ApiError('INTERNAL').body();
   return c.json(body, 500);
 }

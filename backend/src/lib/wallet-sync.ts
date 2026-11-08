@@ -11,6 +11,7 @@ import { getSql } from '../db/client.js';
 import { USDC } from '../shared/chains.js';
 import { MIN_DEPOSIT_USD6 } from '../shared/timing.js';
 import { newId } from './ids.js';
+import { mockChain } from './env.js';
 
 const ERC20 = parseAbi(['function balanceOf(address) view returns (uint256)']);
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -167,10 +168,10 @@ async function scanDeposits(userId: string, address: `0x${string}`, key: string,
 
 
 /**
- * Free dollars per chain: Arc is the live wallet balance; other chains are recorded deposits until
- * their watchers exist. Falls back to recorded Arc deposits if Arc can't be reached.
+ * Spendable free USDC is Arc only (live wallet, else recorded Arc deposits). Other chains stay in
+ * `arriving` until forwarded (D19) — never add them into total or the dashboard double-counts seed/CCTP rows.
  */
-export async function freeByChain(user: User): Promise<{ total: bigint; byChain: Record<string, bigint>; live: boolean }> {
+export async function freeByChain(user: User): Promise<{ total: bigint; byChain: Record<string, bigint>; arriving: bigint; live: boolean }> {
   const sql = deps.sql ?? getSql();
   const rows = await sql<{ chain: string; amount: bigint }[]>`
     SELECT chain, COALESCE(SUM(amount_usd6), 0) AS amount FROM deposits
@@ -178,8 +179,14 @@ export async function freeByChain(user: User): Promise<{ total: bigint; byChain:
   `;
   const byChain: Record<string, bigint> = {};
   for (const r of rows) byChain[r.chain] = BigInt(r.amount);
-  const arcLive = await syncArcWallet(user);
+  // MOCK_CHAIN (no injected test client): recorded deposits fund the harness. Live Arc of a
+  // throwaway seed wallet is 0 and would wipe a just-inserted deposit row.
+  const arcLive = mockChain() && !deps.client ? null : await syncArcWallet(user);
   if (arcLive !== null) byChain.arc = arcLive;
-  const total = Object.values(byChain).reduce((s, v) => s + v, 0n);
-  return { total, byChain, live: arcLive !== null };
+  const arc = byChain.arc ?? 0n;
+  let arriving = 0n;
+  for (const [chain, amount] of Object.entries(byChain)) {
+    if (chain !== 'arc') arriving += amount;
+  }
+  return { total: arc, byChain, arriving, live: arcLive !== null };
 }

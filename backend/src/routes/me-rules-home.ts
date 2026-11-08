@@ -1,4 +1,5 @@
 import { freeByChain } from '../lib/wallet-sync.js';
+import { assetDisplayName } from '../lib/asset-name.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
@@ -17,10 +18,10 @@ export const meRulesHomeRoutes = new Hono();
 
 async function onboarded(userId: string): Promise<boolean> {
   const sql = getSql();
-  const rows = await sql<{ onchain_synced_at: Date | null }[]>`
-    SELECT onchain_synced_at FROM rules WHERE user_id = ${userId}::uuid
+  const rows = await sql<{ onboarded_at: Date | null }[]>`
+    SELECT onboarded_at FROM rules WHERE user_id = ${userId}::uuid
   `;
-  return !!rows[0]?.onchain_synced_at;
+  return !!rows[0]?.onboarded_at;
 }
 
 function rulesJson(r: {
@@ -38,8 +39,8 @@ function rulesJson(r: {
 }) {
   return {
     rateBps: r.rate_bps,
-    monthlyCapUsd6: toUsd6(r.monthly_cap_usd6),
-    readyMinUsd6: toUsd6(r.ready_min_usd6),
+    monthlyCapUsd6: toUsd6(BigInt(r.monthly_cap_usd6)),
+    readyMinUsd6: toUsd6(BigInt(r.ready_min_usd6)),
     maxFeeBps: r.max_fee_bps,
     autoAdd: r.auto_add,
     fallbackAsset: r.fallback_asset,
@@ -136,6 +137,7 @@ meRulesHomeRoutes.put('/rules', async (c) => {
         split_materials = ${smat},
         auto_add = ${sql.json(autoAdd as never)},
         onchain_synced_at = NULL,
+        onboarded_at = COALESCE(onboarded_at, now()),
         updated_at = now()
       WHERE user_id = ${user.id}::uuid
     `;
@@ -164,7 +166,7 @@ meRulesHomeRoutes.get('/home', async (c) => {
       FROM purchases
       WHERE user_id = ${user.id}::uuid AND status NOT IN ('deleted', 'read_failed', 'skipped')
     `;
-    // Live Arc wallet balance (records any new deposits as a side effect) + other chains' deposits.
+    // Live Arc wallet (side-effect: records new deposits). Jars are still USDC in that wallet under MOCK.
     const funds = await freeByChain(user);
     const chainMap: Record<string, string> = {
       arc: '0',
@@ -176,19 +178,32 @@ meRulesHomeRoutes.get('/home', async (c) => {
     };
     for (const [chain, amount] of Object.entries(funds.byChain)) chainMap[chain] = toUsd6(amount);
     const free = funds.total;
-    const inJars = (stats[0]?.jars as bigint) ?? 0n;
-    const rules = await sql<{ ready_min_usd6: bigint }[]>`
+    // postgres.js returns int8 as string — coerce before bigint math (freeByChain already does).
+    const inJars = BigInt(stats[0]?.jars ?? 0);
+    const bought = await sql<{ spent: bigint | string }[]>`
+      SELECT COALESCE(SUM(spent_usd6), 0) AS spent FROM buy_entries
+      WHERE user_id = ${user.id}::uuid AND status = 'bought'
+    `;
+    const owned = BigInt(bought[0]?.spent ?? 0);
+    // Wallet still holds buy USDC under MOCK — show dollars as free − owned so total stays the live balance.
+    const dollars = free > owned ? free - owned : 0n;
+    const rules = await sql<{ ready_min_usd6: bigint | string }[]>`
       SELECT ready_min_usd6 FROM rules WHERE user_id = ${user.id}::uuid
     `;
-    const readyMin = rules[0]?.ready_min_usd6 ?? 5_000_000n;
-    const jars = await sql<{ asset_id: string; amt: bigint }[]>`
+    const readyMin = BigInt(rules[0]?.ready_min_usd6 ?? 5_000_000);
+    const jars = await sql<{ asset_id: string; amt: bigint | string }[]>`
       SELECT a.asset_id, COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amt
       FROM allocations a
       JOIN purchases p ON p.id = a.purchase_id
       WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved'
       GROUP BY a.asset_id
     `;
-    const readyJars = jars.filter((j) => jarState(j.amt, readyMin) === 'ready').length;
+    const readyJars = jars.filter((j) => jarState(BigInt(j.amt), readyMin) === 'ready').length;
+    const topHoldings = await sql<{ asset_id: string; spent: bigint; qty: string | null }[]>`
+      SELECT asset_id, COALESCE(SUM(spent_usd6), 0) AS spent, MAX(qty)::text AS qty
+      FROM buy_entries WHERE user_id = ${user.id}::uuid AND status = 'bought'
+      GROUP BY asset_id ORDER BY spent DESC LIMIT 3
+    `;
 
     const recent = await sql<
       {
@@ -209,27 +224,33 @@ meRulesHomeRoutes.get('/home', async (c) => {
 
     return c.json({
       balance: {
-        totalUsd6: toUsd6(free + inJars),
+        totalUsd6: toUsd6(dollars + owned),
         byType: {
-          stocksCommodities: toUsd6(inJars),
-          stablecoins: toUsd6(free),
+          stocksCommodities: toUsd6(owned),
+          stablecoins: toUsd6(dollars),
           crypto: '0',
         },
         byChain: chainMap,
         pricesAt: new Date().toISOString(),
         stale: false,
         usdc: {
-          freeUsd6: toUsd6(free),
+          freeUsd6: toUsd6(dollars),
           inJarsUsd6: toUsd6(inJars),
-          arrivingUsd6: '0',
+          arrivingUsd6: toUsd6(funds.arriving),
         },
       },
       stats: {
         receipts: stats[0]?.receipts ?? 0,
-        spendingUsd6: toUsd6((stats[0]?.spending as bigint) ?? 0n),
+        spendingUsd6: toUsd6(BigInt(stats[0]?.spending ?? 0)),
         inJarsUsd6: toUsd6(inJars),
       },
-      topHoldings: [],
+      topHoldings: topHoldings.map((h) => ({
+        assetId: h.asset_id,
+        name: assetDisplayName(h.asset_id),
+        subtitle: h.qty ? `${h.qty} bought` : 'Bought',
+        ...(h.qty ? { qty: h.qty } : {}),
+        valueUsd6: toUsd6(BigInt(h.spent)),
+      })),
       recentReceipts: recent.map((r) => {
         const items = Array.isArray(r.items) ? (r.items as { name?: string }[]) : [];
         return {
@@ -237,10 +258,10 @@ meRulesHomeRoutes.get('/home', async (c) => {
           shop: r.shop ?? '',
           item: items[0]?.name ?? '',
           local: { amount: '0', currency: 'USD' },
-          amountUsd6: toUsd6(r.amount_usd6 ?? 0n),
+          amountUsd6: toUsd6(BigInt(r.amount_usd6 ?? 0)),
           date: r.purchased_on ?? '',
           status: r.status === 'needs_review' ? 'needs_review' : r.status === 'saved' ? 'in_jar' : 'needs_review',
-          investUsd6: toUsd6(r.invest_usd6 ?? 0n),
+          investUsd6: toUsd6(BigInt(r.invest_usd6 ?? 0)),
         };
       }),
       nextBuy: {
@@ -274,12 +295,13 @@ meRulesHomeRoutes.get('/wallet', async (c) => {
       WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved'
     `;
     const free = (await freeByChain(user)).total;
-    const jars = jarRows[0]?.amount ?? 0n;
+    const jars = BigInt(jarRows[0]?.amount ?? 0);
+    // Jars are still Arc USDC under MOCK — total is the live wallet, not free+jars.
     return c.json({
       vault: {
         inJarsUsd6: toUsd6(jars),
-        freeUsd6: toUsd6(free),
-        totalUsd6: toUsd6(free + jars),
+        freeUsd6: toUsd6(free > jars ? free - jars : 0n),
+        totalUsd6: toUsd6(free),
       },
       evmAddress: user.evmAddress,
       solAddress: user.solAddress,

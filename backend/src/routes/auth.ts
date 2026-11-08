@@ -122,8 +122,8 @@ authRoutes.post('/auth/privy', async (c) => {
     setSessionCookies(c, sid);
     const u = await loadUserRow(userId);
     u.sessionId = sid;
-    const rules = await sql`SELECT onchain_synced_at FROM rules WHERE user_id = ${userId}::uuid`;
-    return c.json({ user: mePayload(u, !!rules[0]?.onchain_synced_at) });
+    const rules = await sql`SELECT onboarded_at FROM rules WHERE user_id = ${userId}::uuid`;
+    return c.json({ user: mePayload(u, !!rules[0]?.onboarded_at) });
   } catch (e) {
     return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
   }
@@ -200,8 +200,8 @@ authRoutes.post('/auth/seed', async (c) => {
     setSessionCookies(c, sid);
     const u = await loadUserRow(userId);
     u.sessionId = sid;
-    const rules = await sql`SELECT onchain_synced_at FROM rules WHERE user_id = ${userId}::uuid`;
-    return c.json({ user: mePayload(u, !!rules[0]?.onchain_synced_at) });
+    const rules = await sql`SELECT onboarded_at FROM rules WHERE user_id = ${userId}::uuid`;
+    return c.json({ user: mePayload(u, !!rules[0]?.onboarded_at) });
   } catch (e) {
     return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
   }
