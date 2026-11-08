@@ -3,7 +3,7 @@ import { site } from "../lib/site";
 
 /** Public pages are open to search and AI answer crawlers; the signed-in app and the API are not. */
 export default function robots(): MetadataRoute.Robots {
-  const privateApp = ["/api/", "/add", "/holdings", "/receipts", "/settings", "/jars", "/buy", "/funds", "/activity", "/onboarding"];
+  const privateApp = ["/api/", "/add", "/holdings", "/receipts", "/settings", "/jars", "/buy", "/funds", "/activity", "/onboarding", "/shots"];
   return {
     rules: [
       { userAgent: "*", allow: ["/", "/how-it-works", "/risks", "/terms"], disallow: privateApp },

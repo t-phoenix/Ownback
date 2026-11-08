@@ -1,31 +1,27 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { PrivyProvider, useLogin, useLogout, useModalStatus, usePrivy, useSignTypedData, useWallets } from "@privy-io/react-auth";
 import { api, ApiError, type Me } from "../lib/api";
 import { clearApiCache } from "../lib/use-api";
 import { setPrivyBridge } from "../lib/sign-action";
+import { SessionCtx, useSession, type Session } from "./session-context";
+
+export { useSession, MockSessionProvider } from "./session-context";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
 
-type Session = {
-  /** undefined = still checking, null = signed out */
-  me: Me | null | undefined;
-  refresh: () => Promise<Me | null>;
-  signIn: () => void;
-  signOut: () => Promise<void>;
-  busy: boolean;
-  error: string | null;
-  configured: boolean;
-};
-
-const Ctx = createContext<Session>({ me: undefined, refresh: async () => null, signIn: () => {}, signOut: async () => {}, busy: false, error: null, configured: false });
-export const useSession = () => useContext(Ctx);
-
 async function fetchMe(): Promise<Me | null> {
   try { return await api.me(); }
-  catch (e) { if (e instanceof ApiError && (e.status === 401 || e.code === "UNAUTHENTICATED")) return null; throw e; }
+  catch (e) {
+    if (!(e instanceof ApiError)) throw e;
+    // Logged out, or transient DB/API blip — treat as no session so Privy can re-exchange.
+    if (e.status === 401 || e.code === "UNAUTHENTICATED" || e.status >= 500 || e.code === "UPSTREAM" || e.code === "INTERNAL") {
+      return null;
+    }
+    throw e;
+  }
 }
 
 /** Privy owns Google sign-in and the embedded wallets; our API owns the session cookie. */
@@ -50,9 +46,15 @@ function PrivySession({ children }: { children: ReactNode }) {
       const { user } = await api.authPrivy(token);
       clearApiCache(); setMe(user);
     } catch (e) {
-      setError(e instanceof ApiError ? e.code : "AUTH_INVALID");
+      const code = e instanceof ApiError ? e.code : "AUTH_INVALID";
+      setError(code);
+      // Stale Privy JWT after a blip loops forever (authenticated && me===null). Force a clean re-login.
+      if (code === "AUTH_INVALID") {
+        await logout().catch(() => {});
+        setMe(null);
+      }
     } finally { setBusy(false); }
-  }, [getAccessToken]);
+  }, [getAccessToken, logout]);
 
   const { login } = useLogin({ onComplete: () => { exchange(); }, onError: () => setBusy(false) });
 
@@ -90,7 +92,7 @@ function PrivySession({ children }: { children: ReactNode }) {
     signIn: () => { setError(null); if (authenticated) exchange(); else { setBusy(true); login({ loginMethods: ["google"] }); } },
     signOut: async () => { await api.logout().catch(() => {}); await logout().catch(() => {}); clearApiCache(); setMe(null); },
   }), [me, refresh, busy, error, authenticated, exchange, login, logout]);
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <SessionCtx.Provider value={value}>{children}</SessionCtx.Provider>;
 }
 
 /** Without a Privy app ID the app still renders, but sign-in says it isn't set up. */
@@ -102,7 +104,7 @@ function UnconfiguredSession({ children }: { children: ReactNode }) {
     me, refresh, busy: false, configured: false, error: "NOT_CONFIGURED",
     signIn: () => {}, signOut: async () => { await api.logout().catch(() => {}); clearApiCache(); setMe(null); },
   }), [me, refresh]);
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <SessionCtx.Provider value={value}>{children}</SessionCtx.Provider>;
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {

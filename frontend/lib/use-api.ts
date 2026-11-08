@@ -8,7 +8,7 @@ const cache = new Map<string, unknown>();
 const listeners = new Set<() => void>();
 
 /** Ask every mounted screen to refetch (pull to refresh, after a confirm or a buy). */
-export function refreshAll() { listeners.forEach(l => l()); }
+export function refreshAll() { cache.clear(); listeners.forEach(l => l()); }
 export function clearApiCache() { cache.clear(); }
 
 export function useApi<T>(key: string | null, load: () => Promise<T>, opts: { pollMs?: number } = {}) {

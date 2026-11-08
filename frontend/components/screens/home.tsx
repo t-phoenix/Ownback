@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Bell, BellRing, CheckCircle2, ChevronRight, CircleDollarSign, Gauge, Inbox, Mail, ReceiptText, Zap } from "lucide-react";
 import { useApp } from "../app-context";
-import { useSession } from "../session";
+import { useSession } from "../session-context";
 import { Logo } from "../logo";
 import { CountUp, Creative, GlassJar, Monogram, SwipeDeck, Tilt } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";

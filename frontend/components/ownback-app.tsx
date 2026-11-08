@@ -1,16 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Bell, Home as HomeIcon, Plus, ReceiptText, RefreshCw, Settings as SettingsIcon, Upload, WalletCards } from "lucide-react";
 import { Logo } from "./logo";
 import { App, type Navigate } from "./app-context";
 import { haptic } from "./ui";
-import { SessionProvider, useSession } from "./session";
+import { useSession } from "./session-context";
 import { refreshAll } from "../lib/use-api";
+
+/** Privy stays out of the SSR/preload graph so next dev does not hold the whole WalletConnect tree at boot. */
+const SessionProvider = dynamic(
+  () => import("./session").then((m) => m.SessionProvider),
+  { ssr: false },
+);
 import { Home, Activity } from "./screens/home";
 import { Holdings, Holding } from "./screens/holdings";
 import { AddPurchase, Reading, ReadError, TypeIt, Confirm, Saved, startRead } from "./screens/add";
-import { Jars, BuyReview, BuyDone } from "./screens/buy";
+import { Jars, BuyReview, BuyDone, SellReview, SellDone } from "./screens/buy";
 import { Receipts } from "./screens/receipts";
 import { Settings, Funds } from "./screens/settings";
 import { SignIn, Rules } from "./screens/onboarding";
@@ -150,6 +157,8 @@ function Shell({ initialPath }: { initialPath: string }) {
   else if (route === "/jars") screen = <Jars />;
   else if (route === "/buy/review") screen = <BuyReview all={query === "all"} />;
   else if (seg[0] === "buy" && seg[1]) screen = <BuyDone batchId={seg[1]} />;
+  else if (seg[0] === "sell" && seg[1] === "review" && seg[2]) screen = <SellReview assetId={decodeURIComponent(seg[2])} />;
+  else if (seg[0] === "sell" && seg[1]) screen = <SellDone sellId={seg[1]} />;
   else if (seg[0] === "holdings" && seg[1]) screen = <Holding id={decodeURIComponent(seg[1])} />;
   else if (route === "/holdings") screen = <Holdings />;
   else if (route === "/add") screen = <AddPurchase />;

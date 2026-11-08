@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Mail } from "lucide-react";
 import { useApp } from "../app-context";
-import { useSession } from "../session";
+import { useSession } from "../session-context";
 import { Logo } from "../logo";
 import { Coin3D, Creative, Tilt, haptic } from "../ui";
 import { ErrorState, Skeleton } from "../states";
@@ -60,7 +60,13 @@ export function Rules() {
     setBusy(true); setErr(null);
     try {
       await api.putRules({ rateBps: rate * 100, monthlyCapUsd6: (BigInt(limit) * 1_000_000n).toString() });
-      await refresh(); navigate("/funds");
+      await refresh();
+      // First-time empty wallet → Funds; returning users with USDC/jars go straight home.
+      const home = await api.home().catch(() => null);
+      const free = BigInt(home?.balance.usdc.freeUsd6 ?? "0");
+      const jars = BigInt(home?.balance.usdc.inJarsUsd6 ?? "0");
+      const owned = BigInt(home?.balance.byType.stocksCommodities ?? "0");
+      navigate(free + jars + owned > 0n ? "/" : "/funds");
     } catch (e) { setErr(errorCopy(e instanceof ApiError ? e.code : undefined)); setBusy(false); }
   };
   const r = rules.data;

@@ -166,7 +166,8 @@ kbd { font: 500 11px/1 var(--font-mono); padding: 4px 6px; border-radius: 6px; b
 .fineprint svg { vertical-align: -3px; margin-right: 4px; }
 .error { margin: 10px 0 0; color: var(--bad); font-size: 14px; font-weight: 600; text-align: center; }
 .empty { color: var(--muted); text-align: center; padding: 32px 0; }
-.money-frac { font-size: .52em; font-weight: 600; letter-spacing: -.01em; vertical-align: .78em; margin-left: .04em; opacity: .62; }
+/* Same baseline as dollars — shrunk/raised cents made "$10.24" read as "$100" on the vault. */
+.money-frac { font-size: 1em; font-weight: inherit; letter-spacing: inherit; margin-left: 0; opacity: .78; }
 
 /* ───────────── Shell ───────────── */
 .shell { min-height: 100svh; background: var(--paper); }
@@ -803,4 +804,32 @@ button.watching { width: 100%; text-align: left; }
 .public-foot a { color: var(--ink-2); text-decoration: none; }
 @media (max-width: 560px) { .public-nav a:not(.button) { display: none; } .prose-steps li { padding: 16px; } }
 @media (min-width: 900px) { .public-head { padding: 16px 40px; } .public-main { padding-top: 64px; } }
+
+/* ───────────── /shots phone frame (demo screenshots) ───────────── */
+.shots-stage {
+  min-height: 100svh; display: grid; place-content: center; justify-items: center; gap: 18px;
+  padding: 36px 24px; background:
+    radial-gradient(80% 60% at 20% 0%, #DDF0E5 0%, transparent 55%),
+    radial-gradient(70% 50% at 90% 100%, #FBF2D6 0%, transparent 50%),
+    #E8EEE9;
+}
+.shots-phone {
+  position: relative; width: 390px; height: 844px; border-radius: 40px; overflow: hidden;
+  background: var(--paper); border: 11px solid #14241C;
+  box-shadow: 0 1px 0 rgba(255,255,255,.35) inset, 0 28px 70px -20px rgba(14, 42, 31, .45);
+}
+.shots-phone .shell { min-height: 100%; height: 100%; }
+.shots-phone .stage { height: 100%; overflow: auto; scrollbar-width: none; }
+.shots-phone .stage::-webkit-scrollbar { display: none; }
+.shots-phone .screen { animation: none; }
+.shots-phone .tabbar { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; }
+.shots-phone .welcome { min-height: 100%; }
+.shots-phone .welcome-art { min-height: 48%; }
+.shots-notch {
+  position: absolute; z-index: 40; top: 10px; left: 50%; transform: translateX(-50%);
+  width: 118px; height: 28px; border-radius: 18px; background: #14241C;
+}
+.shots-caption {
+  margin: 0; font: 600 14px/1.3 var(--font-body); color: #29443A; letter-spacing: .01em;
+}
 .error-page { min-height: 100svh; display: grid; place-items: center; align-content: center; gap: 14px; padding: 24px; text-align: center; }

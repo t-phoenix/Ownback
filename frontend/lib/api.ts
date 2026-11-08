@@ -60,8 +60,14 @@ export type JarState = "filling" | "ready" | "approved" | "buying" | "returning"
 export type Jar = { assetId: string; name: string; role: string; amountUsd6: Usd6; readyMinUsd6: Usd6; state: JarState; note?: string };
 export type Jars = { jars: Jar[]; nextReminderAt: string; estFeesUsd6: Usd6 };
 export type Fees = { totalUsd6: Usd6; pctBps: number; covered?: boolean; withinCap?: boolean };
-export type BuyReview = { quoteId: string; expiresAt: string; rows: { assetId: string; name: string; amountUsd6: Usd6; token?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; estQty: string; maxPriceUsd6: Usd6; fees: Fees; selectable: boolean; reason?: string; arkiv?: { key: string; url: string } }[]; totalUsd6: Usd6; fees: Fees; destination: string; approval: { kind: "typed_data"; typedData: unknown } };
-export type BuyProgress = { batchId: string; status: string; entries: { assetId: string; name: string; status: string; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string }[]; totals?: { boughtUsd6: Usd6; leftInJarsUsd6: Usd6; feesUsd6: Usd6; slippageBps: number }; destination: string };
+export type SignableAction =
+  | { kind: "evm_calls"; chain: string; calls: { to: string; data: string; value: "0" }[]; summary: string }
+  | { kind: "sol_tx"; txBase64: string; feePayer: string; summary: string }
+  | { kind: "typed_data"; typedData: unknown; summary: string };
+export type BuyReview = { quoteId: string; expiresAt: string; rows: { assetId: string; name: string; amountUsd6: Usd6; jarAmountUsd6?: Usd6; token?: string; mint?: string; decimals?: number; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; estQty: string; maxPriceUsd6: Usd6; fees: Fees; selectable: boolean; reason?: string; arkiv?: { key: string; url: string } }[]; totalUsd6: Usd6; fees: Fees; destination: string; approval: { kind: "typed_data"; typedData: unknown } };
+export type BuyProgress = { batchId: string; status: string; entries: { assetId: string; name: string; status: string; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; venueTx?: string; explorerUrl?: string }[]; totals?: { boughtUsd6: Usd6; leftInJarsUsd6: Usd6; feesUsd6: Usd6; slippageBps: number }; destination: string };
+export type SellReview = { quoteId: string; expiresAt: string; assetId: string; name: string; token?: string; mint?: string; decimals?: number; qty: string; amountRaw: string; estUsdcUsd6: Usd6; fees: Fees; destination: string; action: SignableAction };
+export type SellProgress = { sellId: string; status: string; venueTx?: string; explorerUrl?: string; receivedUsd6?: Usd6 };
 export type Allocation = { assetId: string; name: string; role: "maker" | "supplier" | "material" | "fallback"; tokenized: boolean; amountUsd6: Usd6; selected: boolean; why?: string };
 export type PurchaseStatus = "reading" | "read_failed" | "ready" | "needs_review" | "not_listed" | "skipped" | "confirming" | "saved" | "deleted";
 export type Purchase = { id: string; status: PurchaseStatus; source: string; receipt?: { shop: string; place?: string; date: string; items: string[]; local: { amount: string; currency: string }; fxRate: string; amountUsd6: Usd6 }; investUsd6?: Usd6; rateBps?: number; split?: { maker: number; behind: number; materials: number }; allocations: Allocation[]; ogRequestIds: string[]; readError?: "no_total" | "no_product" | "not_a_receipt"; limit?: { usedUsd6: Usd6; capUsd6: Usd6; leftUsd6: Usd6 } };
@@ -71,10 +77,6 @@ export type Rules = { rateBps: number; monthlyCapUsd6: Usd6; readyMinUsd6: Usd6;
 export type DepositAddress = { chain: string; address: string; minUsd6: Usd6; sameAddressChains: string[] };
 export type DepositWatch = { checkedAt: string; deposit?: { id: string; chain: string; amountUsd6: Usd6; status: string } };
 export type GmailState = { state: "none" | "no_access" | "scanning" | "found" | "caught_up" | "revoked"; email?: string; newCount?: number; firstShops?: string[] };
-export type SignableAction =
-  | { kind: "evm_calls"; chain: string; calls: { to: string; data: string; value: "0" }[]; summary: string }
-  | { kind: "sol_tx"; txBase64: string; feePayer: string; summary: string }
-  | { kind: "typed_data"; typedData: unknown; summary: string };
 
 /* ───────── Endpoints ───────── */
 
@@ -86,9 +88,15 @@ export const api = {
   holdings: () => get<Holdings>("/holdings"),
   holding: (id: string) => get<HoldingDetail>(`/holdings/${encodeURIComponent(id)}`),
   jars: () => get<Jars>("/jars"),
-  buysReview: (all = false) => get<BuyReview>(`/buys/review${all ? "?include=all" : ""}`),
+  buysReview: (all = false, amounts?: Record<string, string>) =>
+    amounts && Object.keys(amounts).length
+      ? send<BuyReview>("POST", "/buys/review", { include: all ? "all" : "ready", amounts }, true)
+      : get<BuyReview>(`/buys/review${all ? "?include=all" : ""}`),
   buy: (quoteId: string, approval: unknown, signature: string) => send<{ batchIds: string[] }>("POST", "/buys", { quoteId, approval, signature }, true),
   buyProgress: (batchId: string) => get<BuyProgress>(`/buys/${batchId}`),
+  sellsReview: (assetId: string, qty?: string) => get<SellReview>(`/sells/review?assetId=${encodeURIComponent(assetId)}${qty ? `&qty=${encodeURIComponent(qty)}` : ""}`),
+  sell: (quoteId: string, txHash?: string) => send<{ sellId: string }>("POST", "/sells", { quoteId, ...(txHash ? { txHash } : {}) }, true),
+  sellProgress: (sellId: string) => get<SellProgress>(`/sells/${sellId}`),
   receipts: (filter = "all") => get<Receipts>(`/receipts?filter=${filter}`),
   activity: () => get<Activity>("/activity"),
   rules: () => get<Rules>("/rules"),
@@ -103,7 +111,8 @@ export const api = {
   deselect: (id: string, deselect: string[]) => send<Purchase>("PUT", `/purchases/${id}/assets`, { deselect }),
   makerOnly: (id: string, s: { maker: number; behind: number; materials: number }) => send<Purchase>("PUT", `/purchases/${id}/split`, { ...s, makerOnly: true, saveForFuture: false }),
   fallback: (id: string, choice: "fallback" | "skip") => send<Purchase>("PUT", `/purchases/${id}/fallback`, { choice }),
-  confirm: (id: string) => send<{ action: SignableAction }>("POST", `/purchases/${id}/confirm`, {}, true),
+  confirm: (id: string, amountUsd6?: Usd6) =>
+    send<{ action: SignableAction }>("POST", `/purchases/${id}/confirm`, amountUsd6 ? { amountUsd6 } : {}, true),
   confirmSubmitted: (id: string, txHash?: string) => send<Purchase>("POST", `/purchases/${id}/confirm/submitted`, txHash ? { txHash } : {}),
   exportData: () => get<unknown>("/me/export"),
 };

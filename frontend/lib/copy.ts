@@ -1,4 +1,5 @@
 /** User-facing copy from copy-and-errors.md. The UI never shows an error code itself. */
+import { fmtUsd6 } from "./money";
 
 const errors: Record<string, string> = {
   AUTH_INVALID: "That didn't work. Try signing in again.",
@@ -17,8 +18,14 @@ const errors: Record<string, string> = {
   NONCE_USED: "That sign-in link was already used. Try again.",
 };
 
-export function errorCopy(code: string | undefined): string {
+export function errorCopy(code: string | undefined, details?: { freeUsd6?: string; shortUsd6?: string; leftUsd6?: string }): string {
   if (code === "OFFLINE") return "You're offline · showing what we had";
+  if (code === "INSUFFICIENT_FREE" && details?.freeUsd6 && details?.shortUsd6) {
+    return `You have ${fmtUsd6(details.freeUsd6)} free. Add ${fmtUsd6(details.shortUsd6)} or save ${fmtUsd6(details.freeUsd6)} now and the rest later.`;
+  }
+  if (code === "LIMIT_REACHED" && details?.leftUsd6) {
+    return `You've hit this month's limit. You can still save ${fmtUsd6(details.leftUsd6)} now.`;
+  }
   return (code && errors[code]) || "We couldn't load this. Your money isn't affected.";
 }
 

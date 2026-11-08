@@ -176,26 +176,39 @@ const segClass = (role: string) => role === "maker" || role === "fallback" ? "se
 export function Confirm({ id }: { id: string }) {
   const { navigate } = useApp();
   const p = useApi(`purchase:${id}`, () => api.purchase(id));
+  const home = useApi("home", api.home);
+  const rules = useApi("rules", api.rules);
   const [why, setWhy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [shortfall, setShortfall] = useState<{ freeUsd6: string; shortUsd6: string } | null>(null);
+  const [limitLeft, setLimitLeft] = useState<string | null>(null);
   const data = p.data;
   const toggle = async (assetId: string) => {
     if (!data) return; haptic(5);
     const off = data.allocations.filter(a => (a.assetId === assetId ? a.selected : !a.selected)).map(a => a.assetId);
     try { await api.deselect(id, off); await p.reload(); } catch (e) { setErr(errorCopy(e instanceof ApiError ? e.code : undefined)); }
   };
-  const confirm = async () => {
+  const confirm = async (amountUsd6?: string) => {
     setBusy(true); setErr(null);
     try {
-      const { action } = await api.confirm(id);
+      const { action } = await api.confirm(id, amountUsd6);
       const signed = await signAction(action);
       await api.confirmSubmitted(id, signed.txHash);
       refreshAll(); navigate(`/add/${id}/saved`);
     } catch (e) {
-      const code = (e as { code?: string }).code;
-      if (code === "INSUFFICIENT_FREE") navigate("/funds");
-      setErr(errorCopy(code)); setBusy(false);
+      const ae = e instanceof ApiError ? e : null;
+      const details = ae?.details as { freeUsd6?: string; shortUsd6?: string; leftUsd6?: string } | undefined;
+      if (ae?.code === "INSUFFICIENT_FREE" && details?.freeUsd6 && details?.shortUsd6) {
+        setShortfall({ freeUsd6: details.freeUsd6, shortUsd6: details.shortUsd6 });
+        setErr(errorCopy(ae.code, details));
+      } else if (ae?.code === "LIMIT_REACHED" && details?.leftUsd6) {
+        setLimitLeft(details.leftUsd6);
+        setErr(errorCopy(ae.code, details));
+      } else {
+        setErr(errorCopy(ae?.code));
+      }
+      setBusy(false);
     }
   };
   if (p.error) return <div className="page flow"><FlowHead title="Confirm purchase" back="/add" /><ErrorState error={p.error} onRetry={p.reload} /></div>;
@@ -204,6 +217,18 @@ export function Confirm({ id }: { id: string }) {
   const r = data.receipt;
   const selected = data.allocations.filter(a => a.selected);
   const total = selected.reduce((s, a) => s + BigInt(a.amountUsd6), 0n);
+  const freeUsd6 = home.data?.balance.usdc.freeUsd6 ?? shortfall?.freeUsd6;
+  const free = freeUsd6 ? BigInt(freeUsd6) : null;
+  // Floor free to whole cents so partial confirm matches D18.
+  const freeCents = free != null ? (free / 10_000n) * 10_000n : null;
+  // shortcut: fall back to monthlyCap when used is unknown; LIMIT_REACHED sets limitLeft
+  const leftCap = BigInt(limitLeft ?? data.limit?.leftUsd6 ?? rules.data?.monthlyCapUsd6 ?? total.toString());
+  // Save what you can: min(free, monthly left, invest).
+  let available = total;
+  if (freeCents != null && freeCents < available) available = freeCents;
+  if (leftCap < available) available = leftCap;
+  const canPartial = available > 0n && available < total;
+  const shortUsd6 = shortfall?.shortUsd6 ?? (freeCents != null && freeCents < total ? (total - freeCents).toString() : null);
   const maker = data.allocations.find(a => a.role === "maker");
   const done = data.status === "saved" || data.status === "confirming";
   return <div className="page flow wide">
@@ -218,6 +243,11 @@ export function Confirm({ id }: { id: string }) {
 
         {data.status === "not_listed" && <div className="insight"><span>This brand has no shares to buy yet, so your {(data.rateBps ?? 500) / 100}% ({fmtUsd6(data.investUsd6)}) can go to your fallback instead.</span></div>}
         {data.status === "needs_review" && <div className="insight"><span>We're not sure about one of these companies. Check the match before you confirm.</span></div>}
+        {canPartial && <div className="insight"><span>
+          {shortUsd6
+            ? `You have ${fmtUsd6(freeCents)} free. Add ${fmtUsd6(shortUsd6)} or save ${fmtUsd6(available)} now and the rest later.`
+            : `Monthly room left is ${fmtUsd6(available)}. Save that now and the rest next month.`}
+        </span></div>}
 
         <div className="block-head block">
           <div><p className="micro">The match</p><h2 className="h-section">Where your {fmtUsd6(data.investUsd6)} goes</h2></div>
@@ -241,13 +271,19 @@ export function Confirm({ id }: { id: string }) {
         {why && <div className="why">
           {data.allocations.filter(a => a.why).map(a => <p key={a.assetId}><b>{assetName(a.assetId, a.name)}:</b> {a.why}</p>)}
           {!!data.ogRequestIds.length && <p className="mono">AI request ID: {data.ogRequestIds.map(x => `${x.slice(0, 4)}…${x.slice(-3)}`).join(", ")}</p>}
+          {!data.ogRequestIds.length && data.source === "typed" && <p className="sub">Typed entry — matched from the company registry (no receipt AI read).</p>}
         </div>}
         <p className="fee"><ShieldCheck size={15} /> Network fee $0.00 · we cover it</p>
         {err && <p className="error" role="alert">{err}</p>}
         {done ? <div className="dock"><button className="button primary full lg" onClick={() => navigate("/jars")}>View your jars</button></div>
           : <div className="dock">
               {busy ? <button className="button primary full lg" disabled>Saving… usually 2 s</button>
-                : <ConfirmAction label={`Confirm ${fmtUsd6(total)} across ${selected.length}`} onConfirm={confirm} />}
+                : canPartial
+                  ? <>
+                      <ConfirmAction label={`Save ${fmtUsd6(available)} now`} onConfirm={() => confirm(available.toString())} />
+                      {shortUsd6 && <button className="button secondary full" onClick={() => navigate("/funds")}>Add {fmtUsd6(shortUsd6)}</button>}
+                    </>
+                  : <ConfirmAction label={`Confirm ${fmtUsd6(total)} across ${selected.length}`} onConfirm={() => confirm()} />}
               <div className="dock-row">
                 {maker && data.allocations.length > 1 && data.split && <button className="button quiet" onClick={async () => { await api.makerOnly(id, data.split!).catch(() => {}); p.reload(); }}>Only {assetName(maker.assetId, maker.name)}</button>}
                 {data.status === "not_listed" && <button className="button quiet" onClick={async () => { await api.fallback(id, "skip").catch(() => {}); refreshAll(); navigate("/", { dir: "back" }); }}>Skip this purchase</button>}

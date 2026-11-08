@@ -63,7 +63,7 @@ export function Holdings() {
 }
 
 export function Holding({ id }: { id: string }) {
-  const { notify } = useApp();
+  const { navigate, notify } = useApp();
   const d = useApi(`holding:${id}`, () => api.holding(id));
   const [hide, setHide] = useState(true);
   const name = assetName(id, d.data?.name);
@@ -75,6 +75,7 @@ export function Holding({ id }: { id: string }) {
     { label: "Ownership record published", sub: proof?.arkivKey ? "Arkiv" : "Pending", done: !!proof?.arkivKey },
   ];
   const shareText = `I bought something I love. Now I own a piece of ${name}.`;
+  const canSell = !!d.data?.qty && BigInt(d.data.valueUsd6 || "0") > 0n;
   return <div className="page flow wide">
     <FlowHead title={name} kicker={d.data?.token} back="/holdings" />
     <ErrorState error={d.error} onRetry={d.reload} />
@@ -84,6 +85,9 @@ export function Holding({ id }: { id: string }) {
           <Monogram name={name} tone={toneFor(id)} size={60} />
           <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}</p></div>
         </section>}
+        {canSell && <div className="dock" style={{ position: "relative", marginBottom: 16 }}>
+          <button className="button secondary full" onClick={() => navigate(`/sell/review/${encodeURIComponent(id)}`)}>Sell for USDC</button>
+        </div>}
 
         {d.data && BigInt(d.data.spentThisYearUsd6 || "0") > 0n && <section className="card versus" aria-label="Spent versus owned">
           <p className="versus-copy">You spent <b>{fmtUsd6(d.data.spentThisYearUsd6)}</b> on {name} this year. You now own <b className="pos">{fmtUsd6(d.data.valueUsd6)}</b> of {name}.</p>

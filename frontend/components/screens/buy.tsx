@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Share2, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Share2, ShieldCheck, Zap } from "lucide-react";
 import { useApp } from "../app-context";
 import { Coin3D, ConfirmAction, GlassJar, Monogram, Ring, Sheet, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
@@ -71,34 +71,74 @@ export function Jars() {
   </div>;
 }
 
+/** Dollars string like "0.50" → Usd6 digit string (whole cents). */
+function dollarsToUsd6(s: string): string | null {
+  const t = s.trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const [w, f = ""] = t.split(".");
+  const cents = BigInt(w) * 100n + BigInt((f + "00").slice(0, 2));
+  return (cents * 10_000n).toString();
+}
+
+function usd6ToDollarsInput(usd6: string): string {
+  const n = BigInt(usd6);
+  const dollars = n / 1_000_000n;
+  const cents = (n % 1_000_000n) / 10_000n;
+  return cents === 0n ? dollars.toString() : `${dollars}.${cents.toString().padStart(2, "0")}`;
+}
+
 export function BuyReview({ all = false }: { all?: boolean }) {
   const { navigate } = useApp();
-  const r = useApi(`review:${all}`, () => api.buysReview(all));
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [phase, setPhase] = useState<"idle" | "signing" | "submitting">("idle");
+  const amountsKey = JSON.stringify(amounts);
+  const r = useApi(`review:${all}:${amountsKey}`, () => api.buysReview(all, Object.keys(amounts).length ? amounts : undefined));
   const [left, setLeft] = useState(30);
   const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!r.data) return;
     const end = new Date(r.data.expiresAt).getTime();
     const t = setInterval(() => { const s = Math.max(0, Math.round((end - Date.now()) / 1000)); setLeft(s); if (s === 0) r.reload(); }, 1000);
     return () => clearInterval(t);
   }, [r.data, r]);
+  useEffect(() => {
+    const data = r.data;
+    if (!data) return;
+    setInputs(prev => {
+      const next = { ...prev };
+      for (const row of data.rows) {
+        if (next[row.assetId] == null) next[row.assetId] = usd6ToDollarsInput(row.amountUsd6);
+      }
+      return next;
+    });
+  }, [r.data]);
   const d = r.data;
   const rows = d?.rows ?? [];
   const selectable = rows.filter(x => x.selectable);
+  const applyAmount = (assetId: string, jarCap: string) => {
+    const raw = inputs[assetId] ?? "";
+    const usd6 = dollarsToUsd6(raw);
+    if (!usd6) { setErr("Enter a dollar amount like 0.50"); return; }
+    const capped = BigInt(usd6) > BigInt(jarCap) ? jarCap : usd6;
+    setAmounts(a => ({ ...a, [assetId]: capped }));
+    setErr(null);
+  };
   const buy = async () => {
     if (!d) return;
-    setBusy(true); setErr(null);
+    setPhase("signing"); setErr(null);
     try {
       const signed = await signAction({ kind: "typed_data", typedData: d.approval.typedData, summary: `Buy ${selectable.length} assets` });
-      const { batchIds } = await api.buy(d.quoteId, d.approval.typedData, signed.signature ?? "");
+      setPhase("submitting");
+      const { batchIds } = await api.buy(d.quoteId, d.approval.typedData, signed.signature ?? "mock");
       refreshAll(); navigate(`/buy/${batchIds[0]}`);
     } catch (e) {
       const code = e instanceof ApiError ? e.code : (e as { code?: string }).code;
-      setErr(errorCopy(code ?? "BAD_SIGNATURE")); setBusy(false);
+      setErr(errorCopy(code ?? "BAD_SIGNATURE")); setPhase("idle");
       if (code === "QUOTE_EXPIRED") r.reload();
     }
   };
+  const phaseLabel = phase === "signing" ? "Approve in wallet…" : phase === "submitting" ? "Submitting…" : null;
   return <div className="page flow wide">
     <FlowHead title={rows.length ? `Buy ${selectable.length || rows.length} jar${rows.length > 1 ? "s" : ""}` : "Buy"} back="/jars" />
     <ErrorState error={r.error} onRetry={r.reload} />
@@ -106,12 +146,13 @@ export function BuyReview({ all = false }: { all?: boolean }) {
     {r.loading && <SkeletonList rows={3} />}
     {d && <div className="two-col">
       <div className="quotes">
-        {rows.map(q => { const name = assetName(q.assetId, q.name); return <article className={`card quote ${q.selectable ? "" : "off"}`} key={q.assetId}>
+        {rows.map(q => { const name = assetName(q.assetId, q.name); const jarCap = q.jarAmountUsd6 ?? q.amountUsd6; return <article className={`card quote ${q.selectable ? "" : "off"}`} key={q.assetId}>
           <header className="quote-top">
             <Monogram name={name} tone={toneFor(q.assetId)} />
             <div className="row-main"><div className="row-title">{name} {q.token && <span className="sub">{q.token}</span>}</div><div className="row-sub">{q.selectable ? `Best price on ${q.chain === "solana" ? "Solana" : q.chain}` : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(1)}%)` : "Buys when available"}</div></div>
             <strong className="num">{fmtUsd6(q.amountUsd6)}</strong>
           </header>
+          {q.mint && <p className="fineprint mono">mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
           {q.arkiv && <a className="fineprint" href={q.arkiv.url} target="_blank" rel="noreferrer"><ShieldCheck size={14} /> Token verified on Arkiv</a>}
           {BigInt(q.price.usd6PerUnit || "0") > 0n && <dl className="quote-grid">
             <div><dt>Price now</dt><dd>{fmtUsd6(q.price.usd6PerUnit)}{q.token ? ` per ${q.token}` : ""}</dd></div>
@@ -119,6 +160,13 @@ export function BuyReview({ all = false }: { all?: boolean }) {
             <div><dt>Won't buy above</dt><dd>{fmtUsd6(q.maxPriceUsd6)} (+1%)</dd></div>
             <div><dt>Fees</dt><dd>{fmtUsd6(q.fees.totalUsd6)} ({(q.fees.pctBps / 100).toFixed(1)}%)</dd></div>
           </dl>}
+          <div className="quote-amount field">
+            <label htmlFor={`amt-${q.assetId}`}>Buy amount <em>(jar has {fmtUsd6(jarCap)})</em></label>
+            <div className="btn-row">
+              <input id={`amt-${q.assetId}`} inputMode="decimal" value={inputs[q.assetId] ?? ""} onChange={e => setInputs(i => ({ ...i, [q.assetId]: e.target.value }))} aria-label={`Amount for ${name}`} />
+              <button type="button" className="button secondary sm" onClick={() => applyAmount(q.assetId, jarCap)}>Update</button>
+            </div>
+          </div>
         </article>; })}
       </div>
       <div>
@@ -130,7 +178,7 @@ export function BuyReview({ all = false }: { all?: boolean }) {
         {d.destination && <p className="fineprint">Shares go straight to your Solana wallet <span className="mono">{d.destination.slice(0, 4)}…{d.destination.slice(-4)}</span>.</p>}
         {err && <p className="error" role="alert">{err}</p>}
         <div className="dock">
-          {busy ? <button className="button primary full lg" disabled>Approving…</button>
+          {phaseLabel ? <button className="button primary full lg" disabled>{phaseLabel}</button>
             : selectable.length ? <ConfirmAction label={`Buy now · ${fmtUsd6(d.totalUsd6)}`} onConfirm={buy} />
             : <button className="button primary full lg" disabled>Nothing can be bought right now</button>}
           <p className="fineprint center"><ShieldCheck size={14} /> Nothing buys without this approval.</p>
@@ -140,29 +188,107 @@ export function BuyReview({ all = false }: { all?: boolean }) {
   </div>;
 }
 
+export function SellReview({ assetId }: { assetId: string }) {
+  const { navigate } = useApp();
+  const [qty, setQty] = useState("");
+  const [qtyApplied, setQtyApplied] = useState<string | undefined>();
+  const r = useApi(`sell:${assetId}:${qtyApplied ?? "all"}`, () => api.sellsReview(assetId, qtyApplied));
+  const [phase, setPhase] = useState<"idle" | "signing" | "submitting">("idle");
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { if (r.data && !qty) setQty(r.data.qty); }, [r.data, qty]);
+  const sell = async () => {
+    if (!r.data) return;
+    setPhase("signing"); setErr(null);
+    try {
+      const signed = await signAction(r.data.action);
+      setPhase("submitting");
+      const txHash = signed.txHash ?? (r.data.action.kind === "typed_data" ? "mock" : undefined);
+      if (!txHash) throw Object.assign(new Error("BAD_SIGNATURE"), { code: "BAD_SIGNATURE" });
+      const { sellId } = await api.sell(r.data.quoteId, txHash);
+      refreshAll(); navigate(`/sell/${sellId}`);
+    } catch (e) {
+      setErr(errorCopy(e instanceof ApiError ? e.code : (e as { code?: string }).code)); setPhase("idle");
+    }
+  };
+  const d = r.data;
+  return <div className="page flow narrow">
+    <FlowHead title="Sell" back={`/holdings/${encodeURIComponent(assetId)}`} />
+    <ErrorState error={r.error} onRetry={r.reload} />
+    {r.loading && <SkeletonList rows={3} />}
+    {d && <>
+      <section className="card summary">
+        <div className="summary-line"><span>{d.name}{d.token ? ` · ${d.token}` : ""}</span><strong>{d.qty}</strong></div>
+        <div className="summary-line"><span>You get about</span><strong>{fmtUsd6(d.estUsdcUsd6)} USDC</strong></div>
+        <div className="summary-line"><span>Fees</span><strong>{fmtUsd6(d.fees.totalUsd6)}</strong></div>
+        {d.mint && <p className="fineprint mono">mint {d.mint.slice(0, 4)}…{d.mint.slice(-4)} · {d.decimals} decimals</p>}
+      </section>
+      <label className="field" htmlFor="sell-qty">Quantity to sell
+        <div className="btn-row">
+          <input id="sell-qty" value={qty} onChange={e => setQty(e.target.value)} />
+          <button type="button" className="button secondary sm" onClick={() => { setQtyApplied(qty); setErr(null); }}>Update</button>
+        </div>
+      </label>
+      {err && <p className="error" role="alert">{err}</p>}
+      <div className="dock">
+        {phase !== "idle" ? <button className="button primary full lg" disabled>{phase === "signing" ? "Approve in wallet…" : "Submitting…"}</button>
+          : <ConfirmAction label={`Sell · ${fmtUsd6(d.estUsdcUsd6)}`} onConfirm={sell} />}
+      </div>
+    </>}
+  </div>;
+}
+
+export function SellDone({ sellId }: { sellId: string }) {
+  const { navigate } = useApp();
+  const s = useApi(`sellDone:${sellId}`, () => api.sellProgress(sellId), { pollMs: 2000 });
+  const d = s.data;
+  const done = d?.status === "done" || d?.status === "failed";
+  useEffect(() => { if (done) refreshAll(); }, [done]);
+  return <div className="page flow narrow">
+    <FlowHead title={done ? "Sold" : "Selling"} back="/holdings" />
+    <ErrorState error={s.error} onRetry={s.reload} />
+    <div className="center celebrate">
+      <Coin3D size={132} />
+      <p className="kicker">{done ? "USDC in your wallet" : "Working on it"}</p>
+      <h1 className="h-hero">{d?.receivedUsd6 ? <>Sold for<br />{fmtUsd6(d.receivedUsd6)}</> : "Selling…"}</h1>
+      {d?.explorerUrl && <a className="button secondary" href={d.explorerUrl} target="_blank" rel="noreferrer"><ExternalLink size={16} /> View on Solscan</a>}
+    </div>
+    <div className="dock">
+      <button className="button primary full lg" onClick={() => navigate("/holdings")}>Back to holdings</button>
+    </div>
+  </div>;
+}
+
 export function BuyDone({ batchId }: { batchId: string }) {
   const { navigate } = useApp();
   const b = useApi(`buy:${batchId}`, () => api.buyProgress(batchId), { pollMs: 2000 });
   useEffect(() => { haptic([12, 60, 12, 60, 24]); }, []);
   const d = b.data;
-  const finished = d && /^done/.test(d.status);
+  const finished = d && (/^done/.test(d.status) || d.status === "failed");
+  const swapping = d && !finished && (d.status === "swapping" || d.status === "approved" || d.status === "executing");
+  useEffect(() => { if (finished) refreshAll(); }, [finished]);
   const bought = d?.entries.filter(e => e.status === "bought") ?? [];
   return <div className="page flow narrow">
-    <FlowHead title={finished ? "Buy done" : "Buying"} back="/" />
+    <FlowHead title={finished ? (d?.status === "failed" ? "Buy failed" : "Buy done") : "Buying"} back="/" />
     <ErrorState error={b.error} onRetry={b.reload} />
     <div className="center celebrate">
       <div className="burst" aria-hidden="true">{finished && Array.from({ length: 10 }, (_, i) => <i key={i} style={{ "--a": `${i * 36}deg` } as React.CSSProperties} />)}<Coin3D size={132} /></div>
-      <p className="kicker">{finished ? "In your wallet" : "Working on it"}</p>
+      <p className="kicker">{finished ? (d?.status === "failed" ? "Nothing bought" : "In your wallet") : swapping ? "Swapping on Solana" : "Working on it"}</p>
       <h1 className="h-hero">{finished ? <>You bought<br />{bought.length} asset{bought.length === 1 ? "" : "s"}</> : <>{bought.length} of {d?.entries.length ?? "…"}<br />bought</>}</h1>
       {d?.totals && <p className="sub">Bought {fmtUsd6(d.totals.boughtUsd6)} · fees {fmtUsd6(d.totals.feesUsd6)} · left in jars {fmtUsd6(d.totals.leftInJarsUsd6)}</p>}
       {!finished && <p className="sub">You can leave this screen. We'll notify you when it's done.</p>}
     </div>
     {d && <div className="card list" style={{ marginTop: 28 }}>
-      {d.entries.map(e => { const name = assetName(e.assetId, e.name); return <button className="row" key={e.assetId} onClick={() => navigate(`/holdings/${encodeURIComponent(e.assetId)}`)}>
+      {d.entries.map(e => { const name = assetName(e.assetId, e.name); return <div className="row" key={e.assetId}>
         <Monogram tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : name.slice(0, 2).toUpperCase()}</Monogram>
-        <span className="row-main"><span className="row-title">{name}</span><span className="row-sub">{e.fillPriceUsd6 ? `Bought at ${fmtUsd6(e.fillPriceUsd6)}` : e.status}</span></span>
-        <span className="row-value">{fmtUsd6(e.spentUsd6 ?? e.amountUsd6)}</span>
-      </button>; })}
+        <button className="row-main" style={{ background: "none", border: 0, textAlign: "left", padding: 0, cursor: "pointer" }} onClick={() => navigate(`/holdings/${encodeURIComponent(e.assetId)}`)}>
+          <span className="row-title">{name}</span>
+          <span className="row-sub">{e.fillPriceUsd6 ? `Bought at ${fmtUsd6(e.fillPriceUsd6)}` : e.status}{e.qty ? ` · ${e.qty}` : ""}</span>
+        </button>
+        <span className="row-end">
+          <span className="row-value">{fmtUsd6(e.spentUsd6 ?? e.amountUsd6)}</span>
+          {e.explorerUrl && <a className="fineprint" href={e.explorerUrl} target="_blank" rel="noreferrer" onClick={ev => ev.stopPropagation()}><ExternalLink size={14} /> Solscan</a>}
+        </span>
+      </div>; })}
     </div>}
     {!d && !b.error && <Skeleton h={180} mt={28} />}
     <div className="dock">
