@@ -198,23 +198,56 @@ activityRoutes.get('/holdings', async (c) => {
   try {
     const user = await requireUser(c);
     const sql = getSql();
-    const free = (await freeByChain(user)).total;
+    const funds = await freeByChain(user);
+    const free = funds.total;
+    const bought = await sql<{ asset_id: string; spent: bigint; qty: string | null }[]>`
+      SELECT asset_id, COALESCE(SUM(spent_usd6), 0) AS spent, MAX(qty)::text AS qty
+      FROM buy_entries WHERE user_id = ${user.id}::uuid AND status = 'bought'
+      GROUP BY asset_id ORDER BY spent DESC
+    `;
+    const owned = bought.reduce((s, r) => s + r.spent, 0n);
+    // MOCK: buy USDC still sits in the Arc wallet — show dollars as free − owned so total = live balance.
+    const dollars = free > owned ? free - owned : 0n;
+    const jars = await sql<{ amount: bigint }[]>`
+      SELECT COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amount
+      FROM allocations a JOIN purchases p ON p.id = a.purchase_id
+      WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved'
+    `;
+    const inJars = jars[0]?.amount ?? 0n;
+    const stockRows = bought.map((h) => ({
+      assetId: h.asset_id,
+      name: assetDisplayName(h.asset_id),
+      subtitle: h.qty ? `${h.qty} bought` : 'Bought',
+      ...(h.qty ? { qty: h.qty } : {}),
+      valueUsd6: toUsd6(h.spent),
+    }));
+    const sections = [
+      ...(owned > 0n
+        ? [{ key: 'stocksCommodities' as const, totalUsd6: toUsd6(owned), rows: stockRows }]
+        : []),
+      {
+        key: 'stablecoins' as const,
+        totalUsd6: toUsd6(dollars),
+        rows: [{ assetId: 'usdc', name: 'USDC', subtitle: 'Free', valueUsd6: toUsd6(dollars) }],
+      },
+    ];
     return c.json({
       balance: {
-        totalUsd6: toUsd6(free),
-        byType: { stocksCommodities: '0', stablecoins: toUsd6(free), crypto: '0' },
-        byChain: { arc: toUsd6(free), solana: '0', base: '0', ethereum: '0', arbitrum: '0', bnb: '0' },
+        totalUsd6: toUsd6(dollars + owned),
+        byType: { stocksCommodities: toUsd6(owned), stablecoins: toUsd6(dollars), crypto: '0' },
+        byChain: {
+          arc: toUsd6(free),
+          solana: '0',
+          base: '0',
+          ethereum: '0',
+          arbitrum: '0',
+          bnb: '0',
+        },
         pricesAt: new Date().toISOString(),
         stale: false,
-        usdc: { freeUsd6: toUsd6(free), inJarsUsd6: '0', arrivingUsd6: '0' },
+        usdc: { freeUsd6: toUsd6(dollars), inJarsUsd6: toUsd6(inJars), arrivingUsd6: toUsd6(funds.arriving) },
       },
-      sections: [
-        {
-          key: 'stablecoins' as const,
-          totalUsd6: toUsd6(free),
-          rows: [{ assetId: 'usdc', name: 'USDC', subtitle: 'Free', valueUsd6: toUsd6(free) }],
-        },
-      ],
+      sections,
     });
   } catch (e) {
     return jsonError(c, e);
@@ -223,20 +256,51 @@ activityRoutes.get('/holdings', async (c) => {
 
 activityRoutes.get('/holdings/:assetId', async (c) => {
   try {
-    await requireUser(c);
+    const user = await requireUser(c);
     const assetId = c.req.param('assetId');
+    const sql = getSql();
+    const rows = await sql<
+      {
+        spent: bigint;
+        qty: string | null;
+        fill: bigint | null;
+        batch_id: string;
+        venue_tx: string | null;
+        started_at: Date | null;
+      }[]
+    >`
+      SELECT e.spent_usd6 AS spent, e.qty::text AS qty, e.fill_price_usd6 AS fill,
+             e.batch_id, e.venue_tx, b.started_at
+      FROM buy_entries e
+      JOIN buy_batches b ON b.id = e.batch_id
+      WHERE e.user_id = ${user.id}::uuid AND e.asset_id = ${assetId} AND e.status = 'bought'
+      ORDER BY b.started_at DESC NULLS LAST
+    `;
+    const value = rows.reduce((s, r) => s + (r.spent ?? 0n), 0n);
+    const qty = rows.find((r) => r.qty)?.qty ?? undefined;
+    const lastFill = rows.find((r) => r.fill != null)?.fill ?? 0n;
     return c.json({
       assetId,
       name: assetDisplayName(assetId),
-      subtitle: '',
-      valueUsd6: '0',
-      spentThisYearUsd6: '0',
-      price: { usd6PerUnit: '0', at: new Date().toISOString(), source: 'jupiter' as const },
-      avgPriceUsd6: '0',
-      paidTotalUsd6: '0',
-      buys: [],
-      proof: { links: {} },
-      issuerNote: 'Token mint not verified yet (S9)',
+      subtitle: qty ? `${qty} in your wallet` : '',
+      ...(qty ? { qty } : {}),
+      valueUsd6: toUsd6(value),
+      spentThisYearUsd6: toUsd6(value),
+      price: { usd6PerUnit: toUsd6(lastFill), at: new Date().toISOString(), source: 'jupiter' as const },
+      avgPriceUsd6: toUsd6(lastFill),
+      paidTotalUsd6: toUsd6(value),
+      buys: rows.map((r) => ({
+        batchId: r.batch_id,
+        at: r.started_at?.toISOString() ?? new Date().toISOString(),
+        qty: r.qty ?? '0',
+        priceUsd6: toUsd6(r.fill ?? 0n),
+        amountUsd6: toUsd6(r.spent ?? 0n),
+      })),
+      proof: {
+        ...(rows[0]?.venue_tx ? { venueTx: rows[0].venue_tx } : {}),
+        links: {},
+      },
+      issuerNote: rows.length ? 'Bought via Ownback' : 'Nothing bought yet',
     });
   } catch (e) {
     return jsonError(c, e);

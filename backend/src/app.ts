@@ -5,6 +5,7 @@ import { meRulesHomeRoutes } from './routes/me-rules-home.js';
 import { depositRoutes } from './routes/deposits.js';
 import { purchaseRoutes } from './routes/purchases.js';
 import { jarsBuysRoutes } from './routes/jars-buys.js';
+import { sellsRoutes } from './routes/sells.js';
 import { activityRoutes } from './routes/activity.js';
 import { jobRoutes } from './routes/jobs.js';
 import { assetRoutes } from './routes/assets.js';
@@ -27,6 +28,7 @@ export function createApp() {
   app.route('/', depositRoutes);
   app.route('/', purchaseRoutes);
   app.route('/', jarsBuysRoutes);
+  app.route('/', sellsRoutes);
   app.route('/', activityRoutes);
   app.route('/', jobRoutes);
   app.route('/', assetRoutes);
