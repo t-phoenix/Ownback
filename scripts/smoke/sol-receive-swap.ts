@@ -246,9 +246,11 @@ async function main() {
   const beforeUsdc = await connection.getTokenAccountBalance(RELAY_ATA).catch(() => null);
   console.log('pre SOL', beforeSol, 'USDC', beforeUsdc?.value);
 
-  // Skip receive if USDC already present (resume)
+  // Skip receive when relay already holds enough USDC (resume after Alchemy WS noise).
+  const swapMax = BigInt(process.env.SMOKE_SWAP_MAX ?? '100000');
   const usdcAmt = BigInt(beforeUsdc?.value?.amount ?? '0');
-  if (usdcAmt < 300000n) {
+  const skipReceive = process.env.SKIP_RECEIVE === '1' || usdcAmt >= swapMax;
+  if (!skipReceive) {
     try {
       const recvSig = await receiveMessage(connection, payer, messageHex, attestationHex);
       const afterRecv = await connection.getBalance(payer.publicKey);
@@ -263,13 +265,12 @@ async function main() {
       );
     } catch (e: any) {
       console.error('receiveMessage error', e?.message || e);
-      // continue if already received
       const usdc = await connection.getTokenAccountBalance(RELAY_ATA).catch(() => null);
-      if (BigInt(usdc?.value?.amount ?? '0') < 300000n) throw e;
+      if (BigInt(usdc?.value?.amount ?? '0') < swapMax) throw e;
       console.log('USDC already on relay, continuing to Jupiter');
     }
   } else {
-    console.log('relay already has USDC', usdcAmt.toString());
+    console.log('skip receive; relay USDC', usdcAmt.toString());
   }
 
   const usdcNow = await connection.getTokenAccountBalance(RELAY_ATA);

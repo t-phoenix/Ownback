@@ -34,6 +34,18 @@ For each route in `api.ts`, a test calls the handler with a fixture DB and parse
 4. Withdraw cross-chain → sending → sent.
 5. Crash resume: kill the keeper after each step and re-run; no duplicate execute, swap or proof.
 
+### Full workflow harness (launch gate)
+
+With API on `:3001` and `MOCK_CHAIN=1` (API alone is enough — do not start the Next frontend unless you are UI-testing; Privy makes `next dev` heavy on RAM):
+
+```bash
+cd backend && npm run db:migrate && npm run smoke:workflow
+# optional FE check when next is already up:
+# HARNESS_FE_URL=http://127.0.0.1:3000 npm run smoke:workflow
+```
+
+[`scripts/workflow-harness.ts`](scripts/workflow-harness.ts) exercises seed auth → onboard once → re-auth still onboarded → Arc deposit funding → typed iPhone purchase (match jury) → confirm → jars → Jupiter review with $0.50 override → buy done → sell → settings edit keeps `onboarded`. Pass = exit 0.
+
 ## AI eval
 
 `pnpm eval:ai` over the 20 cases in [ai-spec.md § Test set](ai-spec.md#test-set). Run it on every prompt or model change; the output table is pasted into the PR.

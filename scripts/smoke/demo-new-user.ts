@@ -86,7 +86,7 @@ async function main() {
 
   console.log('user', user.address, 'amount', AMOUNT.toString());
 
-  // setRules
+  // setRules (cheap overwrite; always allowed)
   await send(
     'setRules',
     encodeFunctionData({
@@ -96,11 +96,7 @@ async function main() {
     }),
   );
 
-  // setSolanaRecipient — first set, immediate (correct USDC ATA)
-  await send(
-    'setSolanaRecipient',
-    encodeFunctionData({ abi: vaultAbi, functionName: 'setSolanaRecipient', args: [ATA_BYTES32] }),
-  );
+  // setSolanaRecipient — first set is immediate; later calls only propose (48h). Skip if already correct.
   const onchainAta = await pub.readContract({
     address: VAULT,
     abi: vaultAbi,
@@ -108,7 +104,14 @@ async function main() {
     args: [user.address],
   });
   console.log('solanaRecipient', onchainAta);
-  if (onchainAta.toLowerCase() !== ATA_BYTES32.toLowerCase()) throw new Error('ATA mismatch on-chain');
+  if (onchainAta === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    await send(
+      'setSolanaRecipient',
+      encodeFunctionData({ abi: vaultAbi, functionName: 'setSolanaRecipient', args: [ATA_BYTES32] }),
+    );
+  } else if (onchainAta.toLowerCase() !== ATA_BYTES32.toLowerCase()) {
+    throw new Error('ATA mismatch on-chain (pending change needs activateSolanaRecipient)');
+  }
 
   // approve + deposit
   {

@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd(),
+  // Privy → WalletConnect → viem balloons webpack RAM in next dev; these cut peak without dropping features.
+  experimental: {
+    webpackMemoryOptimizations: true,
+    preloadEntriesOnStart: false,
+  },
   async headers() {
     // A CSP isn't set yet: Privy loads wallet frames and RPCs from several origins; add one once that list is pinned.
     const security = [
