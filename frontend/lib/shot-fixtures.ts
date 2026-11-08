@@ -1,0 +1,164 @@
+/**
+ * Wireframe demo numbers (docs/03). Used only by /shots for presentable screenshots.
+ * shortcut: fixture-only, replace with live seed when demo user has real data
+ */
+import type {
+  Balance, BuyProgress, BuyReview, GmailState, Home, Holdings, Jars, Me, Purchase, Receipts, Rules,
+} from "./api";
+
+const u = (dollars: number) => String(Math.round(dollars * 1_000_000));
+
+export const SHOT_IDS = {
+  purchase: "croma-iphone",
+  batch: "batch-apple",
+} as const;
+
+export const balance: Balance = {
+  totalUsd6: u(234.2),
+  byType: { stocksCommodities: u(59.1), stablecoins: u(175.1), crypto: u(0) },
+  stale: false,
+  pricesAt: "2026-11-07T03:30:00.000Z",
+  usdc: { freeUsd6: u(131.5), inJarsUsd6: u(43.6), arrivingUsd6: u(0) },
+};
+
+export const me: Me = {
+  id: "user_abhi",
+  authKind: "privy",
+  email: "abhi@ownback.app",
+  displayName: "Abhi",
+  evmAddress: "0xAbHi0000000000000000000000000000000Own1",
+  solAddress: "AbhiSo1111111111111111111111111111111",
+  referralCode: "ABHI",
+  onboarded: true,
+};
+
+export const home: Home = {
+  balance,
+  stats: { receipts: 6, spendingUsd6: u(1842), inJarsUsd6: u(43.6) },
+  topHoldings: [
+    { assetId: "co:apple", name: "Apple", subtitle: "Maker · AAPLx", qty: "0.18", token: "AAPLx", chain: "solana", valueUsd6: u(42.5) },
+    { assetId: "co:tsmc", name: "TSMC", subtitle: "Behind · TSMXx", qty: "0.04", token: "TSMXx", chain: "solana", valueUsd6: u(8.2) },
+    { assetId: "mat:gold", name: "Gold", subtitle: "Material", qty: "0.002", token: "GLDx", chain: "solana", valueUsd6: u(5.1) },
+  ],
+  recentReceipts: [
+    { id: SHOT_IDS.purchase, shop: "Croma", item: "iPhone 16 Pro", local: { amount: "79900", currency: "INR" }, amountUsd6: u(955), date: "2026-11-06", status: "in_jar", investUsd6: u(47.75) },
+    { id: "airpods", shop: "Apple Store", item: "AirPods Pro", local: { amount: "24900", currency: "INR" }, amountUsd6: u(297.63), date: "2026-11-05", status: "bought", investUsd6: u(14.88) },
+  ],
+  nextBuy: { at: "2026-11-09T04:30:00.000Z", readyJars: 2 },
+};
+
+export const jars: Jars = {
+  jars: [
+    { assetId: "co:apple", name: "Apple", role: "maker", amountUsd6: u(33.43), readyMinUsd6: u(5), state: "ready" },
+    { assetId: "co:tsmc", name: "TSMC", role: "supplier", amountUsd6: u(3.18), readyMinUsd6: u(5), state: "filling" },
+    { assetId: "co:qualcomm", name: "Qualcomm", role: "supplier", amountUsd6: u(3.18), readyMinUsd6: u(5), state: "filling" },
+    { assetId: "co:corning", name: "Corning", role: "supplier", amountUsd6: u(3.19), readyMinUsd6: u(5), state: "filling" },
+    { assetId: "mat:gold", name: "Gold", role: "material", amountUsd6: u(2.39), readyMinUsd6: u(5), state: "filling" },
+    { assetId: "mat:silver", name: "Silver", role: "material", amountUsd6: u(2.38), readyMinUsd6: u(5), state: "filling" },
+  ],
+  nextReminderAt: "2026-11-09T04:30:00.000Z",
+  estFeesUsd6: u(0.12),
+};
+
+export const purchase: Purchase = {
+  id: SHOT_IDS.purchase,
+  status: "ready",
+  source: "image",
+  receipt: {
+    shop: "Croma",
+    place: "Mumbai",
+    date: "2026-11-06",
+    items: ["iPhone 16 Pro 256GB"],
+    local: { amount: "79900", currency: "INR" },
+    fxRate: "83.6649",
+    amountUsd6: u(955),
+  },
+  investUsd6: u(47.75),
+  rateBps: 500,
+  split: { maker: 70, behind: 20, materials: 10 },
+  allocations: [
+    { assetId: "co:apple", name: "Apple", role: "maker", tokenized: true, amountUsd6: u(33.43), selected: true, why: "Made the iPhone." },
+    { assetId: "co:tsmc", name: "TSMC", role: "supplier", tokenized: true, amountUsd6: u(3.18), selected: true, why: "Fabricates the A18 chip." },
+    { assetId: "co:qualcomm", name: "Qualcomm", role: "supplier", tokenized: true, amountUsd6: u(3.18), selected: true, why: "Modem and RF." },
+    { assetId: "co:corning", name: "Corning", role: "supplier", tokenized: true, amountUsd6: u(3.19), selected: true, why: "Ceramic Shield glass." },
+    { assetId: "mat:gold", name: "Gold", role: "material", tokenized: true, amountUsd6: u(2.39), selected: true, why: "Bond wires and connectors." },
+    { assetId: "mat:silver", name: "Silver", role: "material", tokenized: true, amountUsd6: u(2.38), selected: true, why: "Conductive paste." },
+  ],
+  ogRequestIds: ["0g_req_croma_iphone_7nov"],
+};
+
+export const buyReview: BuyReview = {
+  quoteId: "quote-demo-1",
+  expiresAt: new Date(Date.now() + 28_000).toISOString(),
+  rows: [
+    {
+      assetId: "co:apple", name: "Apple", amountUsd6: u(33.43), token: "AAPLx", chain: "solana", venue: "jupiter",
+      price: { usd6PerUnit: u(236.4) }, estQty: "0.1414", maxPriceUsd6: u(238.76),
+      fees: { totalUsd6: u(0.08), pctBps: 24, withinCap: true }, selectable: true,
+      arkiv: { key: "ownback.asset.v1:co:apple", url: "https://explorer.arkiv.network" },
+    },
+    {
+      assetId: "co:tsmc", name: "TSMC", amountUsd6: u(5.12), token: "TSMXx", chain: "solana", venue: "jupiter",
+      price: { usd6PerUnit: u(198.2) }, estQty: "0.0258", maxPriceUsd6: u(200.18),
+      fees: { totalUsd6: u(0.04), pctBps: 78, withinCap: true }, selectable: true,
+    },
+  ],
+  totalUsd6: u(38.55),
+  fees: { totalUsd6: u(0.12), pctBps: 31, withinCap: true },
+  destination: "AbhiSo1111111111111111111111111111111",
+  approval: { kind: "typed_data", typedData: { domain: { name: "Ownback" }, types: {}, primaryType: "BuyApproval", message: {} } },
+};
+
+export const buyDone: BuyProgress = {
+  batchId: SHOT_IDS.batch,
+  status: "done",
+  entries: [
+    { assetId: "co:apple", name: "Apple", status: "bought", amountUsd6: u(33.43), spentUsd6: u(33.41), fillPriceUsd6: u(236.12), qty: "0.1415" },
+    { assetId: "co:tsmc", name: "TSMC", status: "bought", amountUsd6: u(5.12), spentUsd6: u(5.11), fillPriceUsd6: u(197.9), qty: "0.0258" },
+  ],
+  totals: { boughtUsd6: u(38.52), leftInJarsUsd6: u(5.08), feesUsd6: u(0.11), slippageBps: 12 },
+  destination: "AbhiSo1111111111111111111111111111111",
+};
+
+export const holdings: Holdings = {
+  balance,
+  sections: [
+    {
+      key: "makers", totalUsd6: u(42.5),
+      rows: [{ assetId: "co:apple", name: "Apple", subtitle: "AAPLx · Solana", qty: "0.18", token: "AAPLx", chain: "solana", valueUsd6: u(42.5) }],
+    },
+    {
+      key: "behind", totalUsd6: u(11.5),
+      rows: [
+        { assetId: "co:tsmc", name: "TSMC", subtitle: "TSMXx · Solana", qty: "0.04", token: "TSMXx", chain: "solana", valueUsd6: u(8.2) },
+        { assetId: "co:qualcomm", name: "Qualcomm", subtitle: "QCOMx · Solana", qty: "0.02", token: "QCOMx", chain: "solana", valueUsd6: u(3.3) },
+      ],
+    },
+    {
+      key: "commodities", totalUsd6: u(5.1),
+      rows: [{ assetId: "mat:gold", name: "Gold", subtitle: "GLDx · Solana", qty: "0.002", token: "GLDx", chain: "solana", valueUsd6: u(5.1) }],
+    },
+    {
+      key: "stablecoins", totalUsd6: u(175.1),
+      rows: [{ assetId: "usdc", name: "USDC", subtitle: "Free $131.50 · in jars $43.60", valueUsd6: u(175.1) }],
+    },
+  ],
+};
+
+export const receipts: Receipts = {
+  stats: { count: 6, spentUsd6: u(1842), putToWorkUsd6: u(92.1) },
+  groups: [{
+    month: "November 2026",
+    rows: home.recentReceipts,
+  }],
+  nextCursor: null,
+};
+
+export const gmail: GmailState = { state: "caught_up", email: "abhi@ownback.app", newCount: 0 };
+export const rules: Rules = {
+  rateBps: 500, monthlyCapUsd6: u(50), readyMinUsd6: u(5), maxFeeBps: 500,
+  fallbackAsset: "idx:sp500", split: { maker: 70, behind: 20, materials: 10 }, buyDay: "sun", onchainSynced: true,
+};
+
+export const SCREENS = ["signin", "home", "confirm", "jars", "buy-review", "buy-done"] as const;
+export type ShotScreen = (typeof SCREENS)[number];
