@@ -68,6 +68,7 @@ export const rules = pgTable('rules', {
   maxFeeBps: integer('max_fee_bps').notNull(),
   autoAdd: jsonb('auto_add').notNull(),
   onchainSyncedAt: timestamp('onchain_synced_at', { withTimezone: true }),
+  onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
   notifyBuyDone: boolean('notify_buy_done').notNull(),
   notifyNeedsReview: boolean('notify_needs_review').notNull(),
   notifyNearLimit: boolean('notify_near_limit').notNull(),
