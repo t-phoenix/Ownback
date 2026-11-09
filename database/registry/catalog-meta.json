@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-07",
+  "updatedAt": "2026-11-09",
   "storage": {
     "discoveryCatalog": "database/registry/catalog-{tokens,companies}.json (backend loads from disk)",
     "verifiedBuyable": "database/registry/assets-curated.json + Arkiv ownback.asset.v1",
@@ -8,7 +8,7 @@
   "counts": {
     "tokens": 2217,
     "companies": 1608,
-    "verifiedTokens": 1,
+    "verifiedTokens": 834,
     "xstocks": 1435,
     "ondo": 458,
     "hyperliquid": 324

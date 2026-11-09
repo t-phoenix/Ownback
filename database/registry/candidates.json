@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-07",
+  "updatedAt": "2026-11-09",
   "candidates": [
     {
       "id": "1f1cfed5-9b39-4e2f-bdfa-2d7b89e28c78",
@@ -14,17 +14,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.761Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for NFLXx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol NFLXx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/netflix-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "48a4a8c1-f0d3-4ae3-9e29-30a4f7f47bc1",
@@ -39,17 +53,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.762Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for METAx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol METAx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/meta-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "bae366ff-b36b-4ef8-9236-2ebbbc340774",
@@ -64,17 +92,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.762Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for HOODx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol HOODx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/robinhood-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "fbe99b78-1493-4f17-bacc-e044ea55e321",
@@ -89,17 +131,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.762Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for COINx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol COINx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/coinbase-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "ffb16506-8d28-484d-b413-621e5d5e9e1f",
@@ -114,17 +170,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.762Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for AMZNx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol AMZNx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/amazon-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "62b39e0c-fafa-49aa-84a5-08d062259cb4",
@@ -139,17 +209,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.763Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for NVDAx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol NVDAx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/nvidia-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "39bebf11-d6a0-4fe2-9cb5-55092f897f1d",
@@ -164,17 +248,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.763Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for MRKx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol MRKx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/merck-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "5b6a13a2-873b-44d6-a375-0c7126b295ca",
@@ -189,17 +287,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.763Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for AAPLx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol AAPLx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/apple-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "602c39c1-b615-4f62-8f1f-6de337b59854",
@@ -214,17 +326,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.763Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for AZNx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol AZNx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/astrazeneca-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "e5d40888-2a6b-4165-9222-6debfc317099",
@@ -239,17 +365,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.763Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for MCDx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol MCDx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/mcdonald-s-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "69ac94f8-3e37-4eda-b18d-7bcb719ec34a",
@@ -264,17 +404,31 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.764Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for TSLAx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol TSLAx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/tesla-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
-      ]
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
     },
     {
       "id": "4a555d6f-6d0b-43be-8ca8-538d41ab9d9a",
@@ -289,15 +443,224 @@
         "jupiter"
       ],
       "source": "scrape",
-      "status": "proposed",
+      "status": "promoted",
       "createdAt": "2026-11-06T23:47:57.575Z",
-      "updatedAt": "2026-11-07T02:12:10.766Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
       "evidence": [
         {
           "kind": "issuer",
-          "url": "https://xstocks.com/",
-          "note": "featuredProducts addresses.solana for MSFTx",
-          "checkedAt": "2026-11-07"
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol MSFTx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/microsoft-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
+        }
+      ],
+      "decimals": 8,
+      "onchainDecimals": 8
+    },
+    {
+      "id": "779ed71e-c0d3-4c7a-b72e-509b27bddc69",
+      "assetId": "co:tsmc",
+      "name": "TSMC",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "TSMx",
+      "mint": "XsafvsGtzFqqHgTnA3aPC83EAMkacU5mcGtcSayhpVV",
+      "decimals": 8,
+      "onchainDecimals": 8,
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "promoted",
+      "createdAt": "2026-11-09T12:07:38.392Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol TSMx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/tsmc-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
+        }
+      ]
+    },
+    {
+      "id": "9435e022-c69d-4211-b301-3020666df472",
+      "assetId": "co:intc",
+      "name": "Intel",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "INTCx",
+      "mint": "XshPgPdXFRWB8tP1j82rebb2Q9rPgGX37RuqzohmArM",
+      "decimals": 8,
+      "onchainDecimals": 8,
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "promoted",
+      "createdAt": "2026-11-09T12:07:38.392Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol INTCx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/intel-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
+        }
+      ]
+    },
+    {
+      "id": "39328c6e-6caa-4eed-afdb-c9d13176e486",
+      "assetId": "co:googl",
+      "name": "Alphabet",
+      "class": "stock",
+      "chain": "solana",
+      "symbol": "GOOGLx",
+      "mint": "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+      "decimals": 8,
+      "onchainDecimals": 8,
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "promoted",
+      "createdAt": "2026-11-09T12:07:38.392Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol GOOGLx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/alphabet-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
+        }
+      ]
+    },
+    {
+      "id": "664e721c-fc68-45d7-b09b-1262daafc17b",
+      "assetId": "idx:sp500",
+      "name": "S&P 500",
+      "class": "index",
+      "chain": "solana",
+      "symbol": "SPYx",
+      "mint": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+      "decimals": 8,
+      "onchainDecimals": 8,
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "promoted",
+      "createdAt": "2026-11-09T12:07:38.392Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol SPYx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/sp500-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
+        }
+      ]
+    },
+    {
+      "id": "18910173-56c2-405f-9467-366a06114225",
+      "assetId": "idx:nasdaq100",
+      "name": "Nasdaq 100",
+      "class": "index",
+      "chain": "solana",
+      "symbol": "QQQx",
+      "mint": "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+      "decimals": 8,
+      "onchainDecimals": 8,
+      "issuer": "xStocks",
+      "venues": [
+        "jupiter"
+      ],
+      "source": "scrape",
+      "status": "promoted",
+      "createdAt": "2026-11-09T12:07:38.392Z",
+      "updatedAt": "2026-11-09T12:13:21.921Z",
+      "evidence": [
+        {
+          "kind": "issuer",
+          "url": "https://xstocks.com/products",
+          "note": "products/csv addresses.solana for symbol QQQx",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "index",
+          "url": "https://api.coingecko.com/api/v3/coins/nasdaq-xstock",
+          "note": "platforms.solana + detail_platforms.solana.decimal_place=8",
+          "checkedAt": "2026-11-09"
+        },
+        {
+          "kind": "onchain",
+          "url": "solana:getMultipleAccounts",
+          "note": "decimals=8 owner=TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "checkedAt": "2026-11-09"
         }
       ]
     }

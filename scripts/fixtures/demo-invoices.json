@@ -1,5 +1,5 @@
 {
-  "note": "Mock invoices for Ownback pipeline testing. POST typed ones to /api/purchases as JSON. Only co:apple has a verified Solana mint today (AAPLx) — use Apple products to exercise the full buy path.",
+  "note": "Mock invoices for Ownback pipeline testing. POST typed ones to /api/purchases as JSON. Verified Solana xStocks (2026-11-09): 834 mints in database/registry/assets-curated.json (three-source). Buyability still needs a live Jupiter route at quote time.",
   "api": {
     "method": "POST",
     "path": "/api/purchases",
@@ -20,7 +20,7 @@
     {
       "id": "croma-iphone",
       "label": "Croma iPhone (wireframe / full match + buyable)",
-      "pathUnderTest": "product-graph hardware_phone → maker Apple + behind TSMC/Qualcomm/Corning + materials gold/silver; only Apple mint is verified buyable",
+      "pathUnderTest": "product-graph hardware_phone → maker Apple + behind TSMC/Qualcomm/Corning + materials gold/silver; Apple+TSMC+Intel verified buyable, Qualcomm/Corning/materials still not",
       "typed": {
         "text": {
           "product": "Apple iPhone 17 Pro 256GB",
@@ -122,7 +122,7 @@
       "expected": {
         "makerHint": "Amazon",
         "makerAssetId": "co:amazon",
-        "verifiedBuyable": []
+        "verifiedBuyable": ["co:amazon"]
       }
     },
     {
@@ -142,7 +142,7 @@
       "invoiceText": "Google One 2TB monthly subscription. Alphabet / Google. Charged INR 999.00 on 2026-11-03.",
       "expected": {
         "makerAssetId": "co:googl",
-        "verifiedBuyable": []
+        "verifiedBuyable": ["co:googl"]
       }
     },
     {

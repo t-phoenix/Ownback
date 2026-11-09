@@ -1,0 +1,15 @@
+{
+  "updatedAt": "2026-11-09",
+  "passed": 834,
+  "rejectedNonIndex": [
+    [
+      "AMDx",
+      "decimals_mismatch cg=18 oc={'owner': 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', 'decimals': 8}"
+    ],
+    [
+      "LULUx",
+      "decimals_mismatch cg=18 oc={'owner': 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', 'decimals': 8}"
+    ]
+  ],
+  "indexMissingCount": 599
+}

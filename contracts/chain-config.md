@@ -91,19 +91,9 @@ Arc facts from docs.arc.io:
 
 Mints come **only** from the issuer's official list, then are checked on-chain (decimals, mint authority = issuer) and imported to Arkiv. Each needs all three sources before ✓.
 
-| Slug | Display | Class | Token | Venue options (Q5) | Mint | ✓ |
-|---|---|---|---|---|---|---|
-| `co:apple` | Apple | stock | AAPLx | Solana (Jupiter) | `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp` (8) | ✓ xstocks.com featured + CoinGecko platforms.solana + on-chain getTokenSupply 2026-11-07; Eth/Base still ☐ |
+**Solana xStocks (three-source ✓):** **834** mints in [`database/registry/assets-curated.json`](../database/registry/assets-curated.json) (issuer xstocks.com CSV = CoinGecko `platforms.solana`, CoinGecko decimals = on-chain `getMultipleAccounts`, 2026-11-09). **599** other xStocks lack a CoinGecko index row; **2** (AMDx, LULUx) rejected for decimals mismatch (CG 18 vs on-chain 8). Summary: [`database/registry/raw/xstocks-verify-summary.json`](../database/registry/raw/xstocks-verify-summary.json).
 
-| `co:tsmc` | TSMC | stock | ☐ | ☐ | ☐ | ☐ (S9) |
-| `co:qualcomm` | Qualcomm | stock | ☐ | ☐ | ☐ | ☐ (S9) |
-| `co:corning` | Corning | stock | ☐ | Base | ☐ | ☐ (S9, S15) |
-| `co:unilever` · `co:nike` · `co:cocacola` · `co:pepsico` · `co:levi` | — | stock | ☐ | ☐ | ☐ | ☐ |
-| `mat:gold` | Gold | commodity | GLDx / PAXG / XAUt | Solana · Ethereum | ☐ | ☐ |
-| `mat:silver` | Silver | commodity | SLVon | Ethereum | ☐ | ☐ |
-| `idx:sp500` · `idx:nasdaq100` | S&P 500 · Nasdaq 100 | index | SPYx · QQQx | Solana | ☐ | ☐ |
-| `crypto:btc` · `crypto:eth` | Bitcoin · Ether | crypto | ☐ | ☐ | ☐ | ☐ |
-| `idx:tbills` | US T-bills | yield | USDY | Solana (non-US only) | ☐ | ☐ |
+Still ☐ outside that file: non-xStock names without a promoted mint (e.g. some private/untokenized makers), `mat:gold` / `mat:silver` if not in the curated list, `crypto:btc` / `crypto:eth`, `idx:tbills`.
 
 DexScreener shows fake PAXG/XAUt pools on Solana. Never copy a mint from a DEX.
 

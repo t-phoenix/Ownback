@@ -44,17 +44,4 @@ Never copy a mint from a DEX page (DexScreener fakes). Untokenized assets stay i
 
 ## Symbol → assetId (xStocks scrape)
 
-| Symbol | assetId |
-|---|---|
-| AAPLx | `co:apple` |
-| TSLAx | `co:tesla` |
-| MSFTx | `co:microsoft` |
-| NVDAx | `co:nvidia` |
-| AMZNx | `co:amazon` |
-| METAx | `co:meta` |
-| NFLXx | `co:netflix` |
-| COINx | `co:coinbase` |
-| HOODx | `co:robinhood` |
-| MCDx | `co:mcdonalds` |
-| MRKx | `co:merck` |
-| AZNx | `co:astrazeneca` |
+Full map: `backend/src/lib/registry/symbol-map.ts` (generated for every three-source-verified xStock in `assets-curated.json`). Catalog tokens also carry `assetId` per symbol.
