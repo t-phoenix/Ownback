@@ -24,12 +24,15 @@ export function Jars() {
   const holdStart = (x: Jar) => { press.current = setTimeout(() => { haptic(14); setSheet(x); }, 450); };
   const holdEnd = () => clearTimeout(press.current);
 
+  const reviewOne = (x: Jar) =>
+    `/buy/review?asset=${encodeURIComponent(x.assetId)}&amount=${encodeURIComponent(x.amountUsd6)}`;
+
   const card = (x: Jar) => {
     const p = pct(BigInt(x.amountUsd6), BigInt(x.readyMinUsd6)); const isReady = x.state === "ready";
     const name = assetName(x.assetId, x.name);
     const left = BigInt(x.readyMinUsd6) - BigInt(x.amountUsd6);
     return <button key={x.assetId} className={`jar-card ${isReady ? "ready" : ""}`}
-      onClick={() => (isReady ? navigate("/buy/review") : setSheet(x))}
+      onClick={() => (isReady ? navigate(reviewOne(x)) : setSheet(x))}
       onPointerDown={() => holdStart(x)} onPointerUp={holdEnd} onPointerLeave={holdEnd}
       onContextMenu={e => { e.preventDefault(); setSheet(x); }}
       aria-label={`${name} jar, ${fmtUsd6(x.amountUsd6)}. ${isReady ? "Ready, tap to buy" : "Filling"}. Long-press for options`}>
@@ -65,7 +68,7 @@ export function Jars() {
     <Sheet open={!!sheet} onClose={() => setSheet(null)} title={sheet ? `${assetName(sheet.assetId, sheet.name)} jar` : ""}>
       {sheet && <>
         <div className="sheet-jar"><GlassJar pct={pct(BigInt(sheet.amountUsd6), BigInt(sheet.readyMinUsd6))} ready={sheet.state === "ready"} size={64} /><div><strong className="num big">{fmtUsd6(sheet.amountUsd6)}</strong><p className="sub">{sheet.state === "ready" ? "Ready · tap to buy" : "Filling · fills from your next purchases"}</p></div></div>
-        <button className="button primary full" onClick={() => { setSheet(null); navigate(sheet.state === "ready" ? "/buy/review" : "/buy/review?all"); }}>{sheet.state === "ready" ? "Review and buy" : "Buy now anyway"}</button>
+        <button className="button primary full" onClick={() => { setSheet(null); navigate(reviewOne(sheet)); }}>{sheet.state === "ready" ? "Review and buy" : "Buy now anyway"}</button>
       </>}
     </Sheet>
   </div>;
@@ -102,7 +105,7 @@ function ArcSteps({ steps }: { steps: StepUpdate[] }) {
   </ol>;
 }
 
-export function BuyReview({ all = false, assetId }: { all?: boolean; assetId?: string }) {
+export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean; assetId?: string; amountUsd6?: string }) {
   const { navigate } = useApp();
   // A typed amount is a buy request; we only *suggest* the jar amount (your rules).
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -110,7 +113,9 @@ export function BuyReview({ all = false, assetId }: { all?: boolean; assetId?: s
   const [phase, setPhase] = useState<"idle" | "starting" | "arc" | "submitting">("idle");
   const [steps, setSteps] = useState<StepUpdate[]>([]);
   const [err, setErr] = useState<string | null>(null);
-  const seeded = assetId && !amounts[assetId] ? { [assetId]: "1000000" } : {};
+  // Jar tap passes the jar balance; holdings "Buy more" falls back to $1.
+  const seedAmt = amountUsd6 && BigInt(amountUsd6) >= MIN_BUY_USD6 ? amountUsd6 : "1000000";
+  const seeded = assetId && !amounts[assetId] ? { [assetId]: seedAmt } : {};
   const req = { ...seeded, ...amounts };
   const r = useApi(`review:${all}:${JSON.stringify(req)}`, () => api.buysReview(all, Object.keys(req).length ? req : undefined));
   const [left, setLeft] = useState(30);

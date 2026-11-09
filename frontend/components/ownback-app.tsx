@@ -160,7 +160,7 @@ function Shell({ initialPath }: { initialPath: string }) {
   else if (seg[0] === "add" && seg[1] && seg[2] === "saved") screen = <Saved id={seg[1]} />;
   else if (seg[0] === "add" && seg[1]) screen = <Confirm id={seg[1]} />;
   else if (route === "/jars") screen = <Jars />;
-  else if (route === "/buy/review") { const q = new URLSearchParams(query ?? ""); screen = <BuyReview all={q.has("all")} assetId={q.get("asset") ?? undefined} />; }
+  else if (route === "/buy/review") { const q = new URLSearchParams(query ?? ""); screen = <BuyReview all={q.has("all")} assetId={q.get("asset") ?? undefined} amountUsd6={q.get("amount") ?? undefined} />; }
   else if (seg[0] === "buy" && seg[1]) screen = <BuyDone batchId={seg[1]} />;
   else if (seg[0] === "sell" && seg[1] === "review" && seg[2]) screen = <SellReview assetId={decodeURIComponent(seg[2])} />;
   else if (seg[0] === "sell" && seg[1]) screen = <SellDone sellId={seg[1]} />;

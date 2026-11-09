@@ -131,11 +131,13 @@ async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map
     HAVING COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) > 0
   `;
   const jars = new Map(jarRows.map((r) => [r.asset_id, BigInt(r.amt)]));
-  // An amount the user typed is a buy request even without a jar (free amount, D29).
-  const ids = [
-    ...jarRows.filter((r) => include === 'all' || amounts.has(r.asset_id) || jarState(r.amt, readyMin) === 'ready').map((r) => r.asset_id),
-    ...[...amounts.keys()].filter((k) => !jars.has(k) && verifiedMint(k, 'solana')),
-  ];
+  // Typed amounts scope the review to those assets only (one jar tap → one row). Empty amounts = all ready / all jars.
+  const ids =
+    amounts.size > 0
+      ? [...new Set([...amounts.keys()].filter((k) => jars.has(k) || Boolean(verifiedMint(k, 'solana'))))]
+      : jarRows
+          .filter((r) => include === 'all' || jarState(r.amt, readyMin) === 'ready')
+          .map((r) => r.asset_id);
   if (!ids.length) throw new ApiError('NO_READY_JARS');
 
   const now = new Date().toISOString();
