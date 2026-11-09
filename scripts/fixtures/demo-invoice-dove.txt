@@ -1,0 +1,20 @@
+bigbasket
+Order Invoice
+
+Order ID: BB-DEL-991204
+Date: 08-11-2026
+Delivered to: Mumbai
+
+Item                                      Qty   Price
+------------------------------------------------------
+Dove Deep Moisture Body Wash 500ml          1   349.00
+  Brand: Dove / Unilever
+  Category: Personal care
+
+------------------------------------------------------
+Item total                                      349.00
+Delivery                                          0.00
+------------------------------------------------------
+Grand Total (INR)                               349.00
+
+Paid via UPI

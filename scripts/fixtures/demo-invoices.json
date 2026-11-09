@@ -1,0 +1,228 @@
+{
+  "note": "Mock invoices for Ownback pipeline testing. POST typed ones to /api/purchases as JSON. Only co:apple has a verified Solana mint today (AAPLx) — use Apple products to exercise the full buy path.",
+  "api": {
+    "method": "POST",
+    "path": "/api/purchases",
+    "headers": ["Content-Type: application/json", "Idempotency-Key: <uuid>", "Cookie: session", "x-csrf: <token>"],
+    "bodyShape": {
+      "text": {
+        "product": "string",
+        "amount": "digits with optional .cc",
+        "currency": "ISO-4217 3 letters",
+        "maker": "optional",
+        "model": "optional",
+        "shop": "optional",
+        "date": "optional YYYY-MM-DD"
+      }
+    }
+  },
+  "invoices": [
+    {
+      "id": "croma-iphone",
+      "label": "Croma iPhone (wireframe / full match + buyable)",
+      "pathUnderTest": "product-graph hardware_phone → maker Apple + behind TSMC/Qualcomm/Corning + materials gold/silver; only Apple mint is verified buyable",
+      "typed": {
+        "text": {
+          "product": "Apple iPhone 17 Pro 256GB",
+          "amount": "95500.00",
+          "currency": "INR",
+          "maker": "Apple",
+          "model": "iPhone 17 Pro 256GB",
+          "shop": "Croma",
+          "date": "2025-11-05"
+        }
+      },
+      "invoiceText": "Croma invoice: Apple iPhone 17 Pro 256GB, total 95500.00 INR, purchased in Mumbai. Brand Apple.",
+      "receiptReadShape": {
+        "isReceipt": true,
+        "merchant": "Croma",
+        "place": "Mumbai",
+        "date": "2025-11-05",
+        "currency": "INR",
+        "subtotal": "80932.20",
+        "tax": "14567.80",
+        "total": "95500.00",
+        "items": [
+          {
+            "name": "Apple iPhone 17 Pro 256GB",
+            "brand": "Apple",
+            "model": "iPhone 17 Pro 256GB",
+            "category": "hardware_phone",
+            "qty": 1,
+            "unitPrice": "95500.00",
+            "lineTotal": "95500.00"
+          }
+        ],
+        "confidence": 0.94
+      },
+      "expected": {
+        "makerAssetId": "co:apple",
+        "behindHints": ["co:tsmc", "co:qualcomm", "co:corning"],
+        "materialHints": ["mat:gold", "mat:silver"],
+        "verifiedBuyable": ["co:apple"],
+        "investAt5pctUsd": "~47.75 (at fx ~83.66)"
+      }
+    },
+    {
+      "id": "apple-airpods",
+      "label": "Apple AirPods (smaller Apple buy)",
+      "pathUnderTest": "same Apple graph keys; smaller invest for jar + buy smoke",
+      "typed": {
+        "text": {
+          "product": "Apple AirPods Pro 2",
+          "amount": "24900.00",
+          "currency": "INR",
+          "maker": "Apple",
+          "shop": "Croma",
+          "date": "2026-11-06"
+        }
+      },
+      "invoiceText": "Croma, Phoenix Mall Mumbai. AirPods Pro (2nd gen) Apple. Total INR 24900.00 on 2026-11-06.",
+      "expected": {
+        "makerAssetId": "co:apple",
+        "verifiedBuyable": ["co:apple"]
+      }
+    },
+    {
+      "id": "dove-soap",
+      "label": "Dove body wash (CPG / Unilever)",
+      "pathUnderTest": "product-graph cpg_personal_care → Unilever; catalog match, not verified buyable",
+      "typed": {
+        "text": {
+          "product": "Dove Deep Moisture Body Wash 500ml",
+          "amount": "349.00",
+          "currency": "INR",
+          "maker": "Unilever",
+          "shop": "BigBasket",
+          "date": "2026-11-08"
+        }
+      },
+      "invoiceText": "BigBasket order: Dove Deep Moisture Body Wash 500ml, Unilever, INR 349.00, Mumbai, 2026-11-08.",
+      "expected": {
+        "makerHint": "Unilever",
+        "makerAssetId": "co:unilever",
+        "verifiedBuyable": []
+      }
+    },
+    {
+      "id": "aws-bill",
+      "label": "AWS invoice (digital cloud / Amazon)",
+      "pathUnderTest": "product-graph digital_cloud aws keys → Amazon",
+      "typed": {
+        "text": {
+          "product": "Amazon Web Services — EC2 + S3",
+          "amount": "128.40",
+          "currency": "USD",
+          "maker": "Amazon",
+          "shop": "AWS",
+          "date": "2026-11-01"
+        }
+      },
+      "invoiceText": "Amazon Web Services invoice INV-2026-1101. EC2 and S3 usage. Total USD 128.40. Account ending 4421.",
+      "expected": {
+        "makerHint": "Amazon",
+        "makerAssetId": "co:amazon",
+        "verifiedBuyable": []
+      }
+    },
+    {
+      "id": "google-one",
+      "label": "Google One subscription",
+      "pathUnderTest": "product-graph digital_cloud google keys → Alphabet co:googl",
+      "typed": {
+        "text": {
+          "product": "Google One 2TB plan",
+          "amount": "999.00",
+          "currency": "INR",
+          "maker": "Alphabet",
+          "shop": "Google",
+          "date": "2026-11-03"
+        }
+      },
+      "invoiceText": "Google One 2TB monthly subscription. Alphabet / Google. Charged INR 999.00 on 2026-11-03.",
+      "expected": {
+        "makerAssetId": "co:googl",
+        "verifiedBuyable": []
+      }
+    },
+    {
+      "id": "coke-pack",
+      "label": "Coca-Cola multipack",
+      "pathUnderTest": "product-graph cpg_beverage → Coca-Cola co:coke",
+      "typed": {
+        "text": {
+          "product": "Coca-Cola Classic 750ml x6",
+          "amount": "240.00",
+          "currency": "INR",
+          "maker": "Coca-Cola",
+          "shop": "DMart",
+          "date": "2026-11-07"
+        }
+      },
+      "invoiceText": "DMart receipt: Coca-Cola Classic 750ml pack of 6. Brand Coca-Cola. Total INR 240.00.",
+      "expected": {
+        "makerAssetId": "co:coke",
+        "verifiedBuyable": []
+      }
+    },
+    {
+      "id": "lays-chips",
+      "label": "Lay's chips (PepsiCo snack)",
+      "pathUnderTest": "product-graph cpg_snack → PepsiCo co:pepsico",
+      "typed": {
+        "text": {
+          "product": "Lay's Classic Salted 52g",
+          "amount": "20.00",
+          "currency": "INR",
+          "maker": "PepsiCo",
+          "shop": "Local kirana",
+          "date": "2026-11-08"
+        }
+      },
+      "invoiceText": "Kirana shop: Lay's Classic Salted 52g, PepsiCo, INR 20.00.",
+      "expected": {
+        "makerAssetId": "co:pepsico",
+        "verifiedBuyable": []
+      }
+    },
+    {
+      "id": "render-hosting",
+      "label": "Render hosting invoice (behind → Amazon)",
+      "pathUnderTest": "product-graph digital_saas with behind Amazon; maker may be null/fallback",
+      "typed": {
+        "text": {
+          "product": "Render.com Pro plan",
+          "amount": "19.00",
+          "currency": "USD",
+          "shop": "Render",
+          "date": "2026-11-01"
+        }
+      },
+      "invoiceText": "Render invoice: Pro plan hosting, USD 19.00, billed 2026-11-01.",
+      "expected": {
+        "behindHints": ["co:amazon"],
+        "verifiedBuyable": []
+      }
+    },
+    {
+      "id": "unknown-local",
+      "label": "Unknown local brand (not_listed / needs_review path)",
+      "pathUnderTest": "no product-graph key; exercises jury/fallback and not_listed or needs_review",
+      "typed": {
+        "text": {
+          "product": "Handmade ceramic mug set",
+          "amount": "1800.00",
+          "currency": "INR",
+          "maker": "Clay & Co Studio",
+          "shop": "Bandra market",
+          "date": "2026-11-08"
+        }
+      },
+      "invoiceText": "Bandra market stall: Handmade ceramic mug set by Clay & Co Studio. Paid INR 1800.00 cash.",
+      "expected": {
+        "verifiedBuyable": [],
+        "statusLikely": ["not_listed", "needs_review", "ready"]
+      }
+    }
+  ]
+}

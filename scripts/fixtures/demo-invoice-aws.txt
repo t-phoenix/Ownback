@@ -1,0 +1,18 @@
+Amazon Web Services, Inc.
+Invoice
+
+Invoice Number: INV-2026-1101-4421
+Invoice Date: 2026-11-01
+Billing Period: 2026-10-01 — 2026-10-31
+Currency: USD
+
+Description                         Amount
+------------------------------------------
+Amazon EC2 — compute                 86.20
+Amazon S3 — storage                  22.15
+Data transfer                        20.05
+------------------------------------------
+Total due                           128.40
+
+Service: Amazon Web Services (AWS)
+Maker / brand: Amazon

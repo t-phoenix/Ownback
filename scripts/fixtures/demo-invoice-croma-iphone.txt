@@ -1,0 +1,22 @@
+CROMA — A Tata Enterprise
+Invoice / Tax Invoice
+
+Store: Croma Phoenix Marketcity, Mumbai
+Date: 05-11-2025
+Invoice No: CR-MUM-20251105-88421
+
+Item                              Qty    Amount (INR)
+----------------------------------------------------
+Apple iPhone 17 Pro 256GB           1     95,500.00
+  Brand: Apple
+  Model: iPhone 17 Pro 256GB
+  HSN: 8517
+
+Subtotal                                  80,932.20
+CGST 9%                                    7,283.90
+SGST 9%                                    7,283.90
+----------------------------------------------------
+Grand Total                               95,500.00
+
+Payment: UPI
+Thank you for shopping at Croma.
