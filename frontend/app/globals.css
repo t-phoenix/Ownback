@@ -869,3 +869,75 @@ svg.spin { animation: spin .8s linear infinite; }
 .arc-plan { margin-top: 16px; }
 .arc-plan .mini-icon b { font-size: 14px; }
 .sheet > .sub { margin-bottom: 4px; }
+
+/* ───────────── Price tag: ONE token's live price — a ticker, never a balance ───────────── */
+.price-tag { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 8px 2px 7px; border-radius: 7px; border: 1px dashed var(--line-strong); background: transparent; color: var(--muted); font: 500 11.5px/1.5 var(--font-mono); letter-spacing: -.02em; white-space: nowrap; vertical-align: middle; font-variant-numeric: tabular-nums; }
+.price-tag::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); animation: live-dot 2.4s ease-in-out infinite; }
+.price-unit { opacity: .75; }
+.price-val { color: var(--ink-2); font-weight: 600; }
+@keyframes live-dot { 50% { opacity: .35; } }
+.row-title .price-tag { margin: 0 0 0 6px; }
+.hero-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.hero-tags .price-tag { margin: 0; }
+
+/* ───────────── Receipt rows: menu, long-press ───────────── */
+.receipt-item { position: relative; display: flex; align-items: center; }
+.receipt-item > .row { flex: 1; min-width: 0; -webkit-touch-callout: none; user-select: none; }
+.receipt-item + .receipt-item::before { content: ""; position: absolute; z-index: 1; top: 0; left: 72px; right: 0; height: 1px; background: var(--line); }
+.receipt-item.has-menu > .row { padding-right: 4px; }
+.row-menu { flex: none; margin-right: 8px; color: var(--muted); }
+@media (hover: hover) { .row-menu { opacity: .45; transition: opacity var(--t); } .receipt-item:hover .row-menu, .row-menu:focus-visible { opacity: 1; } }
+.row.danger .row-title { color: var(--bad); }
+.row.danger .mini-icon { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+.button.danger-fill { background: var(--bad); color: #fff; box-shadow: none; }
+
+/* ───────────── Sidebar: live buy-day card ───────────── */
+.side-ritual.live { width: 100%; text-align: left; color: var(--ink); transition: border-color var(--t), transform var(--t), box-shadow var(--t); }
+button.side-ritual.live:hover { border-color: var(--primary); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.side-ritual.live > div { flex: 1; min-width: 0; }
+.side-ritual.live .glass-jar { flex: none; }
+.side-ritual.ready { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: linear-gradient(180deg, var(--accent-soft), var(--surface)); }
+
+/* ───────────── Holdings: collectible pieces ───────────── */
+.piece-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 12px; }
+.piece { height: 216px; perspective: 900px; text-align: center; -webkit-tap-highlight-color: transparent; }
+.piece-inner { position: relative; display: block; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 640ms var(--spring); }
+.piece.flipped .piece-inner { transform: rotateY(180deg); }
+@media (hover: hover) { .piece:hover .piece-inner, .piece:focus-visible .piece-inner { transform: rotateY(180deg); } }
+.piece-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 16px 12px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.piece-face.back { transform: rotateY(180deg); color: var(--on-vault); background: radial-gradient(120% 90% at 85% 10%, var(--vault-2) 0%, var(--vault) 62%); border-color: var(--vault-line); }
+.piece-face.back .micro, .piece-face.back .sub { color: var(--on-vault-muted); margin: 0; }
+.piece-coin { margin-bottom: 8px; animation: bob 4s ease-in-out infinite; }
+.piece:nth-child(2n) .piece-coin { animation-delay: -1.3s; }
+.piece:nth-child(3n) .piece-coin { animation-delay: -2.6s; }
+/* A coin, not a tile: round, with a rim and a lip of thickness under it. */
+.piece-coin .mono-tile { border-radius: 50%; font-size: 22px; box-shadow: inset 0 -6px 0 rgba(0, 0, 0, .12), inset 0 3px 0 rgba(255, 255, 255, .45), 0 7px 0 -1px color-mix(in srgb, var(--tf) 55%, transparent), 0 16px 22px -8px rgba(0, 0, 0, .35); }
+@keyframes bob { 50% { transform: translateY(-5px) rotate(-4deg); } }
+.piece-name { font: 700 15px/1.2 var(--font-display); }
+.piece-value { font: 800 22px/1.1 var(--font-display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.piece-qty { font: 800 20px/1.15 var(--font-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.piece-qty small { font-size: 13px; opacity: .8; }
+.piece-frac { margin: 2px 0 4px; padding: 3px 10px; border-radius: 99px; background: rgba(233, 185, 73, .18); color: var(--accent); font-weight: 700; font-size: 13px; }
+.piece-open { margin-top: 8px; display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 700; color: var(--vault-primary); }
+
+/* ───────────── Sticker pack ───────────── */
+.sticker-card { padding: 16px 12px 4px; overflow: visible; }
+.sticker-book { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px 4px; justify-items: center; }
+.sticker { position: relative; width: var(--sz); height: var(--sz); touch-action: none; cursor: grab; transform: translate(var(--dx, 0px), var(--dy, 0px)) rotate(var(--rot, 0deg)); transition: transform 560ms var(--spring); -webkit-tap-highlight-color: transparent; }
+.sticker.held { transition: none; cursor: grabbing; z-index: 5; }
+.sticker .sticker-svg { display: block; overflow: visible; transition: transform 300ms var(--spring), filter var(--t); }
+@media (hover: hover) { .sticker:not(.is-locked):hover .sticker-svg { animation: wiggle 600ms ease-in-out; transform: scale(1.08) rotate(-4deg); } }
+.sticker.pop .sticker-svg { animation: sticker-pop 620ms var(--spring); }
+.sticker.flung .sticker-svg { animation: fling 720ms var(--ease); }
+@keyframes wiggle { 25% { transform: scale(1.08) rotate(5deg); } 50% { transform: scale(1.08) rotate(-5deg); } 75% { transform: scale(1.08) rotate(3deg); } }
+@keyframes sticker-pop { 30% { transform: scale(.82) rotate(-8deg); } 65% { transform: scale(1.18) rotate(6deg); } }
+@keyframes fling { from { transform: rotate(var(--spin, 360deg)); } to { transform: rotate(0); } }
+.sticker-svg.locked { filter: grayscale(1) opacity(.35); }
+.sticker.is-locked::after { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; font: 800 26px var(--font-display); color: var(--muted); pointer-events: none; }
+.sticker-sheen { position: absolute; inset: 7%; border-radius: 28%; pointer-events: none; opacity: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .7) 48%, transparent 60%); background-size: 250% 100%; background-position: 120% 0; mix-blend-mode: soft-light; }
+@media (hover: hover) { .sticker:not(.is-locked):hover .sticker-sheen { opacity: 1; animation: sheen 900ms ease-out forwards; } }
+@keyframes sheen { to { background-position: -40% 0; } }
+.confetti { position: absolute; left: 50%; top: 50%; pointer-events: none; }
+.confetti i { position: absolute; width: 8px; height: 12px; margin: -6px -4px; border-radius: 2px; background: var(--c); animation: confetti 820ms var(--ease) forwards; }
+@keyframes confetti { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(.6); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-74px) rotate(220deg) scale(1); } }
+.empty-state .sticker { margin-bottom: 6px; }

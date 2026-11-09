@@ -307,17 +307,23 @@ purchaseRoutes.put('/purchases/:id/details', async (c) => {
     const body = PurchaseDetails.parse(await c.req.json());
     const id = c.req.param('id');
     const { p } = await loadPurchase(user.id, id);
-    if (!['needs_details', 'ready', 'needs_review', 'not_listed', 'read_failed'].includes(p.status as string)) {
+    const sql = getSql();
+    if (p.status === 'saved') {
+      // Jars are DB reservations (D29): a save with nothing bought from it yet can be re-opened; its jars are released.
+      const [b] = await sql<{ bought: bigint | string }[]>`
+        SELECT COALESCE(SUM(bought_usd6), 0) AS bought FROM allocations WHERE purchase_id = ${id}::uuid`;
+      if (BigInt(b?.bought ?? 0) > 0n) throw new ApiError('VALIDATION', { reason: 'purchase_locked', status: p.status });
+    } else if (!['needs_details', 'ready', 'needs_review', 'not_listed', 'read_failed'].includes(p.status as string)) {
       throw new ApiError('VALIDATION', { reason: 'purchase_locked', status: p.status });
     }
-    const sql = getSql();
     const rules = await sql<Rules[]>`
       SELECT rate_bps, fallback_asset, split_maker, split_behind, split_materials FROM rules WHERE user_id = ${user.id}::uuid
     `;
     const steps = freshSteps(true);
     await sql`
       UPDATE purchases SET status = 'reading', read_error = NULL, steps = ${sql.json(steps)}::jsonb,
-        details = ${sql.json({ ...body, missing: [] } as never)}::jsonb, shop = ${body.merchant ?? null}, updated_at = now()
+        details = ${sql.json({ ...body, missing: [] } as never)}::jsonb, shop = ${body.merchant ?? null},
+        rest_usd6 = 0, confirm_tx = NULL, updated_at = now()
       WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid
     `;
     // The user typed these, so the read confidence is 1.

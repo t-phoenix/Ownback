@@ -5,9 +5,12 @@ import dynamic from "next/dynamic";
 import { Bell, Home as HomeIcon, PiggyBank, Plus, ReceiptText, RefreshCw, Settings as SettingsIcon, Upload, WalletCards } from "lucide-react";
 import { Logo } from "./logo";
 import { App, type Navigate } from "./app-context";
-import { haptic } from "./ui";
+import { GlassJar, haptic } from "./ui";
+import { api } from "../lib/api";
+import { assetName } from "../lib/assets";
+import { fmtUsd6, pct } from "../lib/money";
 import { useSession } from "./session-context";
-import { refreshAll } from "../lib/use-api";
+import { refreshAll, useApi } from "../lib/use-api";
 
 /** Privy stays out of the SSR/preload graph so next dev does not hold the whole WalletConnect tree at boot. */
 const SessionProvider = dynamic(
@@ -159,7 +162,7 @@ function Shell({ initialPath }: { initialPath: string }) {
   else if (route === "/add/error") screen = <ReadError />;
   else if (route === "/add/type") screen = <TypeIt />;
   else if (seg[0] === "add" && seg[1] && seg[2] === "saved") screen = <Saved id={seg[1]} />;
-  else if (seg[0] === "add" && seg[1]) screen = <Confirm id={seg[1]} />;
+  else if (seg[0] === "add" && seg[1]) screen = <Confirm id={seg[1]} edit={new URLSearchParams(query ?? "").has("edit")} />;
   else if (route === "/jars") screen = <Jars />;
   else if (route === "/buy/review") { const q = new URLSearchParams(query ?? ""); screen = <BuyReview all={q.has("all")} assetId={q.get("asset") ?? undefined} amountUsd6={q.get("amount") ?? undefined} />; }
   else if (seg[0] === "buy" && seg[1]) screen = <BuyDone batchId={seg[1]} />;
@@ -189,6 +192,30 @@ function Shell({ initialPath }: { initialPath: string }) {
   </App.Provider>;
 }
 
+/** Sidebar nudge, live from your jars: ready → buy them; filling → how far the closest one has to go. */
+function BuyDayCard({ navigate }: { navigate: Navigate }) {
+  const j = useApi("jars", api.jars);
+  const jars = j.data?.jars ?? [];
+  const ready = jars.filter(x => x.state === "ready");
+  const readyTotal = ready.reduce((t, x) => t + BigInt(x.amountUsd6), 0n);
+  const closest = jars.filter(x => x.state === "filling")
+    .map(x => ({ x, left: BigInt(x.readyMinUsd6) - BigInt(x.amountUsd6) }))
+    .sort((a, b) => (a.left < b.left ? -1 : 1))[0];
+  if (ready.length) return <div className="side-ritual live ready">
+    <GlassJar pct={100} ready size={30} />
+    <div><strong>{ready.length} jar{ready.length > 1 ? "s" : ""} ready · {fmtUsd6(readyTotal)}</strong><span>Buy now, or wait for Sunday.</span></div>
+    <button className="button primary sm" onClick={() => { haptic(10); navigate("/buy/review"); }}>Buy</button>
+  </div>;
+  if (closest) return <button className="side-ritual live" onClick={() => navigate("/jars")}>
+    <GlassJar pct={pct(BigInt(closest.x.amountUsd6), BigInt(closest.x.readyMinUsd6))} size={30} />
+    <div><strong>Next jar ready in ~{fmtUsd6(closest.left)}</strong><span>{assetName(closest.x.assetId, closest.x.name)} · {pct(BigInt(closest.x.amountUsd6), BigInt(closest.x.readyMinUsd6))}% full</span></div>
+  </button>;
+  return <button className="side-ritual live" onClick={() => navigate("/add")}>
+    <span className="ritual-icon"><Bell size={18} /></span>
+    <div><strong>Buy day is Sunday</strong><span>Add a purchase to start your first jar.</span></div>
+  </button>;
+}
+
 function TabBar({ path, navigate }: { path: string; navigate: Navigate }) {
   return <nav className="tabbar" aria-label="Main navigation">
     {tabs.map(({ path: p, label, Icon, add }) => {
@@ -215,10 +242,7 @@ function Sidebar({ path, navigate }: { path: string; navigate: Navigate }) {
       })}
       <button className={`side-item ${path === "/activity" ? "active" : ""}`} onClick={() => navigate("/activity")}><Bell size={19} strokeWidth={1.75} /><span>Activity</span><kbd>N</kbd></button>
     </nav>
-    <div className="side-ritual">
-      <span className="ritual-icon"><Bell size={18} /></span>
-      <div><strong>Buy day is Sunday</strong><span>We'll remind you when jars are ready.</span></div>
-    </div>
+    <BuyDayCard navigate={navigate} />
     <p className="side-foot">Drop a receipt anywhere, or paste a screenshot.</p>
   </aside>;
 }

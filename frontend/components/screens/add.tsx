@@ -298,12 +298,12 @@ function JurySections({ a, allocs, done, onToggle }: { a: NonNullable<Purchase["
 const roleLabel: Record<string, string> = { maker: "Maker", supplier: "Behind it", material: "Material", fallback: "Fallback" };
 const segClass = (role: string) => role === "maker" || role === "fallback" ? "seg-maker" : role === "material" ? "seg-material" : "seg-behind";
 
-export function Confirm({ id }: { id: string }) {
+export function Confirm({ id, edit = false }: { id: string; edit?: boolean }) {
   const { navigate } = useApp();
   const p = useApi(`purchase:${id}`, () => api.purchase(id));
   const home = useApi("home", api.home);
   const [why, setWhy] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(edit);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [shortfall, setShortfall] = useState<{ freeUsd6: string; shortUsd6: string } | null>(null);

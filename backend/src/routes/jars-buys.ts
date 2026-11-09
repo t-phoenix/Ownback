@@ -69,8 +69,11 @@ jarsBuysRoutes.get('/jars', async (c) => {
       GROUP BY a.asset_id, a.role
       HAVING COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) > 0
     `;
-    const jars = rows.map((r) => {
+    const jars = await Promise.all(rows.map(async (r) => {
       const amt = BigInt(r.amt);
+      // Price of one token (one share for xStocks); only for verified mints, never invented.
+      const mint = verifiedMint(r.asset_id, 'solana');
+      const price = mint ? await jupiterPriceUsd6(mint.mint) : null;
       return {
         assetId: r.asset_id,
         name: assetDisplayName(r.asset_id),
@@ -78,8 +81,9 @@ jarsBuysRoutes.get('/jars', async (c) => {
         amountUsd6: toUsd6(amt),
         readyMinUsd6: toUsd6(readyMin),
         state: jarState(amt, readyMin),
+        ...(mint && price ? { token: mint.symbol, price: { usd6PerUnit: toUsd6(price), at: new Date().toISOString(), source: 'jupiter' as const } } : {}),
       };
-    });
+    }));
     return c.json({
       jars,
       nextReminderAt: nextSundayReminder(),
