@@ -22,6 +22,8 @@ const errors: Record<string, string> = {
   QUOTE_EXPIRED: "Prices moved. We fetched fresh quotes; review and buy again.",
   NOTHING_TO_BUY: "Nothing here can be bought on-chain yet.",
   VALIDATION: "Check the amount and try again. The smallest buy is $0.10.",
+  UPSTREAM: "The swap route didn't build. Try again in a moment.",
+  DEPOSIT_NOT_READY: "That buy isn't ready to swap yet. Wait a moment and try again.",
 };
 
 export function errorCopy(code: string | undefined, details?: { freeUsd6?: string; shortUsd6?: string; leftUsd6?: string }): string {

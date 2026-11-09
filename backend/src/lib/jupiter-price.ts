@@ -175,7 +175,9 @@ export async function jupiterBuildSwap(opts: {
       timeoutMs: 15_000,
     });
     if (!res.ok) return null;
-    const body = (await res.json()) as { swapTransaction?: string };
+    const body = (await res.json()) as { swapTransaction?: string; simulationError?: { error?: string } | string | null };
+    // Jupiter often still returns a tx when sim fails (e.g. Token-2022 ATA). Don't ask the user to sign a dead tx.
+    if (body.simulationError) return null;
     return body.swapTransaction ?? null;
   } catch {
     return null;

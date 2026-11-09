@@ -149,10 +149,15 @@ export function BuyReview({ all = false, assetId }: { all?: boolean; assetId?: s
         setPhase("submitting");
         await api.buyArcSubmitted(start.batchId, signed.txHash!);
       }
-      refreshAll(); navigate(`/buy/${start.batchId}`);
+      // Navigate first — refreshAll() remounts siblings and was racing the buy screen into the Next error page.
+      navigate(`/buy/${start.batchId}`);
+      refreshAll();
     } catch (e) {
       const code = codeOf(e);
-      setErr(code === "INSUFFICIENT_FREE" && detailsOf(e)?.availableUsd6 ? `You have ${fmtUsd6(detailsOf(e)!.availableUsd6)} available on Arc. Add funds or buy a smaller amount.` : errorCopy(code ?? "CHALLENGE_FAILED"));
+      const details = detailsOf(e);
+      setErr(code === "INSUFFICIENT_FREE" && details?.availableUsd6
+        ? `You have ${fmtUsd6(details.availableUsd6)} available${details.where === "solana" ? " on Solana" : " on Arc"}. Add funds or buy a smaller amount.`
+        : errorCopy(code ?? "CHALLENGE_FAILED"));
       setPhase("idle");
       if (code === "QUOTE_EXPIRED") r.reload();
     }
@@ -245,9 +250,11 @@ export function BuyDone({ batchId }: { batchId: string }) {
   // Once USDC is on Solana, ask for each swap signature in turn (the user can also tap Retry).
   const auto = useRef(false);
   useEffect(() => {
-    if (!d || auto.current || signing || (d.status !== "swap_ready")) return;
-    const next = d.entries.find(e => e.status === "quoted");
-    if (next) { auto.current = true; (async () => { for (const e of d.entries.filter(x => x.status === "quoted")) await swapOne(e); })(); }
+    if (!d || auto.current || signing || (d.status !== "swap_ready" && d.status !== "swapping")) return;
+    const pending = d.entries.filter(e => e.status === "quoted" || e.status === "paused");
+    if (!pending.length) return;
+    auto.current = true;
+    (async () => { for (const e of pending) await swapOne(e); })();
   }, [d, signing, swapOne]);
 
   const bought = d?.entries.filter(e => e.status === "bought") ?? [];

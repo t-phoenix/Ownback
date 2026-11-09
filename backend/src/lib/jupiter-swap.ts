@@ -3,8 +3,13 @@
  * the fee payer (gas + ATA rent) and co-signs. Tokens never pass through the relay.
  */
 import { createHash } from 'node:crypto';
-import { Connection, Keypair, PublicKey, VersionedTransaction } from '@solana/web3.js';
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { Connection, Keypair, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
+import {
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddressSync,
+} from '@solana/spl-token';
 import { ApiError } from '../shared/errors.js';
 import { jupiterBuildSwap, jupiterQuote, type JupiterQuote } from './jupiter-price.js';
 
@@ -65,6 +70,28 @@ export function msgHash(tx: VersionedTransaction): string {
 
 export type BuiltSwap = { txBase64: string; msgHash: string; feePayer: string; quote: JupiterQuote };
 
+/** Create the owner's ATA for `mint` if missing. Relay pays rent. Needed for Token-2022 (AAPLx) before Jupiter. */
+export async function ensureAta(owner: string, mint: string): Promise<string> {
+  const relay = requireRelay();
+  const c = solRpc();
+  const program = await tokenProgramOf(mint);
+  const ownerPk = new PublicKey(owner);
+  const mintPk = new PublicKey(mint);
+  const ata = getAssociatedTokenAddressSync(mintPk, ownerPk, false, program);
+  if (await c.getAccountInfo(ata)) return ata.toBase58();
+  const { blockhash } = await c.getLatestBlockhash();
+  const tx = new VersionedTransaction(
+    new TransactionMessage({
+      payerKey: relay.publicKey,
+      recentBlockhash: blockhash,
+      instructions: [createAssociatedTokenAccountIdempotentInstruction(relay.publicKey, ata, ownerPk, mintPk, program)],
+    }).compileToV0Message(),
+  );
+  tx.sign([relay]);
+  await confirmSig(await c.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 }));
+  return ata.toBase58();
+}
+
 /**
  * Jupiter swap where `owner` spends its own `inputMint`. Relay is fee payer and signs first;
  * the returned tx still needs the owner's signature (Privy).
@@ -79,10 +106,13 @@ export async function buildUserSwap(opts: {
   const relay = requireRelay();
   const quote = await jupiterQuote({ ...opts, slippageBps: opts.slippageBps ?? 100 });
   if (!quote) throw new ApiError('UPSTREAM', { reason: 'no_route' });
+  // Pre-create the Token-2022 ATA; Jupiter's create-ATA ix often sims as InvalidTokenAccount (0x1789).
+  const destinationTokenAccount = await ensureAta(opts.owner, opts.outputMint);
   const b64 = await jupiterBuildSwap({
     quoteResponse: quote.raw,
     userPublicKey: opts.owner,
     payer: relay.publicKey.toBase58(),
+    destinationTokenAccount,
   });
   if (!b64) throw new ApiError('UPSTREAM', { reason: 'swap_build_failed' });
   const tx = VersionedTransaction.deserialize(Buffer.from(b64, 'base64'));

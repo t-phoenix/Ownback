@@ -357,7 +357,8 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId', async (c) => {
     const have = await tokenBalanceRaw(user.solAddress!, SOL_USDC);
     if (have < amount) throw new ApiError('INSUFFICIENT_FREE', { availableUsd6: have.toString(), where: 'solana' });
     const built = await buildUserSwap({ owner: user.solAddress!, inputMint: SOL_USDC, outputMint: mint.mint, amountRaw: amount });
-    await getSql()`UPDATE buy_entries SET status = 'waiting', swap_msg_hash = ${built.msgHash}, error = NULL,
+    // Stay `quoted` until the signed tx lands — `waiting` left entries stuck when Privy/sign failed mid-flight.
+    await getSql()`UPDATE buy_entries SET status = 'quoted', swap_msg_hash = ${built.msgHash}, error = NULL,
       quote_price_usd6 = ${priceUsd6FromBuyQuote(amount, BigInt(built.quote.outAmount), mint.decimals).toString()}::bigint
       WHERE id = ${e.id}::uuid`;
     await getSql()`UPDATE buy_batches SET status = 'swapping', updated_at = now() WHERE id = ${b.id}::uuid`;
@@ -381,7 +382,9 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId/submit', async (c) => {
     const { signedTx } = z.object({ signedTx: z.string().min(1) }).parse(await c.req.json());
     const b = await loadBatch(user, c.req.param('batchId'));
     const e = await loadEntry(b.id, c.req.param('assetId'));
-    if (e.status !== 'waiting' || !e.swap_msg_hash) throw new ApiError('VALIDATION', { reason: 'not_waiting' });
+    if (!e.swap_msg_hash || (e.status !== 'quoted' && e.status !== 'waiting')) {
+      throw new ApiError('VALIDATION', { reason: 'not_ready_to_submit' });
+    }
     entryId = e.id;
     const mint = verifiedMint(e.asset_id, 'solana')!;
     const sig = await submitSigned(signedTx, e.swap_msg_hash);
