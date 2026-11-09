@@ -81,33 +81,37 @@ export function Settings() {
 
     <ErrorState error={rules.error} onRetry={rules.reload} />
     <div className="settings-grid">
-      <section className="block"><p className="micro">Investing</p>
-        {!r ? <SkeletonList rows={4} /> : <div className="card list">
-          <Row title="Purchase rate" value={`${r.rateBps / 100}%`} icon={<Percent size={17} />} onClick={() => setSheet("rate")} />
-          <Row title="Jar capacity" value={fmtUsd6(r.readyMinUsd6)} icon={<PiggyBank size={17} />} onClick={() => setSheet("ready")} />
-          <Row title="Max fees" value={`${r.maxFeeBps / 100}% of each buy`} icon={<Coins size={17} />} onClick={() => setSheet("fees")} />
-          <Row title="Fallback" value={assetName(r.fallbackAsset)} icon={<LifeBuoy size={17} />} onClick={() => setSheet("fallback")} />
-        </div>}
-      </section>
-      <section className="block"><p className="micro">Money & access</p>
-        <div className="card list">
-          <Row title="Wallets and sign-in" value={me?.evmAddress ? `${me.evmAddress.slice(0, 6)}…${me.evmAddress.slice(-4)}` : undefined} icon={<WalletCards size={17} />} />
-          <Row title="Add funds" icon={<Plus size={17} />} onClick={() => navigate("/funds")} />
-        </div>
-      </section>
-      <section className="block"><p className="micro">Appearance</p>
-        <div className="segmented" role="radiogroup" aria-label="Theme">
-          {([["system", "System", Monitor], ["light", "Light", Sun], ["dark", "Dark", Moon]] as const).map(([k, label, I]) =>
-            <button key={k} role="radio" aria-checked={theme === k} className={theme === k ? "on" : ""} onClick={() => pickTheme(k)}><I size={16} /> {label}</button>)}
-        </div>
-      </section>
-      <section className="block"><p className="micro">Privacy & help</p>
-        <div className="card list">
-          <Row title="How Ownback works" icon={<BookOpen size={17} />} onClick={() => window.open("/how-it-works", "_blank")} />
-          <Row title="Risks" icon={<ShieldAlert size={17} />} onClick={() => window.open("/risks", "_blank")} />
-          <Row title="Download my data" icon={<Download size={17} />} onClick={download} />
-        </div>
-      </section>
+      <div className="settings-col">
+        <section className="block"><p className="micro">Investing</p>
+          {!r ? <SkeletonList rows={4} /> : <div className="card list">
+            <Row title="Purchase rate" value={`${r.rateBps / 100}%`} icon={<Percent size={17} />} onClick={() => setSheet("rate")} />
+            <Row title="Jar capacity" value={fmtUsd6(r.readyMinUsd6)} icon={<PiggyBank size={17} />} onClick={() => setSheet("ready")} />
+            <Row title="Max fees" value={`${r.maxFeeBps / 100}% of each buy`} icon={<Coins size={17} />} onClick={() => setSheet("fees")} />
+            <Row title="Fallback" value={assetName(r.fallbackAsset)} icon={<LifeBuoy size={17} />} onClick={() => setSheet("fallback")} />
+          </div>}
+        </section>
+        <section className="block"><p className="micro">Appearance</p>
+          <div className="segmented" role="radiogroup" aria-label="Theme">
+            {([["system", "System", Monitor], ["light", "Light", Sun], ["dark", "Dark", Moon]] as const).map(([k, label, I]) =>
+              <button key={k} role="radio" aria-checked={theme === k} className={theme === k ? "on" : ""} onClick={() => pickTheme(k)}><I size={16} /> {label}</button>)}
+          </div>
+        </section>
+      </div>
+      <div className="settings-col">
+        <section className="block"><p className="micro">Money & access</p>
+          <div className="card list">
+            <Row title="Wallets and sign-in" value={me?.evmAddress ? `${me.evmAddress.slice(0, 6)}…${me.evmAddress.slice(-4)}` : undefined} icon={<WalletCards size={17} />} />
+            <Row title="Add funds" icon={<Plus size={17} />} onClick={() => navigate("/funds")} />
+          </div>
+        </section>
+        <section className="block"><p className="micro">Privacy & help</p>
+          <div className="card list">
+            <Row title="How Ownback works" icon={<BookOpen size={17} />} onClick={() => window.open("/how-it-works", "_blank")} />
+            <Row title="Risks" icon={<ShieldAlert size={17} />} onClick={() => window.open("/risks", "_blank")} />
+            <Row title="Download my data" icon={<Download size={17} />} onClick={download} />
+          </div>
+        </section>
+      </div>
     </div>
     <button className="button quiet full" style={{ marginTop: 28 }} onClick={async () => { await signOut(); navigate("/signin"); }}>Sign out</button>
     <p className="fineprint center">Ownback v0.1 · Built with proof, not promises.</p>
