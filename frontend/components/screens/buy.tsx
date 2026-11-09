@@ -204,8 +204,8 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
         <section className="card summary">
           <div className="summary-line"><span>Total</span><strong>{fmtUsd6(d.totalUsd6)}</strong></div>
           <div className="summary-line"><span>Route costs</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({(d.fees.pctBps / 100).toFixed(2)}%)</strong></div>
-          {BigInt(d.funding.solanaUsdc6) > 0n && <div className="summary-line"><span>From your Solana USDC</span><strong>{fmtUsd6(BigInt(d.totalUsd6) - BigInt(d.funding.bridgeUsd6))}</strong></div>}
-          {BigInt(d.funding.bridgeUsd6) > 0n && <div className="summary-line"><span>Moved from Arc (CCTP)</span><strong>{fmtUsd6(d.funding.bridgeUsd6)}</strong></div>}
+          {BigInt(d.funding.solanaUsdc6 || "0") > 0n && <div className="summary-line"><span>From your Solana USDC</span><strong>{fmtUsd6((BigInt(d.totalUsd6 || "0") - BigInt(d.funding.bridgeUsd6 || "0")).toString())}</strong></div>}
+          {BigInt(d.funding.bridgeUsd6 || "0") > 0n && <div className="summary-line"><span>Moved from Arc (CCTP)</span><strong>{fmtUsd6(d.funding.bridgeUsd6)}</strong></div>}
           <p className="sub">Arc balance {fmtUsd6(d.funding.arcUsdc6)} · Solana USDC {fmtUsd6(d.funding.solanaUsdc6)}. Price protection 1%.</p>
         </section>
         {d.destination && <p className="fineprint">Shares go straight to your Solana wallet <span className="mono">{d.destination.slice(0, 4)}…{d.destination.slice(-4)}</span>. Ownback pays the Solana gas.</p>}
@@ -286,7 +286,7 @@ export function BuyDone({ batchId }: { batchId: string }) {
   const bought = d?.entries.filter(e => e.status === "bought") ?? [];
   const open = d?.entries.filter(e => e.status !== "bought") ?? [];
   const canSwap = d && (d.status === "swap_ready" || d.status === "swapping" || d.status === "failed" || d.status === "done_partial");
-  const stages = d && BigInt(d.bridgeUsd6) > 0n ? STAGES : [];
+  const stages = d && BigInt(d.bridgeUsd6 || "0") > 0n ? STAGES : [];
   const cctpStuck = d && (d.status === "attesting" || d.status === "minting" || (d.status === "bridging" && !!d.links.arc));
   const needsNewBuy = d?.status === "bridging" && !d.links.arc;
   const showRetry = !!(d && (d.error || cctpStuck || open.some(e => e.status === "paused" || e.status === "waiting") || d.status === "failed" || d.status === "done_partial"));

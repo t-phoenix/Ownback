@@ -10,6 +10,10 @@ describe('money', () => {
     expect(parseUsd6('47750000')).toBe(47_750_000n);
     expect(formatUsd('47750000')).toBe('$47.75');
     expect(toUsd6(1_000_000n)).toBe('1000000');
+    // postgres.js returns bigint columns as digit strings
+    expect(toUsd6('400000')).toBe('400000');
+    expect(jarState('9400000', '5000000')).toBe('ready');
+    expect(jarState('400000', 5_000_000n)).toBe('filling');
   });
 
   it('computes invest amount half-up to whole cents', () => {

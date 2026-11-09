@@ -60,8 +60,8 @@ jarsBuysRoutes.get('/jars', async (c) => {
     const rules = await sql<{ ready_min_usd6: bigint; max_fee_bps: number }[]>`
       SELECT ready_min_usd6, max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid
     `;
-    const readyMin = rules[0]?.ready_min_usd6 ?? 5_000_000n;
-    const rows = await sql<{ asset_id: string; amt: bigint; role: string }[]>`
+    const readyMin = BigInt(rules[0]?.ready_min_usd6 ?? 5_000_000n);
+    const rows = await sql<{ asset_id: string; amt: bigint | string; role: string }[]>`
       SELECT a.asset_id, a.role, COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amt
       FROM allocations a
       JOIN purchases p ON p.id = a.purchase_id
@@ -69,14 +69,17 @@ jarsBuysRoutes.get('/jars', async (c) => {
       GROUP BY a.asset_id, a.role
       HAVING COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) > 0
     `;
-    const jars = rows.map((r) => ({
-      assetId: r.asset_id,
-      name: assetDisplayName(r.asset_id),
-      role: r.role,
-      amountUsd6: toUsd6(r.amt),
-      readyMinUsd6: toUsd6(readyMin),
-      state: jarState(r.amt, readyMin),
-    }));
+    const jars = rows.map((r) => {
+      const amt = BigInt(r.amt);
+      return {
+        assetId: r.asset_id,
+        name: assetDisplayName(r.asset_id),
+        role: r.role,
+        amountUsd6: toUsd6(amt),
+        readyMinUsd6: toUsd6(readyMin),
+        state: jarState(amt, readyMin),
+      };
+    });
     return c.json({
       jars,
       nextReminderAt: nextSundayReminder(),
@@ -121,9 +124,9 @@ async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map
   const rules = await sql<{ ready_min_usd6: bigint; max_fee_bps: number }[]>`
     SELECT ready_min_usd6, max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid
   `;
-  const readyMin = rules[0]!.ready_min_usd6;
+  const readyMin = BigInt(rules[0]!.ready_min_usd6);
   const maxFeeBps = rules[0]!.max_fee_bps;
-  const jarRows = await sql<{ asset_id: string; amt: bigint }[]>`
+  const jarRows = await sql<{ asset_id: string; amt: bigint | string }[]>`
     SELECT a.asset_id, COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amt
     FROM allocations a JOIN purchases p ON p.id = a.purchase_id
     WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved' AND a.selected = true
@@ -136,7 +139,7 @@ async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map
     amounts.size > 0
       ? [...new Set([...amounts.keys()].filter((k) => jars.has(k) || Boolean(verifiedMint(k, 'solana'))))]
       : jarRows
-          .filter((r) => include === 'all' || jarState(r.amt, readyMin) === 'ready')
+          .filter((r) => include === 'all' || jarState(BigInt(r.amt), readyMin) === 'ready')
           .map((r) => r.asset_id);
   if (!ids.length) throw new ApiError('NO_READY_JARS');
 
@@ -277,7 +280,7 @@ jarsBuysRoutes.post('/buys', async (c) => {
       const bridge = total > onSolana ? total - onSolana : 0n;
       let calls: Awaited<ReturnType<typeof arcBridgeCalls>> = [];
       if (bridge > 0n) {
-        if (!user.evmAddress) throw new ApiError('INSUFFICIENT_FREE', { reason: 'no_arc_wallet' });
+        if (!user.evmAddress) throw new ApiError('INSUFFICIENT_FREE', { availableUsd6: onSolana.toString(), where: 'solana', reason: 'no_arc_wallet' });
         calls = await arcBridgeCalls(user.evmAddress, user.solAddress, bridge);
       }
       await sql`
@@ -489,13 +492,15 @@ jarsBuysRoutes.get('/buys/:batchId', async (c) => {
     const b = await loadBatch(user, c.req.param('batchId'));
     if (b.status === 'attesting' || b.status === 'minting') void advanceBatch(b.id);
     const entries = await getSql()<Entry[]>`SELECT * FROM buy_entries WHERE batch_id = ${b.id}::uuid ORDER BY item_index`;
-    const bought = entries.filter((e) => e.status === 'bought').reduce((s, e) => s + BigInt(e.spent_usd6 ?? e.amount_usd6), 0n);
+    const bought = entries
+      .filter((e) => e.status === 'bought')
+      .reduce((s, e) => s + BigInt(e.spent_usd6 ?? e.amount_usd6 ?? 0), 0n);
     return c.json({
       batchId: b.id,
       status: b.status,
       startedAt: (b.started_at ?? new Date()).toISOString(),
-      totalUsd6: toUsd6(b.total_usd6),
-      bridgeUsd6: toUsd6(b.bridge_usd6),
+      totalUsd6: toUsd6(b.total_usd6 ?? 0),
+      bridgeUsd6: toUsd6(b.bridge_usd6 ?? 0),
       ...(b.error ? { error: b.error } : {}),
       links: {
         ...(b.arc_tx ? { arc: EXPLORER.arcTx(b.arc_tx) } : {}),
@@ -508,7 +513,7 @@ jarsBuysRoutes.get('/buys/:batchId', async (c) => {
           name: assetDisplayName(e.asset_id),
           ...(mint ? { token: mint.symbol } : {}),
           status: e.status,
-          amountUsd6: toUsd6(e.amount_usd6),
+          amountUsd6: toUsd6(e.amount_usd6 ?? 0),
           ...(e.spent_usd6 != null ? { spentUsd6: toUsd6(e.spent_usd6) } : {}),
           ...(e.fill_price_usd6 != null ? { fillPriceUsd6: toUsd6(e.fill_price_usd6) } : {}),
           ...(e.qty ? { qty: String(e.qty).replace(/\.?0+$/, '') } : {}),

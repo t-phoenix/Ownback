@@ -47,8 +47,8 @@ export function precheckConfirm(opts: {
 }
 
 export function jarState(
-  amountUsd6: bigint,
-  readyMinUsd6: bigint,
+  amountUsd6: bigint | string,
+  readyMinUsd6: bigint | string,
 ): 'filling' | 'ready' {
-  return amountUsd6 >= readyMinUsd6 ? 'ready' : 'filling';
+  return BigInt(amountUsd6) >= BigInt(readyMinUsd6) ? 'ready' : 'filling';
 }

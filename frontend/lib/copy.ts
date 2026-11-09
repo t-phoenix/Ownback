@@ -24,6 +24,9 @@ const errors: Record<string, string> = {
   VALIDATION: "Check the amount and try again. The smallest buy is $0.10.",
   UPSTREAM: "The swap route didn't build. Try again in a moment.",
   DEPOSIT_NOT_READY: "That buy isn't ready to swap yet. Wait a moment and try again.",
+  INTERNAL: "Something broke on our side. Your money isn't affected — try again.",
+  UNAUTHENTICATED: "That didn't work. Try signing in again.",
+  NOT_FOUND: "We couldn't find that buy. Start again from your jars.",
 };
 
 /** Maps buy_batches.error / buy_entries.error (short codes from the API) to calm copy. */

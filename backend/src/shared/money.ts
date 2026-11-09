@@ -8,9 +8,16 @@ export function parseUsd6(s: string): bigint {
   return BigInt(s);
 }
 
-export function toUsd6(n: bigint): Usd6 {
-  if (n < 0n) throw new Error('Usd6 cannot be negative');
-  return n.toString();
+/** postgres.js returns bigint columns as strings; coerce before any arithmetic. */
+export function asUsd6(n: bigint | string | number | null | undefined): bigint {
+  if (n == null || n === '') return 0n;
+  return typeof n === 'bigint' ? n : BigInt(n);
+}
+
+export function toUsd6(n: bigint | string | number): Usd6 {
+  const v = asUsd6(n);
+  if (v < 0n) throw new Error('Usd6 cannot be negative');
+  return v.toString();
 }
 
 /** Display only: half-up to cents. Never use for storage math. */
