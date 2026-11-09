@@ -106,7 +106,9 @@ function PrivySession({ children }: { children: ReactNode }) {
       },
       signSol: async (txBase64) => {
         if (!sol) throw noWallet();
-        const { signedTransaction } = await signSolTx({ transaction: b64ToBytes(txBase64), wallet: sol });
+        // Headless: Privy's Solana sign modal needs config.solana.rpcs and throws in render without it,
+        // which escapes ScreenBoundary (it lives in PrivyProvider) and blanks the app. The user already confirmed on Buy review.
+        const { signedTransaction } = await signSolTx({ transaction: b64ToBytes(txBase64), wallet: sol, options: { uiOptions: { showWalletUIs: false } } });
         return bytesToB64(signedTransaction);
       },
     });
