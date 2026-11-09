@@ -79,3 +79,12 @@ export const readErrorText: Record<string, { text: string; retry: boolean }> = {
   no_product: { text: readErrorCopy, retry: false },
 };
 export const readTips = ["Flat surface, good light", "Whole receipt in the frame", "Or a screenshot of the order page"];
+
+/** What each Arc buy step does, keyed by the server's call label (backend buy-pipeline arcBridgeCalls). */
+const ARC_STEP_WHY: Record<string, string> = {
+  "Link your Solana wallet": "One time only. Your vault will only ever send USDC to your own Solana wallet.",
+  "Allow the vault to take this amount": "Lets your vault take exactly this buy's amount from your Arc wallet. Nothing more.",
+  "Move USDC into your vault": "Moves that USDC from your Arc wallet into your vault.",
+  "Send USDC to your Solana wallet (CCTP)": "Circle burns it on Arc and mints the same USDC in your Solana wallet.",
+};
+export const arcStepWhy = (label: string) => ARC_STEP_WHY[label] ?? "A step of this buy on Arc.";

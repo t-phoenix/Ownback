@@ -15,7 +15,7 @@ When two sources disagree, the higher one wins:
 
 - **Addresses, mints, decimals, or "verified" flags.** Use only values marked ✓ in [contracts/chain-config.md](../contracts/chain-config.md). If a value is ☐, mark the asset `not tokenized yet` or the jar `no_venue`, or turn that venue's flag off.
 - **Automatic buys.** Jars never buy without the user signing. Since D29 that signature is the user's own Arc `withdrawCrossChain` plus one Solana swap signature per asset; the server checks the Arc `Withdrawn` event and the exact Solana message it built before acting.
-- **A per-company or per-asset cap** (`maxPerAssetBps`, `OverAssetCap`, `capOverflow`). These were removed (Q1). The monthly limit is the only spend cap. `readyMinUsd6` (default $5, user range $1–$50) is a reminder threshold, not a cap.
+- **A per-company or per-asset cap** (`maxPerAssetBps`, `OverAssetCap`, `capOverflow`). These were removed (Q1). There is no monthly limit either (D32). `readyMinUsd6` is the **jar capacity** (default $5, user range $1–$50): a ready-to-buy helper, never a cap.
 - **Float money.** Money is `bigint` micro-USDC (`Usd6` digit strings in JSON). Invest amounts and split rows are whole cents (multiples of `10_000n`), using largest-remainder rounding (D18).
 - **Fee comparisons as ratios.** The only fee check is `(feeUsd6 * 10_000n) / amountUsd6 <= maxFeeBps` (docs/05).
 - **New enums, error codes, routes or env names.** These live once in `packages/shared` (`states.ts`, `errors.ts`, `api.ts`, `chains.ts`, `assets.ts`). Import them. If you need a new one, add it to the spec first ([docs/04](04-state-machines.md), [backend/api-contract.md](../backend/api-contract.md), [backend/README.md § Env](../backend/README.md#env)), then to the code.

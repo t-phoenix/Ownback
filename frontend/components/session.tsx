@@ -99,9 +99,9 @@ function PrivySession({ children }: { children: ReactNode }) {
     const noWallet = () => Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" });
     setPrivyBridge({
       signTypedData: async (td) => (await signTypedData(td as Parameters<typeof signTypedData>[0], evm ? { address: evm.address } : undefined)).signature,
-      sendEvmTx: async (chainId, call) => {
+      sendEvmTx: async (chainId, call, headless) => {
         if (!evm) throw noWallet();
-        const { hash } = await sendTransaction({ to: call.to, data: call.data, value: 0, chainId }, { address: evm.address });
+        const { hash } = await sendTransaction({ to: call.to, data: call.data, value: 0, chainId }, { address: evm.address, ...(headless ? { uiOptions: { showWalletUIs: false } } : {}) });
         return hash;
       },
       signSol: async (txBase64) => {

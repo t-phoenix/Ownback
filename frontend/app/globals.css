@@ -139,6 +139,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; -webkit-tap-h
 a { color: var(--primary-text); text-underline-offset: 3px; }
 img { display: block; max-width: 100%; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 8px; }
+.side-item:focus-visible, .tab:focus-visible, .row:focus-visible, .chip:focus-visible { outline-width: 2px; outline-offset: -2px; }
 ::selection { background: var(--accent); color: var(--on-accent); }
 kbd { font: 500 11px/1 var(--font-mono); padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--surface); }
 .num, .money, .row-value { font-variant-numeric: tabular-nums; }
@@ -209,7 +210,7 @@ kbd { font: 500 11px/1 var(--font-mono); padding: 4px 6px; border-radius: 6px; b
 .icon-btn .dot { position: absolute; top: 9px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
 
 /* Tab bar — phone. Floats inside the thumb arc; Add is the raised centre. */
-.tabbar { position: fixed; z-index: 30; left: 12px; right: 12px; bottom: max(12px, var(--safe-b)); height: var(--tabbar-h); display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; padding: 0 6px; border-radius: 24px; background: var(--glass); backdrop-filter: saturate(1.6) blur(20px); -webkit-backdrop-filter: saturate(1.6) blur(20px); border: 1px solid var(--line); box-shadow: var(--shadow-lg); max-width: 560px; margin: 0 auto; }
+.tabbar { position: fixed; z-index: 30; left: 12px; right: 12px; bottom: max(12px, var(--safe-b)); height: var(--tabbar-h); display: grid; grid-template-columns: repeat(6, 1fr); align-items: center; padding: 0 4px; border-radius: 24px; background: var(--glass); backdrop-filter: saturate(1.6) blur(20px); -webkit-backdrop-filter: saturate(1.6) blur(20px); border: 1px solid var(--line); box-shadow: var(--shadow-lg); max-width: 560px; margin: 0 auto; }
 .tab { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .01em; transition: color var(--t), transform var(--t); }
 .tab:active { transform: scale(.92); }
 .tab.active { color: var(--primary-text); }
@@ -241,7 +242,10 @@ kbd { font: 500 11px/1 var(--font-mono); padding: 4px 6px; border-radius: 6px; b
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
 .list { overflow: hidden; }
 .row { position: relative; width: 100%; min-height: 66px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-align: left; background: transparent; color: var(--ink); transition: background var(--t); }
-.row + .row::before { content: ""; position: absolute; top: 0; left: 72px; right: 0; height: 1px; background: var(--line); }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--line); }
+/* Separators start where the text starts: past the leading tile (16 pad + tile + 12 gap). */
+.row + .row:has(> .mono-tile, > .mini-icon, > .act-icon, > .tick)::before { left: 72px; }
+.row + .row:has(> .mini-icon.sm)::before { left: 62px; }
 .timeline li + li::before { left: 52px; }
 @media (hover: hover) { button.row:hover, label.row:hover { background: var(--soft-2); } }
 button.row:active { background: var(--soft-2); }
@@ -282,6 +286,7 @@ button.row:active { background: var(--soft-2); }
 .dock-row { display: flex; gap: 8px; }
 .dock-row .button { flex: 1; min-height: 44px; font-size: 14px; padding: 0 12px; white-space: normal; line-height: 1.2; }
 .dock.sticky { position: sticky; bottom: calc(12px + var(--safe-b)); z-index: 5; padding: 10px; margin-left: -10px; margin-right: -10px; border-radius: 999px; background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.has-tabs .dock.sticky { bottom: calc(var(--tabbar-h) + max(12px, var(--safe-b)) + 12px); }
 
 /* Chips & segmented */
 .chips { margin-top: 18px; }
@@ -688,11 +693,12 @@ html, body { overflow-x: clip; }
   .two-col { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; align-items: start; }
   .two-col > div > .block:first-child, .two-col > .block { margin-top: 0; }
   .two-col > .block + .block { margin-top: 0; }
+  .card + .two-col, .error-state + .two-col { margin-top: 28px; }
   .add-layout { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: stretch; }
   .capture { min-height: 360px; padding: 30px; }
   .capture-art { width: 400px; right: -30px; top: -40px; }
   .capture-title { font-size: 40px; }
-  .settings-grid { grid-template-columns: 1fr 1fr; column-gap: 28px; }
+  .settings-grid { grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
   .brand-rail { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); overflow: visible; }
   .brand-card { width: auto; }
   .deck { height: 230px; }
@@ -748,12 +754,14 @@ html, body { overflow-x: clip; }
 
 /* Forms */
 .form { padding: 18px; display: grid; gap: 14px; }
-.field { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.field { min-width: 0; display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
 .field em { font-style: normal; font-weight: 400; color: var(--muted); }
-.field input, .field select { height: 50px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 400; outline: 0; transition: border-color var(--t), box-shadow var(--t); }
+.field input, .field select { width: 100%; min-width: 0; height: 50px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 400; outline: 0; transition: border-color var(--t), box-shadow var(--t); }
 .field input:focus, .field select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--soft); }
 .field-row { display: flex; gap: 12px; }
-.field.grow { flex: 1; }
+.field.grow { flex: 1 1 0; }
+.field-row > .field:not(.grow) { flex: 0 0 auto; width: clamp(104px, 46%, 180px); }
+.field input[type="date"] { padding: 0 10px; }
 .tips { list-style: none; margin: 14px auto 0; padding: 0; display: grid; gap: 8px; max-width: 22em; text-align: left; }
 .tips li { padding: 10px 14px; border-radius: 12px; background: var(--paper-2); font-size: 14.5px; }
 .scan.dim { opacity: .55; }
@@ -838,7 +846,7 @@ svg.spin { animation: spin .8s linear infinite; }
 @media (prefers-reduced-motion: reduce) { svg.spin { animation: none; } }
 /* D30 · Check the details + jury Confirm */
 .details-form { display: grid; gap: 14px; }
-.item-fields { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+.item-fields { min-width: 0; display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
 .field.missing input, .field.missing select { border-color: var(--accent); box-shadow: 0 0 0 3px var(--warn-soft); }
 .missing-hint { font-style: normal; font-weight: 600; color: var(--accent); margin-left: 6px; }
 .icon-only { align-self: end; min-width: 44px; }
@@ -856,3 +864,7 @@ svg.spin { animation: spin .8s linear infinite; }
 .agree { padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 600; }
 .sub.pad { padding: 14px 16px; margin: 0; }
 .steps li.failed { color: var(--muted); }
+/* Arc buy plan: one approval, then live status per step. */
+.arc-plan { margin-top: 16px; }
+.arc-plan .mini-icon b { font-size: 14px; }
+.sheet > .sub { margin-bottom: 4px; }

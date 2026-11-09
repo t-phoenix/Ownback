@@ -22,7 +22,15 @@ export function installShotApi() {
   api.makerOnly = async () => f.purchase;
   api.confirm = async () => ({ action: { kind: "typed_data" as const, typedData: {}, summary: "demo" } });
   api.confirmSubmitted = async () => ({ ...f.purchase, status: "saved" as const });
-  api.buy = async () => ({ batchId: f.SHOT_IDS.batch });
+  // Demo: an Arc-funded buy, so the one-approval step sheet shows (calldata is display-only here).
+  api.buy = async () => ({
+    batchId: f.SHOT_IDS.batch,
+    action: {
+      kind: "evm_calls" as const, chain: "arc", summary: "demo",
+      calls: [{ to: "0x0", data: "0x01", value: "0" as const }, { to: "0x0", data: "0x01", value: "0" as const }, { to: "0x0", data: "0x01", value: "0" as const }],
+      labels: ["Allow the vault to take this amount", "Move USDC into your vault", "Send USDC to your Solana wallet (CCTP)"],
+    },
+  });
   api.buyRetry = async () => ({ status: "swap_ready" as const });
   api.putRules = async (patch) => ({ ...f.rules, ...patch });
 }

@@ -1,12 +1,13 @@
 /** SignableAction runner — Privy or seed (Q9). circle_challenge is legacy. */
 import { api, type SignableAction } from "./api";
+import { isArcBuyCalls } from "./arc-guard";
 
 export type SignResult = { txHash?: string; txHashes?: string[]; signedTx?: string; signature?: string; skipped?: true };
 
 export type EvmCall = { to: string; data: string; value: "0" };
 type WalletBridge = {
-  /** Broadcast one Arc tx from the user's embedded wallet; returns its hash. */
-  sendEvmTx: (chainId: number, call: EvmCall) => Promise<string>;
+  /** Broadcast one Arc tx from the user's embedded wallet; returns its hash. `headless` skips the wallet popup. */
+  sendEvmTx: (chainId: number, call: EvmCall, headless?: boolean) => Promise<string>;
   /** Add the user's signature to a relay-signed Solana tx; returns the signed tx (base64). Never broadcasts. */
   signSol: (txBase64: string) => Promise<string>;
   signTypedData: (typedData: unknown) => Promise<string>;
@@ -42,7 +43,8 @@ export type StepUpdate = { index: number; total: number; label: string; state: "
 
 export async function signAction(
   a: SignableAction,
-  opts: { prefer?: "privy" | "seed"; onStep?: (s: StepUpdate) => void } = {},
+  /** headless: the user already approved these exact steps on an Ownback screen (Arc buy calls only). */
+  opts: { prefer?: "privy" | "seed"; onStep?: (s: StepUpdate) => void; headless?: boolean } = {},
 ): Promise<SignResult> {
   if (isNoopAction(a)) return { skipped: true };
   const prefer = opts.prefer ?? "privy";
@@ -52,11 +54,13 @@ export async function signAction(
     case "evm_calls": {
       const chainId = CHAIN_IDS[a.chain];
       if (!chainId) throw Object.assign(new Error("CHAIN_UNSUPPORTED"), { code: "CHAIN_UNSUPPORTED" });
+      // No popup means no second look: only sign headless what decodes as our own buy calls.
+      if (opts.headless && !isArcBuyCalls(a.calls)) throw Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" });
       const hashes: string[] = [];
       for (let i = 0; i < a.calls.length; i++) {
         const label = a.labels?.[i] ?? `Step ${i + 1}`;
         opts.onStep?.({ index: i, total: a.calls.length, label, state: "signing" });
-        const hash = await bridge.sendEvmTx(chainId, a.calls[i]);
+        const hash = await bridge.sendEvmTx(chainId, a.calls[i], opts.headless);
         opts.onStep?.({ index: i, total: a.calls.length, label, state: "confirming", txHash: hash });
         await waitArc(hash);
         opts.onStep?.({ index: i, total: a.calls.length, label, state: "done", txHash: hash });

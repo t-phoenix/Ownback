@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Bell, Home as HomeIcon, Plus, ReceiptText, RefreshCw, Settings as SettingsIcon, Upload, WalletCards } from "lucide-react";
+import { Bell, Home as HomeIcon, PiggyBank, Plus, ReceiptText, RefreshCw, Settings as SettingsIcon, Upload, WalletCards } from "lucide-react";
 import { Logo } from "./logo";
 import { App, type Navigate } from "./app-context";
 import { haptic } from "./ui";
@@ -28,6 +28,7 @@ const tabs = [
   { path: "/holdings", label: "Holdings", Icon: WalletCards, key: "O" },
   { path: "/add", label: "Add", Icon: Plus, key: "A", add: true },
   { path: "/receipts", label: "Receipts", Icon: ReceiptText, key: "R" },
+  { path: "/jars", label: "Jars", Icon: PiggyBank, key: "J" },
   { path: "/settings", label: "Settings", Icon: SettingsIcon, key: "S" },
 ];
 const tabPaths = tabs.map(t => t.path);

@@ -165,5 +165,5 @@ export const rules: Rules = {
   fallbackAsset: "idx:sp500", split: { maker: 70, behind: 20, materials: 10 }, buyDay: "sun", onchainSynced: true,
 };
 
-export const SCREENS = ["signin", "home", "confirm", "jars", "buy-review", "buy-done"] as const;
+export const SCREENS = ["signin", "home", "confirm", "jars", "buy-review", "buy-done", "holdings", "receipts", "settings", "type-it"] as const;
 export type ShotScreen = (typeof SCREENS)[number];

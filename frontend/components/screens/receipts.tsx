@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { ReceiptText, Search, X } from "lucide-react";
 import { useApp } from "../app-context";
 import { Monogram } from "../ui";
 import { Empty, ErrorState, SkeletonList } from "../states";
@@ -20,9 +20,11 @@ function shortDate(d: string) {
 export function ReceiptRow({ r }: { r: Row }) {
   const { navigate } = useApp();
   const review = r.status === "needs_review";
+  // Unread shops come back as "Receipt"; show the receipt icon, not "RE".
+  const shop = /^receipts?$/i.test(r.shop?.trim() ?? "") ? "" : r.shop;
   return <button className={`row receipt-row ${review ? "needs" : ""}`} onClick={() => navigate(`/add/${r.id}`)}>
-    <Monogram name={r.shop} tone={toneFor(r.shop)} />
-    <span className="row-main"><span className="row-title">{r.item || r.shop}</span><span className="row-sub">{[r.shop, shortDate(r.date), r.local.amount !== "0" ? fmtLocal(r.local.amount, r.local.currency) : ""].filter(Boolean).join(" · ")}</span></span>
+    {shop ? <Monogram name={shop} tone={toneFor(shop)} /> : <span className="mini-icon"><ReceiptText size={20} /></span>}
+    <span className="row-main"><span className="row-title">{r.item || shop || "Purchase"}</span><span className="row-sub">{[shop, shortDate(r.date), r.local.amount !== "0" ? fmtLocal(r.local.amount, r.local.currency) : ""].filter(Boolean).join(" · ")}</span></span>
     <span className="row-end"><span className="row-value">{fmtUsd6(r.investUsd6)}</span><span className={`row-sub ${review ? "warn-text" : ""}`}>{stateLabel[r.status]}</span></span>
   </button>;
 }

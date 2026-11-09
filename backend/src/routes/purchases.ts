@@ -435,14 +435,6 @@ purchaseRoutes.post('/purchases/:id/confirm', async (c) => {
       if (!selected.length) throw new ApiError('NOTHING_TO_BUY');
 
       const sql = getSql();
-      const rules = await sql<{ monthly_cap_usd6: bigint | string }[]>`
-        SELECT monthly_cap_usd6 FROM rules WHERE user_id = ${user.id}::uuid
-      `;
-      const usedRows = await sql<{ used: bigint | string }[]>`
-        SELECT COALESCE(SUM(invest_usd6 - rest_usd6), 0) AS used FROM purchases
-        WHERE user_id = ${user.id}::uuid AND status = 'saved'
-          AND date_trunc('month', created_at AT TIME ZONE 'UTC') = date_trunc('month', now() AT TIME ZONE 'UTC')
-      `;
       // Live Arc free (same source as /home); floor to whole cents for D18 partials.
       const freeLive = (await freeByChain(user)).total;
       const freeUsd6 = (freeLive / CENT_USD6) * CENT_USD6;
@@ -450,8 +442,6 @@ purchaseRoutes.post('/purchases/:id/confirm', async (c) => {
       const partial = body.amountUsd6 ? parseUsd6(body.amountUsd6) : undefined;
       const check = precheckConfirm({
         investUsd6: invest,
-        usedUsd6: BigInt(usedRows[0]?.used ?? 0),
-        capUsd6: BigInt(rules[0]!.monthly_cap_usd6),
         freeUsd6,
         partialUsd6: partial,
       });

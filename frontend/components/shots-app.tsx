@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Home as HomeIcon, Plus, ReceiptText, Settings as SettingsIcon, WalletCards } from "lucide-react";
+import { Home as HomeIcon, PiggyBank, Plus, ReceiptText, Settings as SettingsIcon, WalletCards } from "lucide-react";
 import { App } from "./app-context";
 import { MockSessionProvider } from "./session-context";
 import { Home } from "./screens/home";
 import { Holdings } from "./screens/holdings";
-import { Confirm } from "./screens/add";
+import { Confirm, TypeIt } from "./screens/add";
+import { Receipts } from "./screens/receipts";
+import { Settings } from "./screens/settings";
 import { Jars, BuyReview, BuyDone } from "./screens/buy";
 import { SignIn } from "./screens/onboarding";
 import { installShotApi } from "../lib/install-shot-api";
@@ -17,6 +19,7 @@ const tabs = [
   { path: "/holdings", label: "Holdings", Icon: WalletCards },
   { path: "/add", label: "Add", Icon: Plus, add: true },
   { path: "/receipts", label: "Receipts", Icon: ReceiptText },
+  { path: "/jars", label: "Jars", Icon: PiggyBank },
   { path: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
@@ -24,9 +27,13 @@ const meta: Record<ShotScreen, { path: string; tab?: string; bare?: boolean }> =
   signin: { path: "/signin", bare: true },
   home: { path: "/", tab: "/" },
   confirm: { path: `/add/${SHOT_IDS.purchase}` },
-  jars: { path: "/jars" },
+  jars: { path: "/jars", tab: "/jars" },
   "buy-review": { path: "/buy/review" },
   "buy-done": { path: `/buy/${SHOT_IDS.batch}` },
+  holdings: { path: "/holdings", tab: "/holdings" },
+  receipts: { path: "/receipts", tab: "/receipts" },
+  settings: { path: "/settings", tab: "/settings" },
+  "type-it": { path: "/add/type" },
 };
 
 installShotApi();
@@ -50,6 +57,10 @@ export function ShotsApp({ screen }: { screen: ShotScreen }) {
   else if (screen === "confirm") body = <Confirm id={SHOT_IDS.purchase} />;
   else if (screen === "jars") body = <Jars />;
   else if (screen === "buy-review") body = <BuyReview />;
+  else if (screen === "holdings") body = <Holdings />;
+  else if (screen === "receipts") body = <Receipts />;
+  else if (screen === "settings") body = <Settings />;
+  else if (screen === "type-it") body = <TypeIt />;
   else body = <BuyDone batchId={SHOT_IDS.batch} />;
 
   const showTabs = !!cfg.tab;
@@ -86,5 +97,9 @@ function labelFor(s: ShotScreen) {
     jars: "4 · Jars — dollars waiting on Arc",
     "buy-review": "5 · Buy review — you approve",
     "buy-done": "6 · Buy done — shares in your wallet",
+    holdings: "7 · Holdings — what you own",
+    receipts: "8 · Receipts — everything you added",
+    settings: "9 · Settings — your rules",
+    "type-it": "10 · Type it — add a purchase by hand",
   } as const)[s];
 }

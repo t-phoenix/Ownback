@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const steps = [
   { name: "Add a purchase", text: "Snap a receipt or an order screenshot, record a voice note, or type it in. A private AI model on 0G reads the shop, item, amount and date. The photo is deleted after reading; only those four fields are kept." },
   { name: "See who is behind it", text: "Ownback finds the maker, the companies that supply it and the materials inside it. For a ₹79,900 iPhone that is Apple, then TSMC, Qualcomm and Corning, then gold and silver. You can untick any of them." },
-  { name: "Your share fills jars", text: "You choose 2–10% of each purchase (5% by default). It is split 70 / 20 / 10 across maker, suppliers and materials, in US dollars (USDC), into jars inside your own vault on Arc. A monthly limit you set is enforced by the vault contract." },
+  { name: "Your share fills jars", text: "You choose 2–10% of each purchase (5% by default). It is split 70 / 20 / 10 across maker, suppliers and materials, in US dollars (USDC), into jars inside your own vault on Arc. When a jar reaches the capacity you set, it shows as ready to buy." },
   { name: "You approve the buy", text: "When a jar reaches $5 (you can set $1–$50), we remind you on Sunday. You see the live price, the most you will pay (+1%) and every fee in dollars and percent, capped at 5% by default. Nothing buys without your OK." },
   { name: "Shares land in your wallet", text: "Approved buys go through the cheapest venue within your fee limit, and the shares land in your own Solana wallet. Each step leaves a public proof trail you can open." },
 ];

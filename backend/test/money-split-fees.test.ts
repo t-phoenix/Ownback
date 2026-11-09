@@ -84,27 +84,9 @@ describe('fees Q2', () => {
 });
 
 describe('limits + ready min', () => {
-  it('LIMIT_REACHED when over monthly cap', () => {
-    expect(() =>
-      precheckConfirm({
-        investUsd6: 47_750_000n,
-        usedUsd6: 45_000_000n,
-        capUsd6: 50_000_000n,
-        freeUsd6: 100_000_000n,
-      }),
-    ).toThrow(ApiError);
-    try {
-      precheckConfirm({
-        investUsd6: 47_750_000n,
-        usedUsd6: 45_000_000n,
-        capUsd6: 50_000_000n,
-        freeUsd6: 100_000_000n,
-      });
-    } catch (e) {
-      expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).code).toBe('LIMIT_REACHED');
-      expect((e as ApiError).details?.leftUsd6).toBe('5000000');
-    }
+  it('no monthly cap: only free balance limits a save', () => {
+    expect(precheckConfirm({ investUsd6: 47_750_000n, freeUsd6: 100_000_000n }).amountUsd6).toBe(47_750_000n);
+    expect(() => precheckConfirm({ investUsd6: 47_750_000n, freeUsd6: 1_000_000n })).toThrow(ApiError);
   });
 
   it('jar ready threshold is not a max', () => {

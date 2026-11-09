@@ -12,29 +12,18 @@ export function remainingThisMonth(usedUsd6: bigint, capUsd6: bigint): LimitChec
   return { usedUsd6, capUsd6, leftUsd6: left };
 }
 
-/** Pre-check for confirm. Partial path returns scale-to amount when over limit. */
+/** Pre-check for confirm: only the free balance limits a save (no monthly cap since D32). */
 export function precheckConfirm(opts: {
   investUsd6: bigint;
-  usedUsd6: bigint;
-  capUsd6: bigint;
   freeUsd6: bigint;
   partialUsd6?: bigint;
 }): { ok: true; amountUsd6: bigint; restUsd6: bigint } | never {
-  const limit = remainingThisMonth(opts.usedUsd6, opts.capUsd6);
   const want = opts.partialUsd6 ?? opts.investUsd6;
 
   if (want > opts.freeUsd6) {
     throw new ApiError('INSUFFICIENT_FREE', {
       freeUsd6: toUsd6(opts.freeUsd6),
       shortUsd6: toUsd6(want - opts.freeUsd6),
-    });
-  }
-
-  if (want > limit.leftUsd6) {
-    throw new ApiError('LIMIT_REACHED', {
-      usedUsd6: toUsd6(limit.usedUsd6),
-      capUsd6: toUsd6(limit.capUsd6),
-      leftUsd6: toUsd6(limit.leftUsd6),
     });
   }
 

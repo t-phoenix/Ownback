@@ -48,18 +48,18 @@ export function Rules() {
   const { refresh } = useSession();
   const rules = useApi("rules", api.rules);
   const [rate, setRate] = useState(5);
-  const [limit, setLimit] = useState(50);
+  const [ready, setReady] = useState(5);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!rules.data) return;
     setRate(rules.data.rateBps / 100);
-    setLimit(Number(BigInt(rules.data.monthlyCapUsd6) / 1_000_000n) || 50);
+    setReady(Number(BigInt(rules.data.readyMinUsd6) / 1_000_000n) || 5);
   }, [rules.data]);
   const save = async () => {
     setBusy(true); setErr(null);
     try {
-      await api.putRules({ rateBps: rate * 100, monthlyCapUsd6: (BigInt(limit) * 1_000_000n).toString() });
+      await api.putRules({ rateBps: rate * 100, readyMinUsd6: (BigInt(ready) * 1_000_000n).toString() });
       await refresh();
       // First-time empty wallet → Funds; returning users with USDC/jars go straight home.
       const home = await api.home().catch(() => null);
@@ -82,14 +82,13 @@ export function Rules() {
           <p className="example">$955 iPhone → <b>{fmtUsd(share(IPHONE, rate))}</b> into Apple and the companies behind it.</p>
         </section>
         <section className="card rule">
-          <div className="rule-head"><div><strong>Monthly limit</strong><p className="sub">The vault enforces it</p></div><span className="rule-value num">${limit}</span></div>
-          <input className="range" type="range" min={10} max={200} step={10} value={limit} onChange={e => { setLimit(Number(e.target.value)); haptic(3); }} aria-label="Monthly limit" style={{ "--p": `${((limit - 10) / 190) * 100}%` } as React.CSSProperties} />
+          <div className="rule-head"><div><strong>Jar capacity</strong><p className="sub">A jar at this amount is ready to buy. Never a limit.</p></div><span className="rule-value num">${ready}</span></div>
+          <input className="range" type="range" min={1} max={50} value={ready} onChange={e => { setReady(Number(e.target.value)); haptic(3); }} aria-label="Jar capacity" style={{ "--p": `${((ready - 1) / 49) * 100}%` } as React.CSSProperties} />
         </section>
       </div>
       <div>
         {!r ? <Skeleton h={200} /> : <div className="card list">
           <div className="row"><span className="row-main row-title">Max fees</span><span className="row-value soft">{r.maxFeeBps / 100}%</span></div>
-          <div className="row"><span className="row-main row-title">Ready when</span><span className="row-value soft">{fmtUsd6(r.readyMinUsd6)}</span></div>
           <div className="row"><span className="row-main row-title">If a company isn't listed</span><span className="row-value soft">{r.fallbackAsset === "idx:sp500" ? "S&P 500" : r.fallbackAsset}</span></div>
         </div>}
         {err && <p className="error" role="alert">{err}</p>}

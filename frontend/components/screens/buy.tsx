@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, Check, ExternalLink, Loader2, RefreshCw, Share2, ShieldCheck, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, ChevronRight, ExternalLink, Loader2, RefreshCw, Share2, ShieldCheck, Zap } from "lucide-react";
 import { useApp } from "../app-context";
 import { Coin3D, ConfirmAction, GlassJar, Monogram, Ring, Sheet, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
-import { api, ApiError, type BuyEntry, type BuyProgress, type Jar } from "../../lib/api";
+import { api, ApiError, type BuyEntry, type BuyProgress, type Jar, type SignableAction } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
-import { errorCopy, pipelineCopy } from "../../lib/copy";
-import { signAction, type StepUpdate } from "../../lib/sign-action";
+import { arcStepWhy, errorCopy, pipelineCopy } from "../../lib/copy";
+import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6, pct } from "../../lib/money";
 import { FlowHead } from "./home";
@@ -48,9 +48,10 @@ export function Jars() {
     </button>;
   };
 
-  return <div className="page flow wide">
-    <FlowHead title="Your jars" back="/" />
-    <p className="lede left">Jars set aside part of your balance for each company. When a jar reaches {fmtUsd6(jars[0]?.readyMinUsd6 ?? "5000000")} we'll remind you on Sunday. Nothing buys without your OK.</p>
+  return <div className="page">
+    <header className="page-head"><div><p className="kicker">Set aside for each company</p><h1 className="h-page">Jars</h1></div>
+      <button className="link" onClick={() => navigate("/settings")}>Capacity {fmtUsd6(jars[0]?.readyMinUsd6 ?? "5000000")} <ChevronRight size={15} /></button></header>
+    <p className="lede left">Each purchase fills a jar per company. A jar at your capacity is ready to buy, and you can buy any jar sooner. Nothing buys without your OK.</p>
     <ErrorState error={j.error} onRetry={j.reload} />
     {j.loading && <div className="jar-grid block">{[0, 1, 2].map(i => <Skeleton key={i} h={200} />)}</div>}
     {j.data && !jars.length && <Empty title="No jars yet" body="Confirm a purchase and its share lands in a jar for each company.">
@@ -97,16 +98,18 @@ const MIN_BUY_USD6 = 100_000n;
 const codeOf = (e: unknown) => (e instanceof ApiError ? e.code : (e as { code?: string })?.code);
 const detailsOf = (e: unknown) => (e instanceof ApiError ? (e.details as Record<string, string> | undefined) : undefined);
 
-/** Arc steps the user signs, with a live status per call and explorer links. */
-function ArcSteps({ steps }: { steps: StepUpdate[] }) {
-  if (!steps.length) return null;
-  return <ol className="card list" aria-live="polite">
-    {steps.map(s => <li className="row" key={s.index}>
-      <span className="mini-icon sm">{s.state === "done" ? <Check size={16} /> : <Loader2 size={16} className="spin" />}</span>
-      <span className="row-main"><span className="row-title">{s.label}</span>
-        <span className="row-sub">{s.state === "signing" ? "Approve in wallet…" : s.state === "confirming" ? "Confirming on Arc…" : "Confirmed"}</span></span>
-      {s.txHash && <a className="fineprint" href={`https://explorer.arc.io/tx/${s.txHash}`} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc</a>}
-    </li>)}
+/** The Arc steps of a buy: what each one does before approval, then a live status per call with explorer links. */
+function ArcPlan({ labels, steps }: { labels: string[]; steps: StepUpdate[] }) {
+  return <ol className="card list arc-plan" aria-live="polite">
+    {labels.map((label, i) => {
+      const s = steps.find(x => x.index === i);
+      return <li className="row" key={i}>
+        <span className="mini-icon sm">{s?.state === "done" ? <Check size={16} /> : s ? <Loader2 size={16} className="spin" /> : <b className="num">{i + 1}</b>}</span>
+        <span className="row-main"><span className="row-title">{label}</span>
+          <span className="row-sub wrap">{!s ? arcStepWhy(label) : s.state === "signing" ? "Signing…" : s.state === "confirming" ? "Confirming on Arc…" : "Confirmed"}</span></span>
+        {s?.txHash && <a className="fineprint" href={`https://explorer.arc.io/tx/${s.txHash}`} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc</a>}
+      </li>;
+    })}
   </ol>;
 }
 
@@ -115,7 +118,9 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
   // A typed amount is a buy request; we only *suggest* the jar amount (your rules).
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
-  const [phase, setPhase] = useState<"idle" | "starting" | "arc" | "submitting">("idle");
+  const [phase, setPhase] = useState<"idle" | "starting" | "review" | "arc" | "submitting">("idle");
+  // Arc steps waiting for one approval on our own sheet (no wallet popup per step).
+  const [arcPlan, setArcPlan] = useState<{ batchId: string; action: Extract<SignableAction, { kind: "evm_calls" }> } | null>(null);
   const [steps, setSteps] = useState<StepUpdate[]>([]);
   const [err, setErr] = useState<string | null>(null);
   // Jar tap passes the jar balance; holdings "Buy more" falls back to $1.
@@ -148,32 +153,50 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
     }
     setErr(null); setAmounts(next);
   };
+  const fail = (e: unknown) => {
+    const code = codeOf(e);
+    const details = detailsOf(e);
+    setErr(code === "INSUFFICIENT_FREE" && details?.availableUsd6
+      ? `You have ${fmtUsd6(details.availableUsd6)} available${details.where === "solana" ? " on Solana" : " on Arc"}. Add funds or buy a smaller amount.`
+      : errorCopy(code ?? "CHALLENGE_FAILED"));
+    setPhase("idle"); setArcPlan(null);
+    // A half-done Arc run is rebuilt from chain state on the next start (vault `free` is reused), never re-sent as-is.
+    if (code === "QUOTE_EXPIRED" || code === "TX_REVERTED" || code === "TX_NOT_FOUND") r.reload();
+  };
+  // Navigate first — refreshAll() remounts siblings and was racing the buy screen into the Next error page.
+  const go = (batchId: string) => { navigate(`/buy/${batchId}`); refreshAll(); };
+  const runArc = async () => {
+    if (!arcPlan) return;
+    setErr(null); setPhase("arc");
+    try {
+      const signed = await signAction(arcPlan.action, { headless: true, onStep: st => setSteps(prev => [...prev.filter(x => x.index !== st.index), st].sort((a, b) => a.index - b.index)) });
+      setPhase("submitting");
+      await api.buyArcSubmitted(arcPlan.batchId, signed.txHash!);
+      go(arcPlan.batchId);
+    } catch (e) { fail(e); }
+  };
   const buy = async () => {
     if (!d) return;
     setErr(null); setSteps([]); setPhase("starting");
     try {
       const start = await api.buy(d.quoteId);
+      if (start.action?.kind === "evm_calls" && !isNoopAction(start.action)) {
+        setArcPlan({ batchId: start.batchId, action: start.action }); setPhase("review");
+        return;
+      }
       if (start.action) {
         setPhase("arc");
-        const signed = await signAction(start.action, { onStep: st => setSteps(prev => [...prev.filter(x => x.index !== st.index), st].sort((a, b) => a.index - b.index)) });
+        const signed = await signAction(start.action);
         setPhase("submitting");
         await api.buyArcSubmitted(start.batchId, signed.txHash!);
       }
-      // Navigate first — refreshAll() remounts siblings and was racing the buy screen into the Next error page.
-      navigate(`/buy/${start.batchId}`);
-      refreshAll();
-    } catch (e) {
-      const code = codeOf(e);
-      const details = detailsOf(e);
-      setErr(code === "INSUFFICIENT_FREE" && details?.availableUsd6
-        ? `You have ${fmtUsd6(details.availableUsd6)} available${details.where === "solana" ? " on Solana" : " on Arc"}. Add funds or buy a smaller amount.`
-        : errorCopy(code ?? "CHALLENGE_FAILED"));
-      setPhase("idle");
-      if (code === "QUOTE_EXPIRED") r.reload();
-    }
+      go(start.batchId);
+    } catch (e) { fail(e); }
   };
   const busy = phase !== "idle";
-  const phaseLabel = phase === "starting" ? "Preparing…" : phase === "arc" ? "Approve on Arc…" : phase === "submitting" ? "Checking Arc receipt…" : null;
+  const phaseLabel = phase === "starting" ? "Preparing…" : phase === "review" ? "Waiting for your approval…" : phase === "arc" ? "Signing on Arc…" : phase === "submitting" ? "Checking Arc receipt…" : null;
+  const arcLabels = arcPlan ? arcPlan.action.calls.map((_, i) => arcPlan.action.labels?.[i] ?? `Step ${i + 1}`) : [];
+  const arcDone = steps.filter(x => x.state === "done").length;
   return <div className="page flow wide">
     <FlowHead title={rows.length ? `Buy ${selectable.length || rows.length} asset${rows.length > 1 ? "s" : ""}` : "Buy"} back="/jars" />
     <ErrorState error={r.error} onRetry={r.reload} />
@@ -214,7 +237,6 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
           <p className="sub">Arc balance {fmtUsd6(d.funding.arcUsdc6)} · Solana USDC {fmtUsd6(d.funding.solanaUsdc6)}. Price protection 1%.</p>
         </section>
         {d.destination && <p className="fineprint">Shares go straight to your Solana wallet <span className="mono">{d.destination.slice(0, 4)}…{d.destination.slice(-4)}</span>. Ownback pays the Solana gas.</p>}
-        <ArcSteps steps={steps} />
         {err && <p className="error" role="alert">{err}</p>}
         <div className="dock">
           {phaseLabel ? <button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {phaseLabel}</button>
@@ -225,6 +247,17 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
         </div>
       </div>
     </div>}
+    <Sheet open={!!arcPlan} onClose={() => { if (phase === "review") { setArcPlan(null); setPhase("idle"); } }} title={`Approve ${arcLabels.length} step${arcLabels.length > 1 ? "s" : ""} on Arc`}>
+      <p className="sub">Moves {fmtUsd6(d?.funding.bridgeUsd6)} of your Arc USDC to your own Solana wallet, where each share is bought. You approve once here; your wallet then signs each step in order.</p>
+      <ArcPlan labels={arcLabels} steps={steps} />
+      {phase === "review"
+        ? <div className="dock">
+            <button className="button primary full lg" onClick={() => { haptic(10); void runArc(); }}>Approve and start <ArrowRight size={18} /></button>
+            <button className="button quiet full" onClick={() => { setArcPlan(null); setPhase("idle"); }}>Cancel</button>
+          </div>
+        : <div className="dock"><button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {phase === "submitting" ? "Checking Arc receipt…" : `Step ${Math.min(arcDone + 1, arcLabels.length)} of ${arcLabels.length}…`}</button></div>}
+      <p className="fineprint center"><ShieldCheck size={14} /> Only these steps, only this amount. Checked on your device before signing.</p>
+    </Sheet>
   </div>;
 }
 

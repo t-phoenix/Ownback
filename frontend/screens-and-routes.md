@@ -11,7 +11,7 @@ Tab bar (on Home, Holdings, + Add, Receipts, Settings): **Home `/` · Holdings `
 | Shared link (web) | `/r/[code]` (public, SSR, OG tags) | Server: owner's display name, card image, company count | "Start owning what you buy" → `/signin` (sets `ob_ref`) | Unknown code → plain landing with no inviter |
 | Sign in | `/signin` | `POST /api/auth/privy` | "Continue with Google" → Privy (smart wallet + Solana) → session → `/onboarding/rules`; "Use a seed phrase" → `/signin/seed`; Terms · Risks links | Loading on the button; `AUTH_INVALID`; `GEO_BLOCKED` |
 | Seed phrase | `/signin/seed` | `GET /api/auth/seed/nonce`, `POST /api/auth/seed` | Tabs Create new / Import mine; "Tap to reveal"; checkbox "I wrote them down"; Continue → set PIN → `/onboarding/rules` | Invalid words; wrong word count; PIN mismatch |
-| Set your rules | `/onboarding/rules` | `GET/PUT /api/rules` | Slider 2–10% with live example "$955 iPhone → $47.75 into Apple"; monthly limit; Max fees 5%; Ready when $5 (reminder threshold); fallback chips; "Add $20 to start" → `/funds` | Saving |
+| Set your rules | `/onboarding/rules` | `GET/PUT /api/rules` | Slider 2–10% with live example "$955 iPhone → $47.75 into Apple"; Jar capacity $5 (ready-to-buy helper, never a limit, D32); Max fees 5%; fallback chips; "Add $20 to start" → `/funds` | Saving |
 | Home, first time | `/` when the user has no receipts | `GET /api/home` | Balance card → `/holdings`; "Add a purchase" → `/add` | — |
 
 ## A2 · Add funds
@@ -71,7 +71,7 @@ Tab bar (on Home, Holdings, + Add, Receipts, Settings): **Home `/` · Holdings `
 
 | Board | Route | Data | Links | States |
 |---|---|---|---|---|
-| Settings | `/settings` | `GET /api/me`, `GET /api/rules`, `GET /api/gmail/state` | "Max fees 5% of each buy" → sheet (0.5–10%); "Ready when $5" → sheet; "Auto-add from Base / Ethereum / Arbitrum" → toggles + allowance. Rate → sheet; Split → `/settings/split`; monthly limit, fallback, buy day → sheets; Wallets → `/settings/wallet`; Add funds → `/funds`; Gmail → Gmail card states; 0G account (flag); notification toggles → `PUT /api/notifications`; Download my data → `GET /api/me/export`; Delete all receipt data → confirm → `DELETE /api/receipts`; How it works, Risks → static pages; Invite → share `/r/[code]`; Sign out → `POST /api/auth/logout` → `/signin` | — |
+| Settings | `/settings` | `GET /api/me`, `GET /api/rules`, `GET /api/gmail/state` | "Max fees 5% of each buy" → sheet (0.5–10%); "Jar capacity $5" → sheet ($1–$50, D32); "Auto-add from Base / Ethereum / Arbitrum" → toggles + allowance. Rate → sheet; Split → `/settings/split`; fallback, buy day → sheets; Wallets → `/settings/wallet`; Add funds → `/funds`; Gmail → Gmail card states; 0G account (flag); notification toggles → `PUT /api/notifications`; Download my data → `GET /api/me/export`; Delete all receipt data → confirm → `DELETE /api/receipts`; How it works, Risks → static pages; Invite → share `/r/[code]`; Sign out → `POST /api/auth/logout` → `/signin` | — |
 | Wallets and sign-in | `/settings/wallet` | `GET /api/wallet` | Add funds → `/funds`; Withdraw → `/settings/wallet/withdraw`; Copy addresses; Open in a Solana wallet; seed users see only "Reveal seed phrase" (PIN) under sign-in; backup sign-in "Coming soon" | — |
 | Withdraw | `/settings/wallet/withdraw` | `POST /api/withdraw`, poll `GET /api/withdraw/:id` | 25% / 50% / All; chain chips; "Withdraw $35.40" → sign → "Sent $35.40 to your wallet on Base" → `/settings/wallet` | approve → sending → sent; failed |
 

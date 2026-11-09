@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, Copy, Monitor, Moon, Plus, Sun, UserRound, WalletCards } from "lucide-react";
+import { BookOpen, ChevronRight, Coins, Copy, Download, LifeBuoy, Monitor, Moon, Percent, PiggyBank, Plus, ShieldAlert, Sun, UserRound, WalletCards } from "lucide-react";
 import QRCode from "qrcode";
 import { useApp } from "../app-context";
 import { useSession } from "../session-context";
@@ -24,7 +24,7 @@ function Row({ title, value, icon, onClick }: { title: string; value?: string; i
 }
 
 type Theme = "system" | "light" | "dark";
-type SheetKind = "rate" | "limit" | "fees" | "ready" | "fallback" | null;
+type SheetKind = "rate" | "fees" | "ready" | "fallback" | null;
 
 const FALLBACKS = [
   ["idx:sp500", "S&P 500"],
@@ -41,7 +41,6 @@ export function Settings() {
   const rules = useApi("rules", api.rules);
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [rate, setRate] = useState(5);
-  const [limit, setLimit] = useState(50);
   const [fees, setFees] = useState(5);
   const [ready, setReady] = useState(5);
   const [fallback, setFallback] = useState("idx:sp500");
@@ -50,7 +49,6 @@ export function Settings() {
   useEffect(() => {
     if (!rules.data) return;
     setRate(rules.data.rateBps / 100);
-    setLimit(Number(BigInt(rules.data.monthlyCapUsd6) / 1_000_000n) || 50);
     setFees(rules.data.maxFeeBps / 100);
     setReady(Number(BigInt(rules.data.readyMinUsd6) / 1_000_000n) || 5);
     setFallback(rules.data.fallbackAsset);
@@ -84,12 +82,11 @@ export function Settings() {
     <ErrorState error={rules.error} onRetry={rules.reload} />
     <div className="settings-grid">
       <section className="block"><p className="micro">Investing</p>
-        {!r ? <SkeletonList rows={5} /> : <div className="card list">
-          <Row title="Purchase rate" value={`${r.rateBps / 100}%`} onClick={() => setSheet("rate")} />
-          <Row title="Monthly limit" value={fmtUsd6(r.monthlyCapUsd6)} onClick={() => setSheet("limit")} />
-          <Row title="Max fees" value={`${r.maxFeeBps / 100}% of each buy`} onClick={() => setSheet("fees")} />
-          <Row title="Ready when" value={fmtUsd6(r.readyMinUsd6)} onClick={() => setSheet("ready")} />
-          <Row title="Fallback" value={assetName(r.fallbackAsset)} onClick={() => setSheet("fallback")} />
+        {!r ? <SkeletonList rows={4} /> : <div className="card list">
+          <Row title="Purchase rate" value={`${r.rateBps / 100}%`} icon={<Percent size={17} />} onClick={() => setSheet("rate")} />
+          <Row title="Jar capacity" value={fmtUsd6(r.readyMinUsd6)} icon={<PiggyBank size={17} />} onClick={() => setSheet("ready")} />
+          <Row title="Max fees" value={`${r.maxFeeBps / 100}% of each buy`} icon={<Coins size={17} />} onClick={() => setSheet("fees")} />
+          <Row title="Fallback" value={assetName(r.fallbackAsset)} icon={<LifeBuoy size={17} />} onClick={() => setSheet("fallback")} />
         </div>}
       </section>
       <section className="block"><p className="micro">Money & access</p>
@@ -106,9 +103,9 @@ export function Settings() {
       </section>
       <section className="block"><p className="micro">Privacy & help</p>
         <div className="card list">
-          <Row title="How Ownback works" onClick={() => window.open("/how-it-works", "_blank")} />
-          <Row title="Risks" onClick={() => window.open("/risks", "_blank")} />
-          <Row title="Download my data" onClick={download} />
+          <Row title="How Ownback works" icon={<BookOpen size={17} />} onClick={() => window.open("/how-it-works", "_blank")} />
+          <Row title="Risks" icon={<ShieldAlert size={17} />} onClick={() => window.open("/risks", "_blank")} />
+          <Row title="Download my data" icon={<Download size={17} />} onClick={download} />
         </div>
       </section>
     </div>
@@ -121,21 +118,16 @@ export function Settings() {
       <div className="range-ends"><span>2%</span><span>10%</span></div>
       <button className="button primary full" onClick={() => save({ rateBps: rate * 100 })}>Save</button>
     </Sheet>
-    <Sheet open={sheet === "limit"} onClose={() => setSheet(null)} title="Monthly limit">
-      <div className="big-value"><span className="num">${limit}</span><span className="sub">per month</span></div>
-      <input className="range" type="range" min={10} max={200} step={10} value={limit} onChange={e => { setLimit(Number(e.target.value)); haptic(3); }} aria-label="Monthly limit" style={{ "--p": `${((limit - 10) / 190) * 100}%` } as React.CSSProperties} />
-      <div className="range-ends"><span>$10</span><span>$200</span></div>
-      <button className="button primary full" onClick={() => save({ monthlyCapUsd6: (BigInt(limit) * 1_000_000n).toString() })}>Save</button>
-    </Sheet>
     <Sheet open={sheet === "fees"} onClose={() => setSheet(null)} title="Max fees">
       <div className="big-value"><span className="num">{fees}%</span><span className="sub">of each buy</span></div>
       <input className="range" type="range" min={0.5} max={10} step={0.5} value={fees} onChange={e => { setFees(Number(e.target.value)); haptic(3); }} aria-label="Max fees" style={{ "--p": `${((fees - 0.5) / 9.5) * 100}%` } as React.CSSProperties} />
       <div className="range-ends"><span>0.5%</span><span>10%</span></div>
       <button className="button primary full" onClick={() => save({ maxFeeBps: Math.round(fees * 100) })}>Save</button>
     </Sheet>
-    <Sheet open={sheet === "ready"} onClose={() => setSheet(null)} title="Ready when">
-      <div className="big-value"><span className="num">${ready}</span><span className="sub">jar reminder</span></div>
-      <input className="range" type="range" min={1} max={50} value={ready} onChange={e => { setReady(Number(e.target.value)); haptic(3); }} aria-label="Ready minimum" style={{ "--p": `${((ready - 1) / 49) * 100}%` } as React.CSSProperties} />
+    <Sheet open={sheet === "ready"} onClose={() => setSheet(null)} title="Jar capacity">
+      <div className="big-value"><span className="num">${ready}</span><span className="sub">per jar</span></div>
+      <p className="sub">A jar at this amount shows <b>Ready to buy</b>, so you buy in fewer, bigger buys. It's a helper, not a limit: you can buy any jar at any amount.</p>
+      <input className="range" type="range" min={1} max={50} value={ready} onChange={e => { setReady(Number(e.target.value)); haptic(3); }} aria-label="Jar capacity" style={{ "--p": `${((ready - 1) / 49) * 100}%` } as React.CSSProperties} />
       <div className="range-ends"><span>$1</span><span>$50</span></div>
       <button className="button primary full" onClick={() => save({ readyMinUsd6: (BigInt(ready) * 1_000_000n).toString() })}>Save</button>
     </Sheet>

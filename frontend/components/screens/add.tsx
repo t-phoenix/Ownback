@@ -302,13 +302,11 @@ export function Confirm({ id }: { id: string }) {
   const { navigate } = useApp();
   const p = useApi(`purchase:${id}`, () => api.purchase(id));
   const home = useApi("home", api.home);
-  const rules = useApi("rules", api.rules);
   const [why, setWhy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [shortfall, setShortfall] = useState<{ freeUsd6: string; shortUsd6: string } | null>(null);
-  const [limitLeft, setLimitLeft] = useState<string | null>(null);
   const data = p.data;
   // Opened while the read still runs (reload, deep link): go back to the live steps.
   useEffect(() => { if (data?.status === "reading") startRead({ kind: "resume", id }, navigate); }, [data?.status, id, navigate]);
@@ -330,9 +328,6 @@ export function Confirm({ id }: { id: string }) {
       if (ae?.code === "INSUFFICIENT_FREE" && details?.freeUsd6 && details?.shortUsd6) {
         setShortfall({ freeUsd6: details.freeUsd6, shortUsd6: details.shortUsd6 });
         setErr(errorCopy(ae.code, details));
-      } else if (ae?.code === "LIMIT_REACHED" && details?.leftUsd6) {
-        setLimitLeft(details.leftUsd6);
-        setErr(errorCopy(ae.code, details));
       } else {
         setErr(errorCopy(ae?.code));
       }
@@ -351,12 +346,8 @@ export function Confirm({ id }: { id: string }) {
   const free = freeUsd6 ? BigInt(freeUsd6) : null;
   // Floor free to whole cents so partial confirm matches D18.
   const freeCents = free != null ? (free / 10_000n) * 10_000n : null;
-  // shortcut: fall back to monthlyCap when used is unknown; LIMIT_REACHED sets limitLeft
-  const leftCap = BigInt(limitLeft ?? data.limit?.leftUsd6 ?? rules.data?.monthlyCapUsd6 ?? total.toString());
-  // Save what you can: min(free, monthly left, invest).
-  let available = total;
-  if (freeCents != null && freeCents < available) available = freeCents;
-  if (leftCap < available) available = leftCap;
+  // Save what you can: min(free, invest). No monthly cap (D32).
+  const available = freeCents != null && freeCents < total ? freeCents : total;
   const canPartial = available > 0n && available < total;
   const shortUsd6 = shortfall?.shortUsd6 ?? (freeCents != null && freeCents < total ? (total - freeCents).toString() : null);
   const maker = data.allocations.find(a => a.role === "maker");
@@ -373,10 +364,8 @@ export function Confirm({ id }: { id: string }) {
 
         {data.status === "not_listed" && <div className="insight"><span>This brand has no shares to buy yet, so your {(data.rateBps ?? 500) / 100}% ({fmtUsd6(data.investUsd6)}) can go to your fallback instead.</span></div>}
         {data.status === "needs_review" && <div className="insight"><span>We're not sure about one of these companies. Check the match before you confirm.</span></div>}
-        {canPartial && <div className="insight"><span>
-          {shortUsd6
-            ? `You have ${fmtUsd6(freeCents)} free. Add ${fmtUsd6(shortUsd6)} or save ${fmtUsd6(available)} now and the rest later.`
-            : `Monthly room left is ${fmtUsd6(available)}. Save that now and the rest next month.`}
+        {canPartial && shortUsd6 && <div className="insight"><span>
+          You have {fmtUsd6(freeCents)} free. Add {fmtUsd6(shortUsd6)} or save {fmtUsd6(available)} now and the rest later.
         </span></div>}
 
         <div className="block-head block">

@@ -99,7 +99,7 @@ The UI never shows the code itself.
 | Not tokenized | "not tokenized yet" |
 | Why these companies | "Maker: {product} → {maker} (Wikidata). Suppliers: {sources}, with the quoted sentence. Materials: from the product's bill of materials. AI request ID: {id}" |
 | Not listed | "{brand} is a private company, so there are no shares to buy. Your {rate}% ({amount}) can go somewhere else." · info "We also checked the companies behind it ({examples}). None of them have tokenized shares yet, so there's nothing else to buy for this product." · "Put {amount} into {fallback}" · "Skip this purchase · Nothing is saved" |
-| Limit | "You set a {cap} monthly limit. This purchase would go over it." · "Save {left} now, rest next month" · "Raise limit to {double}" · "Skip this purchase" · "Limits reset on the 1st. The vault contract enforces them." |
+| Limit | Removed (D32): there is no monthly limit. Only the free balance can trim a save ("You have {free} free…"). |
 | Saved | "{invest} is in {n} jars" · "{maker}'s jar is ready. Tap to buy when you want." / "{assets} fill up from your next purchases. We'll remind you on Sunday." |
 | Rest pending (Q7) | Activity: "Ready to save {rest} from {shop}" · Approve |
 
