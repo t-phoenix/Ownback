@@ -13,6 +13,11 @@ import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6, pct } from "../../lib/money";
 import { FlowHead } from "./home";
 
+/** Safe BigInt for Usd6 fields — never throw in render (ScreenBoundary → "couldn't load this"). */
+const bi = (v: string | number | bigint | null | undefined) => {
+  try { return BigInt(v ?? 0); } catch { return 0n; }
+};
+
 export function Jars() {
   const { navigate } = useApp();
   const j = useApi("jars", api.jars);
@@ -20,7 +25,7 @@ export function Jars() {
   const press = useRef<ReturnType<typeof setTimeout>>(undefined);
   const jars = j.data?.jars ?? [];
   const ready = jars.filter(x => x.state === "ready"), other = jars.filter(x => x.state !== "ready");
-  const readyTotal = ready.reduce((s, x) => s + BigInt(x.amountUsd6), 0n);
+  const readyTotal = ready.reduce((s, x) => s + bi(x.amountUsd6), 0n);
   const holdStart = (x: Jar) => { press.current = setTimeout(() => { haptic(14); setSheet(x); }, 450); };
   const holdEnd = () => clearTimeout(press.current);
 
@@ -28,9 +33,9 @@ export function Jars() {
     `/buy/review?asset=${encodeURIComponent(x.assetId)}&amount=${encodeURIComponent(x.amountUsd6)}`;
 
   const card = (x: Jar) => {
-    const p = pct(BigInt(x.amountUsd6), BigInt(x.readyMinUsd6)); const isReady = x.state === "ready";
+    const p = pct(bi(x.amountUsd6), bi(x.readyMinUsd6)); const isReady = x.state === "ready";
     const name = assetName(x.assetId, x.name);
-    const left = BigInt(x.readyMinUsd6) - BigInt(x.amountUsd6);
+    const left = bi(x.readyMinUsd6) - bi(x.amountUsd6);
     return <button key={x.assetId} className={`jar-card ${isReady ? "ready" : ""}`}
       onClick={() => (isReady ? navigate(reviewOne(x)) : setSheet(x))}
       onPointerDown={() => holdStart(x)} onPointerUp={holdEnd} onPointerLeave={holdEnd}
@@ -67,7 +72,7 @@ export function Jars() {
 
     <Sheet open={!!sheet} onClose={() => setSheet(null)} title={sheet ? `${assetName(sheet.assetId, sheet.name)} jar` : ""}>
       {sheet && <>
-        <div className="sheet-jar"><GlassJar pct={pct(BigInt(sheet.amountUsd6), BigInt(sheet.readyMinUsd6))} ready={sheet.state === "ready"} size={64} /><div><strong className="num big">{fmtUsd6(sheet.amountUsd6)}</strong><p className="sub">{sheet.state === "ready" ? "Ready · tap to buy" : "Filling · fills from your next purchases"}</p></div></div>
+        <div className="sheet-jar"><GlassJar pct={pct(bi(sheet.amountUsd6), bi(sheet.readyMinUsd6))} ready={sheet.state === "ready"} size={64} /><div><strong className="num big">{fmtUsd6(sheet.amountUsd6)}</strong><p className="sub">{sheet.state === "ready" ? "Ready · tap to buy" : "Filling · fills from your next purchases"}</p></div></div>
         <button className="button primary full" onClick={() => { setSheet(null); navigate(reviewOne(sheet)); }}>{sheet.state === "ready" ? "Review and buy" : "Buy now anyway"}</button>
       </>}
     </Sheet>
@@ -114,7 +119,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
   const [steps, setSteps] = useState<StepUpdate[]>([]);
   const [err, setErr] = useState<string | null>(null);
   // Jar tap passes the jar balance; holdings "Buy more" falls back to $1.
-  const seedAmt = amountUsd6 && BigInt(amountUsd6) >= MIN_BUY_USD6 ? amountUsd6 : "1000000";
+  const seedAmt = amountUsd6 && bi(amountUsd6) >= MIN_BUY_USD6 ? amountUsd6 : "1000000";
   const seeded = assetId && !amounts[assetId] ? { [assetId]: seedAmt } : {};
   const req = { ...seeded, ...amounts };
   const r = useApi(`review:${all}:${JSON.stringify(req)}`, () => api.buysReview(all, Object.keys(req).length ? req : undefined));
@@ -184,17 +189,17 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
           </header>
           {q.mint && <p className="fineprint mono">{q.issuer ?? "Token"} · mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
           {q.arkiv && <a className="fineprint" href={q.arkiv.url} target="_blank" rel="noreferrer"><ShieldCheck size={14} /> Token verified on Arkiv</a>}
-          {BigInt(q.price.usd6PerUnit || "0") > 0n && <dl className="quote-grid">
+          {bi(q.price?.usd6PerUnit) > 0n && <dl className="quote-grid">
             <div><dt>Your price</dt><dd>{fmtUsd6(q.price.usd6PerUnit)}{q.token ? ` / ${q.token}` : ""}</dd></div>
             <div><dt>You get about</dt><dd>{q.estQty} {q.token}</dd></div>
             <div><dt>Market price</dt><dd>{fmtUsd6(q.refPriceUsd6)}</dd></div>
-            <div><dt>Route cost</dt><dd>{fmtUsd6(q.fees.totalUsd6)} ({(q.fees.pctBps / 100).toFixed(2)}%)</dd></div>
+            <div><dt>Route cost</dt><dd>{fmtUsd6(q.fees.totalUsd6)} ({((q.fees?.pctBps ?? 0) / 100).toFixed(2)}%)</dd></div>
           </dl>}
           {(q.mint || q.selectable) && <div className="quote-amount field">
             <label htmlFor={`amt-${q.assetId}`}>Amount (USD)</label>
             <div className="btn-row">
               <input id={`amt-${q.assetId}`} inputMode="decimal" disabled={busy} value={inputs[q.assetId] ?? ""} onChange={e => setInputs(i => ({ ...i, [q.assetId]: e.target.value }))} aria-label={`Amount for ${name}`} />
-              {BigInt(q.suggestedUsd6) > 0n && <button type="button" className="chip" disabled={busy} onClick={() => setInputs(i => ({ ...i, [q.assetId]: usd6ToDollarsInput(q.suggestedUsd6) }))}>Suggested {fmtUsd6(q.suggestedUsd6)}</button>}
+              {bi(q.suggestedUsd6) > 0n && <button type="button" className="chip" disabled={busy} onClick={() => setInputs(i => ({ ...i, [q.assetId]: usd6ToDollarsInput(q.suggestedUsd6) }))}>Suggested {fmtUsd6(q.suggestedUsd6)}</button>}
             </div>
           </div>}
         </article>; })}
@@ -203,9 +208,9 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
       <div>
         <section className="card summary">
           <div className="summary-line"><span>Total</span><strong>{fmtUsd6(d.totalUsd6)}</strong></div>
-          <div className="summary-line"><span>Route costs</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({(d.fees.pctBps / 100).toFixed(2)}%)</strong></div>
-          {BigInt(d.funding.solanaUsdc6 || "0") > 0n && <div className="summary-line"><span>From your Solana USDC</span><strong>{fmtUsd6((BigInt(d.totalUsd6 || "0") - BigInt(d.funding.bridgeUsd6 || "0")).toString())}</strong></div>}
-          {BigInt(d.funding.bridgeUsd6 || "0") > 0n && <div className="summary-line"><span>Moved from Arc (CCTP)</span><strong>{fmtUsd6(d.funding.bridgeUsd6)}</strong></div>}
+          <div className="summary-line"><span>Route costs</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({((d.fees?.pctBps ?? 0) / 100).toFixed(2)}%)</strong></div>
+          {bi(d.funding?.solanaUsdc6) > 0n && <div className="summary-line"><span>From your Solana USDC</span><strong>{fmtUsd6((bi(d.totalUsd6) - bi(d.funding?.bridgeUsd6)).toString())}</strong></div>}
+          {bi(d.funding?.bridgeUsd6) > 0n && <div className="summary-line"><span>Moved from Arc (CCTP)</span><strong>{fmtUsd6(d.funding.bridgeUsd6)}</strong></div>}
           <p className="sub">Arc balance {fmtUsd6(d.funding.arcUsdc6)} · Solana USDC {fmtUsd6(d.funding.solanaUsdc6)}. Price protection 1%.</p>
         </section>
         {d.destination && <p className="fineprint">Shares go straight to your Solana wallet <span className="mono">{d.destination.slice(0, 4)}…{d.destination.slice(-4)}</span>. Ownback pays the Solana gas.</p>}
@@ -286,7 +291,7 @@ export function BuyDone({ batchId }: { batchId: string }) {
   const bought = d?.entries.filter(e => e.status === "bought") ?? [];
   const open = d?.entries.filter(e => e.status !== "bought") ?? [];
   const canSwap = d && (d.status === "swap_ready" || d.status === "swapping" || d.status === "failed" || d.status === "done_partial");
-  const stages = d && BigInt(d.bridgeUsd6 || "0") > 0n ? STAGES : [];
+  const stages = d && bi(d.bridgeUsd6) > 0n ? STAGES : [];
   const cctpStuck = d && (d.status === "attesting" || d.status === "minting" || (d.status === "bridging" && !!d.links.arc));
   const needsNewBuy = d?.status === "bridging" && !d.links.arc;
   const showRetry = !!(d && (d.error || cctpStuck || open.some(e => e.status === "paused" || e.status === "waiting") || d.status === "failed" || d.status === "done_partial"));

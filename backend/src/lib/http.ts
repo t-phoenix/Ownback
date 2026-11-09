@@ -20,7 +20,8 @@ export function jsonError(c: Context, err: unknown) {
   if (err instanceof ApiError) {
     return c.json(err.body(), err.http as 400);
   }
-  console.error(err);
+  const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  console.error(msg, err instanceof Error ? err.stack : err);
   const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : '';
   // Neon/postgres connection blips → retryable UPSTREAM (not opaque 500 that breaks the session UI).
   if (

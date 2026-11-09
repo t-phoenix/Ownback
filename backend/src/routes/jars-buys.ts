@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
 import { ApiError } from '../shared/errors.js';
-import { toUsd6 } from '../shared/money.js';
+import { asUsd6, toUsd6 } from '../shared/money.js';
 import { CENT_USD6, QUOTE_REFRESH_MS } from '../shared/timing.js';
 import { EXPLORER, USDC } from '../shared/chains.js';
 import { buildFees, feeWithinCap } from '../lib/fees.js';
@@ -121,11 +121,12 @@ async function solUsdc(user: User): Promise<bigint> {
 
 async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map<string, bigint>) {
   const sql = getSql();
-  const rules = await sql<{ ready_min_usd6: bigint; max_fee_bps: number }[]>`
+  const rules = await sql<{ ready_min_usd6: bigint | string; max_fee_bps: number | string }[]>`
     SELECT ready_min_usd6, max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid
   `;
-  const readyMin = BigInt(rules[0]!.ready_min_usd6);
-  const maxFeeBps = rules[0]!.max_fee_bps;
+  if (!rules[0]) throw new ApiError('VALIDATION', { reason: 'no_rules' });
+  const readyMin = BigInt(rules[0].ready_min_usd6);
+  const maxFeeBps = Number(rules[0].max_fee_bps);
   const jarRows = await sql<{ asset_id: string; amt: bigint | string }[]>`
     SELECT a.asset_id, COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amt
     FROM allocations a JOIN purchases p ON p.id = a.purchase_id
@@ -146,8 +147,8 @@ async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map
   const now = new Date().toISOString();
   const rows = await Promise.all(
     ids.map(async (assetId) => {
-      const jarAmt = jars.get(assetId) ?? 0n;
-      const spend = amounts.get(assetId) ?? jarAmt;
+      const jarAmt = asUsd6(jars.get(assetId) ?? 0n);
+      const spend = asUsd6(amounts.get(assetId) ?? jarAmt);
       const mint = verifiedMint(assetId, 'solana');
       const [quote, oracle, arkiv] = await Promise.all([
         mint ? jupiterBuyQuote(mint.mint, spend) : null,
@@ -156,7 +157,7 @@ async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map
       ]);
       const outRaw = quote ? BigInt(quote.outAmount) : 0n;
       const priceUsd6 = mint && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
-      const fee = mint && oracle ? routeFeeUsd6(spend, valueUsd6(outRaw, mint.decimals, oracle)) : 0n;
+      const fee = mint && oracle ? routeFeeUsd6(spend, valueUsd6(outRaw, mint.decimals, asUsd6(oracle))) : 0n;
       const fees = buildFees([{ label: 'Jupiter route', usd6: fee }], spend, maxFeeBps, false);
       const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(fee, spend, maxFeeBps);
       return {

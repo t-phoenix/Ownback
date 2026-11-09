@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatUsd, investAmount, parseUsd6, toUsd6 } from '../src/shared/money.js';
 import { splitInvest, scaleAllocations } from '../src/lib/split.js';
-import { feeWithinCap, maxFeeUsd6, feePctBps } from '../src/lib/fees.js';
+import { feeWithinCap, maxFeeUsd6, feePctBps, buildFees } from '../src/lib/fees.js';
 import { jarState, precheckConfirm, remainingThisMonth } from '../src/lib/limits.js';
 import { ApiError, mapVaultError } from '../src/shared/errors.js';
 
@@ -70,6 +70,16 @@ describe('fees Q2', () => {
     expect(feeWithinCap(300_000n, 3_180_000n, 500)).toBe(false); // ~9.4%
     expect(feePctBps(50_000n, 43_630_000n)).toBe(11); // 0.11% → 11 bps
     expect(maxFeeUsd6(47_750_000n, 500)).toBe(2_387_500n);
+  });
+
+  // Render prod: postgres.js returns bigint cols as strings → feePctBps TypeError → INTERNAL.
+  it('accepts digit-string amounts the way postgres.js returns them', () => {
+    expect(feePctBps('0', '400000')).toBe(0);
+    expect(feeWithinCap('50', '400000', '500')).toBe(true);
+    const fees = buildFees([{ label: 'Jupiter route', usd6: '0' }], '400000', '500', false);
+    expect(fees.totalUsd6).toBe('0');
+    expect(fees.pctBps).toBe(0);
+    expect(fees.overCap).toBe(false);
   });
 });
 
