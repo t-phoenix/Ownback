@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowRight, Check, ChevronsRight } from "lucide-react";
 import type { Tone } from "../lib/assets";
-import { fmtUsd6, splitUsd } from "../lib/money";
+import { splitUsd } from "../lib/money";
 
 /* ───────────────────────── Feel ───────────────────────── */
 
@@ -39,25 +39,6 @@ export function Monogram({ name, tone, size = 44, children }: { name?: string; t
 export function Money({ cents, className = "" }: { cents: bigint; className?: string }) {
   const [whole, frac] = splitUsd(cents);
   return <span className={`money ${className}`}><span>{whole}</span><span className="money-frac">{frac}</span></span>;
-}
-
-/**
- * Live price of ONE token (one share for xStocks). Set as a quiet ticker tag — mono, outlined, with a
- * live dot — so it never reads like a balance or an amount you hold.
- */
-export function PriceTag({ token, usd6, className = "" }: { token?: string; usd6?: string; className?: string }) {
-  if (!token || !usd6 || usd6 === "0") return null;
-  return <span className={`price-tag ${className}`} title={`Live price of 1 ${token}`}>
-    <span className="price-unit">1 {token}</span><span className="price-val">{fmtUsd6(usd6)}</span>
-  </span>;
-}
-
-/** "0.00123" of a share → "≈ 1/811 of a share". Display only (never money maths). */
-export function shareFraction(qty?: string): string | null {
-  const n = Number(qty);
-  if (!qty || !(n > 0)) return null;
-  if (n >= 1) return `${n >= 10 ? Math.round(n) : n.toFixed(2).replace(/\.?0+$/, "")} share${n === 1 ? "" : "s"}`;
-  return `≈ 1/${Math.round(1 / n).toLocaleString()} of a share`;
 }
 
 /** Counts up once on mount, in whole cents. */

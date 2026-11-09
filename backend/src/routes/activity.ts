@@ -213,7 +213,7 @@ export function balanceJson(p: Awaited<ReturnType<typeof portfolio>>, inJars: bi
 }
 
 export function heldRow(h: Held) {
-  return { assetId: h.assetId, name: h.name, subtitle: `${h.qty} ${h.token} · Solana`, qty: h.qty, token: h.token, chain: 'solana', valueUsd6: toUsd6(h.valueUsd6), ...(h.priceUsd6 > 0n ? { price: { usd6PerUnit: toUsd6(h.priceUsd6), at: new Date().toISOString(), source: 'jupiter' as const } } : {}) };
+  return { assetId: h.assetId, name: h.name, subtitle: `${h.qty} ${h.token} · Solana`, qty: h.qty, token: h.token, chain: 'solana', valueUsd6: toUsd6(h.valueUsd6) };
 }
 
 export async function jarsTotal(userId: string): Promise<bigint> {

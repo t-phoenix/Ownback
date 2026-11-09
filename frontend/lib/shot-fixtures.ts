@@ -49,8 +49,8 @@ export const home: Home = {
 
 export const jars: Jars = {
   jars: [
-    { assetId: "co:apple", name: "Apple", role: "maker", amountUsd6: u(33.43), readyMinUsd6: u(5), state: "ready", token: "AAPLx", price: { usd6PerUnit: u(236.41), at: "2026-11-09T10:00:00Z", source: "jupiter" } },
-    { assetId: "co:tsmc", name: "TSMC", role: "supplier", amountUsd6: u(3.18), readyMinUsd6: u(5), state: "filling", token: "TSMXx", price: { usd6PerUnit: u(205.1), at: "2026-11-09T10:00:00Z", source: "jupiter" } },
+    { assetId: "co:apple", name: "Apple", role: "maker", amountUsd6: u(33.43), readyMinUsd6: u(5), state: "ready" },
+    { assetId: "co:tsmc", name: "TSMC", role: "supplier", amountUsd6: u(3.18), readyMinUsd6: u(5), state: "filling" },
     { assetId: "co:qualcomm", name: "Qualcomm", role: "supplier", amountUsd6: u(3.18), readyMinUsd6: u(5), state: "filling" },
     { assetId: "co:corning", name: "Corning", role: "supplier", amountUsd6: u(3.19), readyMinUsd6: u(5), state: "filling" },
     { assetId: "mat:gold", name: "Gold", role: "material", amountUsd6: u(2.39), readyMinUsd6: u(5), state: "filling" },
@@ -129,17 +129,23 @@ export const holdings: Holdings = {
   balance,
   sections: [
     {
-      key: "stocksCommodities", totalUsd6: u(59.1),
+      key: "makers", totalUsd6: u(42.5),
+      rows: [{ assetId: "co:apple", name: "Apple", subtitle: "AAPLx · Solana", qty: "0.18", token: "AAPLx", chain: "solana", valueUsd6: u(42.5) }],
+    },
+    {
+      key: "behind", totalUsd6: u(11.5),
       rows: [
-        { assetId: "co:apple", name: "Apple", subtitle: "0.18 AAPLx · Solana", qty: "0.18", token: "AAPLx", chain: "solana", valueUsd6: u(42.5), price: { usd6PerUnit: u(236.41), at: "2026-11-09T10:00:00Z", source: "jupiter" } },
-        { assetId: "co:tsmc", name: "TSMC", subtitle: "0.04 TSMXx · Solana", qty: "0.04", token: "TSMXx", chain: "solana", valueUsd6: u(8.2), price: { usd6PerUnit: u(205.1), at: "2026-11-09T10:00:00Z", source: "jupiter" } },
-        { assetId: "co:qualcomm", name: "Qualcomm", subtitle: "0.02 QCOMx · Solana", qty: "0.02", token: "QCOMx", chain: "solana", valueUsd6: u(3.3), price: { usd6PerUnit: u(165.02), at: "2026-11-09T10:00:00Z", source: "jupiter" } },
-        { assetId: "mat:gold", name: "Gold", subtitle: "0.002 GLDx · Solana", qty: "0.002", token: "GLDx", chain: "solana", valueUsd6: u(5.1), price: { usd6PerUnit: u(2551.3), at: "2026-11-09T10:00:00Z", source: "jupiter" } },
+        { assetId: "co:tsmc", name: "TSMC", subtitle: "TSMXx · Solana", qty: "0.04", token: "TSMXx", chain: "solana", valueUsd6: u(8.2) },
+        { assetId: "co:qualcomm", name: "Qualcomm", subtitle: "QCOMx · Solana", qty: "0.02", token: "QCOMx", chain: "solana", valueUsd6: u(3.3) },
       ],
     },
     {
+      key: "commodities", totalUsd6: u(5.1),
+      rows: [{ assetId: "mat:gold", name: "Gold", subtitle: "GLDx · Solana", qty: "0.002", token: "GLDx", chain: "solana", valueUsd6: u(5.1) }],
+    },
+    {
       key: "stablecoins", totalUsd6: u(175.1),
-      rows: [{ assetId: "usdc", name: "USDC on Arc", subtitle: "Free to buy with", chain: "arc", valueUsd6: u(175.1) }],
+      rows: [{ assetId: "usdc", name: "USDC", subtitle: "Free $131.50 · in jars $43.60", valueUsd6: u(175.1) }],
     },
   ],
 };

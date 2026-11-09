@@ -108,7 +108,7 @@ When `onchainSynced` is false, the next money action the server builds puts `set
 type Balance = { totalUsd6; byType: { stocksCommodities; stablecoins; crypto }; byChain: Record<ChainKey, Usd6>;
                  pricesAt: string; stale: boolean;
                  usdc: { freeUsd6; inJarsUsd6; arrivingUsd6 } };      // D19
-type HoldingRow = { assetId; name; subtitle; qty?: string; token?: string; chain?: ChainKey; valueUsd6: Usd6; price?: Price /* one token (one share for xStocks), live */ };
+type HoldingRow = { assetId; name; subtitle; qty?: string; token?: string; chain?: ChainKey; valueUsd6: Usd6 };
 type HoldingDetail = HoldingRow & { spentThisYearUsd6; price: Price; avgPriceUsd6; paidTotalUsd6;
   buys: { batchId; at; qty; priceUsd6; amountUsd6; fromPurchases: string[] }[];
   proof: ProofTrail; issuerNote: string };
@@ -138,7 +138,7 @@ type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStat
 |---|---|---|---|---|
 | POST | `/api/purchases` | multipart `image` \| `audio`, or JSON `{ text: { product, amount, currency, maker?, model?, shop?, date? } }` | `{ purchaseId }` at once (status `reading`); the read + jury run after the response and write `steps` as they go | `UPLOAD_TOO_LARGE` (> 8 MB), `UNSUPPORTED_MEDIA` |
 | GET | `/api/purchases/:id` | — | `Purchase` (poll every 700 ms while `reading`; `steps` are real) | `NOT_FOUND` |
-| PUT | `/api/purchases/:id/details` | `PurchaseDetails` (the "Check the details" form) | `Purchase` (status `reading`; the jury re-runs, no image re-read) | `VALIDATION` when `confirming`, or `saved` with anything already bought. A `saved` purchase with nothing bought re-opens: its jars are released and it must be confirmed again |
+| PUT | `/api/purchases/:id/details` | `PurchaseDetails` (the "Check the details" form) | `Purchase` (status `reading`; the jury re-runs, no image re-read) | `VALIDATION` (also when status is `confirming` / `saved`) |
 | PUT | `/api/purchases/:id/split` | `{ maker, behind, materials, makerOnly?: boolean, saveForFuture: boolean }` | `Purchase` | `VALIDATION` |
 | PUT | `/api/purchases/:id/assets` | `{ deselect: AssetId[] }` (tick boxes on Confirm; `[]` re-selects every row) | `Purchase` | — |
 | GET | `/api/makers/search?q=` | — | `{ items: { companyId; name; ticker; listed; tokenized; token?; chain? }[] }` (Fix the match) | — |
@@ -201,7 +201,7 @@ type PurchaseDetails = {
 
 | Method | Path | Request | Response | Errors |
 |---|---|---|---|---|
-| GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; token?: string; price?: Price /* one token, verified mints only */; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
+| GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; price?: Price; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
 | POST | `/api/jars/:assetId/cancel` | — | `{ action: SignableAction }` | — |
 | GET/POST | `/api/buys/review` | GET `?include=ready\|all&amounts={json}` or POST `{ include?, amounts?: { [assetId]: Usd6 } }` (whole cents, min $0.10; an amount for a verified asset without a jar is allowed) | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; jarAmountUsd6; suggestedUsd6; token?; mint?; decimals?; issuer?; chain; venue; price: Price; refPriceUsd6 /* Jupiter market price */; estQty; fees: Fees /* route cost = spend − value of output at market */; selectable; reason?: 'fees_high' \| 'no_venue'; arkiv? }[]; totalUsd6; fees; funding: { solanaUsdc6; arcUsdc6; bridgeUsd6 }; destination }` | `NO_READY_JARS`, `VALIDATION` |
 | POST | `/api/buys` | `{ quoteId }` + Idempotency-Key | `{ batchId; batchIds; action?: SignableAction /* evm_calls on Arc with labels[], only when bridgeUsd6 > 0 */ }` | `QUOTE_EXPIRED`, `NOTHING_TO_BUY`, `NO_SOLANA_RECIPIENT`, `INSUFFICIENT_FREE`, `KEEPER_DISABLED` |
@@ -232,7 +232,7 @@ type BuyProgress = { batchId; status: BuyBatchStatus /* docs/04 §5 */; startedA
 |---|---|---|
 | GET | `/api/receipts?filter=all\|in_jars\|bought\|needs_review&cursor=` | `{ stats: { count; spentUsd6; putToWorkUsd6 }; groups: { month: string; rows: ReceiptRow[] }[]; nextCursor }` |
 | GET | `/api/receipts/:id` | `{ receipt; investUsd6; where: { label; detail; amountUsd6; assetIds }[]; proof: ProofTrail; stored: 'fields_only' }` |
-| DELETE | `/api/receipts/:id` | `204`: status `deleted`, fields wiped; its unbought jar money is released (jars count `saved` only). Shares already bought stay in the wallet |
+| DELETE | `/api/receipts/:id` | `204`: fields wiped, amounts kept for limits |
 | DELETE | `/api/receipts` | `204`: same for all |
 | GET | `/api/activity?cursor=` | `{ groups: { label: 'Today' \| 'Earlier'; items: { id; kind: EventKind; title; body; link: string; at }[] }[] }` |
 

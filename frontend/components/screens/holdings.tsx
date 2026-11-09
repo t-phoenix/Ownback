@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Loader2, Share2 } from "lucide-react";
 import { useApp } from "../app-context";
 import { Logo } from "../logo";
-import { Creative, Money, Monogram, PriceTag, Sheet, Tilt, haptic, shareFraction, useMedia } from "../ui";
-import { STICKER_IDS, Sticker, StickerBook, stickerLabel, type StickerId } from "../stickers";
+import { Creative, Money, Monogram, Sheet, Tilt } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type HoldingRow as Row, type MoveProgress } from "../../lib/api";
 import { signAction } from "../../lib/sign-action";
@@ -26,75 +25,18 @@ export function HoldingRow({ h, onSolUsdc }: { h: Row; onSolUsdc?: (h: Row) => v
   return <button className="row" onClick={open}>
     <Monogram name={isUsd ? undefined : name} tone={isUsd ? "green" : toneFor(h.assetId)}>{isUsd ? "$" : undefined}</Monogram>
     <span className="row-main"><span className="row-title">{name}</span><span className="row-sub">{h.qty && h.token ? `${h.qty} ${h.token}` : h.subtitle}</span></span>
-    <span className="row-end"><span className="row-value">{fmtUsd6(h.valueUsd6)}</span><PriceTag token={h.token} usd6={h.price?.usd6PerUnit} /></span>
+    <span className="row-end"><span className="row-value">{fmtUsd6(h.valueUsd6)}</span></span>
     <ChevronRight size={16} className="row-chev" />
   </button>;
 }
 
-/** One owned asset as a collectible token: front shows value + live price, back shows how much of a share you hold. */
-function PieceCard({ h }: { h: Row }) {
-  const { navigate } = useApp();
-  const hover = useMedia("(hover: hover)");
-  const [flip, setFlip] = useState(false);
-  const name = assetName(h.assetId, h.name);
-  const frac = shareFraction(h.qty);
-  const go = () => navigate(`/holdings/${encodeURIComponent(h.assetId)}`);
-  // Laptop: hover flips, click opens. Phone: tap flips, tap again opens.
-  const tap = () => { haptic(6); if (hover || flip) go(); else setFlip(true); };
-  return <button className={`piece ${flip ? "flipped" : ""}`} onClick={tap} onMouseLeave={() => setFlip(false)}
-    aria-label={`${name}: ${fmtUsd6(h.valueUsd6)}${frac ? `, ${frac}` : ""}. ${hover ? "Open" : "Tap to flip"}`}>
-    <span className="piece-inner">
-      <span className="piece-face front">
-        <span className="piece-coin"><Monogram name={name} tone={toneFor(h.assetId)} size={68} /></span>
-        <strong className="piece-name">{name}</strong>
-        <span className="piece-value">{fmtUsd6(h.valueUsd6)}</span>
-        <PriceTag token={h.token} usd6={h.price?.usd6PerUnit} />
-      </span>
-      <span className="piece-face back">
-        <span className="micro">You own</span>
-        <strong className="piece-qty">{h.qty} <small>{h.token}</small></strong>
-        {frac && <span className="piece-frac">{frac}</span>}
-        {h.price && <span className="sub">1 {h.token} = {fmtUsd6(h.price.usd6PerUnit)}</span>}
-        <span className="piece-open">Open {name} <ChevronRight size={14} /></span>
-      </span>
-    </span>
-  </button>;
-}
-
-const SEEN_KEY = "ob-stickers";
-
 export function Holdings() {
-  const { navigate, notify } = useApp();
+  const { navigate } = useApp();
   const h = useApi("holdings", api.holdings);
-  const j = useApi("jars", api.jars);
-  const rc = useApi("receipts:all", () => api.receipts("all"));
   const b = h.data?.balance;
   const owned = centsOf(b?.byType.stocksCommodities), total = centsOf(b?.totalUsd6);
   const sections = h.data?.sections ?? [];
-  const held = sections.filter(s => s.key !== "stablecoins").flatMap(s => s.rows);
-  const dollars = sections.filter(s => s.key === "stablecoins" && s.rows.length);
   const [move, setMove] = useState<Row | null>(null);
-
-  // Stickers come from real progress, never from spending more.
-  const receipts = rc.data?.stats.count ?? 0;
-  const earned = new Set<StickerId>(["hello"]);
-  if (receipts >= 1) earned.add("receipt");
-  if (receipts >= 5) earned.add("stacker");
-  if (j.data?.jars.some(x => x.state === "ready")) earned.add("jar-full");
-  if (held.length >= 1) { earned.add("first-share"); earned.add("on-chain"); }
-  if (held.length >= 3) earned.add("trio");
-  if (owned >= 1000n) earned.add("owner");
-  const earnedKey = [...earned].sort().join(",");
-  useEffect(() => {
-    if (!h.data || !rc.data) return;
-    try {
-      const seen = new Set((localStorage.getItem(SEEN_KEY) ?? "").split(",").filter(Boolean));
-      const fresh = earnedKey.split(",").filter(x => !seen.has(x) && x !== "hello");
-      if (seen.size && fresh.length) { haptic([10, 50, 10]); notify(`New sticker: ${stickerLabel(fresh[0] as StickerId)}`); }
-      localStorage.setItem(SEEN_KEY, earnedKey);
-    } catch { /* storage blocked */ }
-  }, [earnedKey, h.data, rc.data, notify]);
-
   return <div className="page">
     <header className="page-head">
       <div><p className="kicker">Your portfolio</p><h1 className="h-page">Holdings</h1></div>
@@ -104,33 +46,20 @@ export function Holdings() {
 
     {h.loading ? <Skeleton h={150} /> : <section className="card alloc" aria-label="Balance">
       <div className="alloc-top">
-        <div><p className="micro">{held.length ? `Pieces of ${held.length} compan${held.length > 1 ? "ies" : "y"}` : "You own"}</p><Money cents={owned} className="alloc-num" /><p className="sub">Real shares, in your own wallet</p></div>
+        <div><p className="micro">You own</p><Money cents={owned} className="alloc-num" /><p className="sub">Companies and materials</p></div>
         <div className="alloc-right"><p className="micro">Dollars</p><Money cents={centsOf(b?.byType.stablecoins)} className="alloc-num muted-num" /><p className="sub">Free + in jars</p></div>
       </div>
       <div className="alloc-bar" role="img" aria-label={`${pct(owned, total || 1n)}% owned`}>
         <span className="tone-bg-gold" style={{ flexGrow: Number(owned) || 0 }} />
         <span className="tone-bg-green" style={{ flexGrow: Number(total - owned) || 1 }} />
       </div>
-      <ul className="alloc-legend"><li><i className="tone-bg-gold" />Owned <b>{pct(owned, total || 1n)}%</b></li><li><i className="tone-bg-green" />Dollars <b>{100 - pct(owned, total || 1n)}%</b></li></ul>
       {b?.stale && <p className="sub">Prices may be out of date.</p>}
     </section>}
 
-    {h.data && !held.length && <Empty title="Nothing owned yet" art={<Sticker id="hello" size={96} />} body="When a jar fills and you approve the buy, the shares land in your own wallet and show up here.">
-      <button className="button primary" onClick={() => navigate("/jars")}>See your jars</button>
-    </Empty>}
-
-    {!!held.length && <section className="block">
-      <div className="block-head"><h2 className="h-section">Your pieces</h2><span className="sub">{fmtUsd6(owned * 10_000n)} · {hoverHint()}</span></div>
-      <div className="piece-grid">{held.map(r => <PieceCard key={r.assetId} h={r} />)}</div>
-    </section>}
+    {h.data && !sections.some(s => s.rows.length) && <Empty title="Nothing owned yet" body="When a jar fills and you approve the buy, the shares land in your own wallet and show up here." />}
 
     <div className="two-col">
-      <section className="block">
-        <div className="block-head"><h2 className="h-section">Sticker book</h2><span className="sub">{earned.size} of {STICKER_IDS.length}</span></div>
-        <div className="card sticker-card"><StickerBook earned={earned} onLocked={earn => notify(earn)} />
-          <p className="fineprint center">Tap one. Drag it and let go. Earn the rest as you go.</p></div>
-      </section>
-      {dollars.map(s => <section key={s.key} className="block">
+      {sections.filter(s => s.rows.length).map(s => <section key={s.key} className="block">
         <div className="block-head"><h2 className="h-section">{sectionTitle[s.key] ?? s.key}</h2><span className="sub">{fmtUsd6(s.totalUsd6)}</span></div>
         <div className="card list">{s.rows.map(r => <HoldingRow key={r.assetId} h={r} onSolUsdc={setMove} />)}</div>
       </section>)}
@@ -138,8 +67,6 @@ export function Holdings() {
     <MoveToArc row={move} onClose={() => { setMove(null); h.reload(); }} />
   </div>;
 }
-
-const hoverHint = () => (typeof matchMedia !== "undefined" && matchMedia("(hover: hover)").matches ? "hover to flip" : "tap to flip");
 
 export function Holding({ id }: { id: string }) {
   const { navigate, notify } = useApp();
@@ -162,8 +89,7 @@ export function Holding({ id }: { id: string }) {
       <div>
         {d.loading ? <Skeleton h={100} /> : <section className="card holding-hero">
           <Monogram name={name} tone={toneFor(id)} size={60} />
-          <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}{shareFraction(d.data?.qty) ? ` · ${shareFraction(d.data?.qty)}` : ""}</p>
-            <div className="hero-tags"><PriceTag token={d.data?.token} usd6={d.data?.price?.usd6PerUnit} />{d.data && BigInt(d.data.avgPriceUsd6 || "0") > 0n && <span className="sub">You paid {fmtUsd6(d.data.avgPriceUsd6)} avg</span>}</div></div>
+          <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}</p></div>
         </section>}
         {canSell && <div className="dock" style={{ position: "relative", marginBottom: 16 }}>
           <button className="button secondary full" onClick={() => navigate(`/sell/review/${encodeURIComponent(id)}`)}>Sell for USDC</button>

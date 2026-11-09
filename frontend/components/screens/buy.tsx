@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, Check, ChevronRight, ExternalLink, Loader2, RefreshCw, Share2, ShieldCheck, Zap } from "lucide-react";
 import { useApp } from "../app-context";
-import { Coin3D, ConfirmAction, GlassJar, Monogram, PriceTag, Ring, Sheet, haptic } from "../ui";
+import { Coin3D, ConfirmAction, GlassJar, Monogram, Ring, Sheet, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type BuyEntry, type BuyProgress, type Jar, type SignableAction } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
@@ -12,7 +12,6 @@ import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6, pct } from "../../lib/money";
 import { FlowHead } from "./home";
-import { Sticker } from "../stickers";
 
 /** Safe BigInt for Usd6 fields — never throw in render (ScreenBoundary → "couldn't load this"). */
 const bi = (v: string | number | bigint | null | undefined) => {
@@ -44,7 +43,6 @@ export function Jars() {
       aria-label={`${name} jar, ${fmtUsd6(x.amountUsd6)}. ${isReady ? "Ready, tap to buy" : "Filling"}. Long-press for options`}>
       <GlassJar pct={p} ready={isReady} size={74} />
       <span className="jar-name"><Monogram name={name} tone={toneFor(x.assetId)} size={22} /> {name}</span>
-      <PriceTag token={x.token} usd6={x.price?.usd6PerUnit} />
       <span className="jar-amt">{fmtUsd6(x.amountUsd6)}</span>
       <span className={`jar-state ${isReady ? "pos" : ""}`}>{isReady ? "Ready · tap to buy" : x.state === "no_venue" ? "Buys when available" : `Filling · ${fmtUsd6(left > 0n ? left : 0n)} to go`}</span>
     </button>;
@@ -56,7 +54,7 @@ export function Jars() {
     <p className="lede left">Each purchase fills a jar per company. A jar at your capacity is ready to buy, and you can buy any jar sooner. Nothing buys without your OK.</p>
     <ErrorState error={j.error} onRetry={j.reload} />
     {j.loading && <div className="jar-grid block">{[0, 1, 2].map(i => <Skeleton key={i} h={200} />)}</div>}
-    {j.data && !jars.length && <Empty title="No jars yet" art={<Sticker id="jar-full" size={96} />} body="Confirm a purchase and its share lands in a jar for each company.">
+    {j.data && !jars.length && <Empty title="No jars yet" body="Confirm a purchase and its share lands in a jar for each company.">
       <button className="button primary" onClick={() => navigate("/add")}>Add a purchase</button>
     </Empty>}
 
@@ -209,7 +207,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
         {rows.map(q => { const name = assetName(q.assetId, q.name); return <article className={`card quote ${q.selectable ? "" : "off"}`} key={q.assetId}>
           <header className="quote-top">
             <Monogram name={name} tone={toneFor(q.assetId)} />
-            <div className="row-main"><div className="row-title">{name} <PriceTag token={q.token} usd6={q.refPriceUsd6} /></div><div className="row-sub">{q.selectable ? "Jupiter on Solana · into your wallet" : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
+            <div className="row-main"><div className="row-title">{name} {q.token && <span className="sub">{q.token}</span>}</div><div className="row-sub">{q.selectable ? "Jupiter on Solana · into your wallet" : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
             <strong className="num">{fmtUsd6(q.amountUsd6)}</strong>
           </header>
           {q.mint && <p className="fineprint mono">{q.issuer ?? "Token"} · mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
