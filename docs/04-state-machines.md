@@ -103,7 +103,9 @@ POST /buys --Solana USDC ≥ total--> **swap_ready** (no Arc step)
 **attesting** --attestation complete--> **minting** (relay sends Solana receiveMessage; USDC → user's USDC ATA)
 **minting** --landed (or nonce already used)--> **swap_ready**
 **swap_ready** --first swap built--> **swapping** --every entry bought--> **done**
-any worker error --> state kept, `error` set, retried every 5 s (the user sees "Retrying: …")
+any worker error --> state kept, `error` set, retried every 5 s (the user sees calm copy + **Retry**)
+`POST /buys/:id/retry` --> kick CCTP (`attesting`/`minting`) or reopen paused swaps → `swap_ready`
+`bridging` with no `arc_tx` --> Retry returns `needs_new_buy` (start a fresh buy from review)
 ```
 
 Legacy states `approved`, `executing`, `done_partial`, `failed` stay valid for old rows.
@@ -111,9 +113,8 @@ Legacy states `approved`, `executing`, `done_partial`, `failed` stay valid for o
 ## 6 · Buy entry (`buy_entries.status`)
 
 ```
-**quoted** --swap built (relay-signed, msg hash stored)--> **waiting** (user signs in Privy)
-**waiting** --signed tx matches the stored hash, sent--> **sent** --confirmed--> **bought** (qty/spent from tx token balances)
-**waiting/sent** --send or confirm failed--> **paused** (`error` stored; user taps Retry → new swap built)
+**quoted** --swap built (msg hash stored; user still signs)--> user signs --> **sent** --confirmed--> **bought**
+**quoted/waiting/sent** --build, sign, send or confirm failed--> **paused** (`error` stored; **Retry** rebuilds a fresh swap)
 ```
 USDC from an unbought entry simply stays in the user's Solana wallet.
 

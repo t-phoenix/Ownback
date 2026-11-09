@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, Check, ExternalLink, Loader2, Share2, ShieldCheck, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, ExternalLink, Loader2, RefreshCw, Share2, ShieldCheck, Zap } from "lucide-react";
 import { useApp } from "../app-context";
 import { Coin3D, ConfirmAction, GlassJar, Monogram, Ring, Sheet, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type BuyEntry, type BuyProgress, type Jar } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
-import { errorCopy } from "../../lib/copy";
+import { errorCopy, pipelineCopy } from "../../lib/copy";
 import { signAction, type StepUpdate } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6, pct } from "../../lib/money";
@@ -229,6 +229,7 @@ function elapsed(from: string) { const s = Math.max(0, Math.round((Date.now() - 
 export function BuyDone({ batchId }: { batchId: string }) {
   const { navigate } = useApp();
   const [signing, setSigning] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [, tick] = useState(0);
   const b = useApi(`buy:${batchId}`, () => api.buyProgress(batchId), { pollMs: 2500 });
@@ -242,27 +243,59 @@ export function BuyDone({ batchId }: { batchId: string }) {
     try {
       const { action } = await api.buySwap(batchId, e.assetId);
       const signed = await signAction(action);
-      await api.buySwapSubmit(batchId, e.assetId, signed.signedTx!);
-    } catch (x) { setErr(`${assetName(e.assetId, e.name)}: ${errorCopy(codeOf(x))}`); }
-    finally { setSigning(null); b.reload(); }
+      if (!signed.signedTx) throw Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" });
+      await api.buySwapSubmit(batchId, e.assetId, signed.signedTx);
+    } catch (x) {
+      const details = detailsOf(x);
+      const msg = codeOf(x) === "INSUFFICIENT_FREE" && details?.availableUsd6
+        ? `You have ${fmtUsd6(details.availableUsd6)} on Solana. Add funds or buy a smaller amount.`
+        : errorCopy(codeOf(x));
+      setErr(`${assetName(e.assetId, e.name)}: ${msg}`);
+    } finally { setSigning(null); b.reload(); }
   }, [batchId, b]);
 
-  // Once USDC is on Solana, ask for each swap signature in turn (the user can also tap Retry).
+  // Auto-sign only fresh quoted rows — paused ones wait for an explicit Retry so we don't loop failures.
   const auto = useRef(false);
   useEffect(() => {
-    if (!d || auto.current || signing || (d.status !== "swap_ready" && d.status !== "swapping")) return;
-    const pending = d.entries.filter(e => e.status === "quoted" || e.status === "paused");
+    if (!d || auto.current || signing || retrying || (d.status !== "swap_ready" && d.status !== "swapping")) return;
+    const pending = d.entries.filter(e => e.status === "quoted" && !e.error);
     if (!pending.length) return;
     auto.current = true;
     (async () => { for (const e of pending) await swapOne(e); })();
-  }, [d, signing, swapOne]);
+  }, [d, signing, retrying, swapOne]);
+
+  const retryPipeline = async () => {
+    setRetrying(true); setErr(null); auto.current = false;
+    try {
+      await api.buyRetry(batchId);
+      await b.reload();
+    } catch (x) {
+      if (codeOf(x) === "VALIDATION" && detailsOf(x)?.reason === "needs_new_buy") {
+        setErr("This buy never left Arc. Start a new buy from Review.");
+      } else {
+        setErr(errorCopy(codeOf(x)));
+      }
+    } finally { setRetrying(false); }
+  };
 
   const bought = d?.entries.filter(e => e.status === "bought") ?? [];
-  const canSwap = d && (d.status === "swap_ready" || d.status === "swapping");
+  const open = d?.entries.filter(e => e.status !== "bought") ?? [];
+  const canSwap = d && (d.status === "swap_ready" || d.status === "swapping" || d.status === "failed" || d.status === "done_partial");
   const stages = d && BigInt(d.bridgeUsd6) > 0n ? STAGES : [];
-  const kicker = !d ? "Loading…" : d.status === "done" ? "In your wallet" : d.status === "bridging" ? "Waiting for your Arc approval" : d.status === "attesting" ? "Circle is attesting the transfer · usually under a minute" : d.status === "minting" ? "Delivering USDC on Solana" : "Sign each swap to finish";
+  const cctpStuck = d && (d.status === "attesting" || d.status === "minting" || (d.status === "bridging" && !!d.links.arc));
+  const needsNewBuy = d?.status === "bridging" && !d.links.arc;
+  const showRetry = !!(d && (d.error || cctpStuck || open.some(e => e.status === "paused" || e.status === "waiting") || d.status === "failed" || d.status === "done_partial"));
+  const batchErr = pipelineCopy(d?.error);
+  const kicker = !d ? "Loading…"
+    : d.status === "done" ? "In your wallet"
+    : d.status === "failed" ? "Paused — tap Retry to continue"
+    : d.status === "bridging" ? "Waiting for your Arc approval"
+    : d.status === "attesting" ? "Circle is attesting the transfer · usually under a minute"
+    : d.status === "minting" ? "Delivering USDC on Solana"
+    : "Sign each swap to finish";
+
   return <div className="page flow narrow">
-    <FlowHead title={finished ? "Buy done" : "Buying"} back="/" />
+    <FlowHead title={d?.status === "done" ? "Buy done" : "Buying"} back="/" />
     <ErrorState error={b.error} onRetry={b.reload} />
     <div className="center celebrate">
       <div className="burst" aria-hidden="true">{d?.status === "done" && Array.from({ length: 10 }, (_, i) => <i key={i} style={{ "--a": `${i * 36}deg` } as React.CSSProperties} />)}<Coin3D size={112} /></div>
@@ -270,33 +303,61 @@ export function BuyDone({ batchId }: { batchId: string }) {
       <h1 className="h-hero">{bought.length} of {d?.entries.length ?? "…"}<br />bought</h1>
       {d && <p className="sub">{fmtUsd6(d.boughtUsd6)} of {fmtUsd6(d.totalUsd6)} · {elapsed(d.startedAt)}</p>}
     </div>
-    {d?.error && <p className="error" role="alert"><AlertTriangle size={14} /> Retrying automatically: {d.error}</p>}
+    {batchErr && <p className="error" role="alert"><AlertTriangle size={14} /> {d?.status === "attesting" || d?.status === "minting" ? "Still working: " : ""}{batchErr}</p>}
     {err && <p className="error" role="alert">{err}</p>}
     {d && <ol className="card list" style={{ marginTop: 20 }} aria-live="polite">
-      {stages.map(st => { const done = st.doneAfter.includes(d.status); const link = st.key === "arc" ? d.links.arc : st.key === "mint" ? d.links.mint : undefined;
+      {stages.map(st => {
+        const done = st.doneAfter.includes(d.status);
+        const active = !done && ((st.key === "arc" && d.status === "bridging") || (st.key === "attest" && d.status === "attesting") || (st.key === "mint" && d.status === "minting"));
+        const link = st.key === "arc" ? d.links.arc : st.key === "mint" ? d.links.mint : undefined;
         return <li className="row" key={st.key}>
           <span className="mini-icon sm">{done ? <Check size={16} /> : <Loader2 size={16} className="spin" />}</span>
-          <span className="row-main"><span className="row-title">{st.label}</span>{st.key === "arc" && <span className="row-sub">{fmtUsd6(d.bridgeUsd6)}</span>}</span>
+          <span className="row-main">
+            <span className="row-title">{st.label}</span>
+            <span className="row-sub">{st.key === "arc" ? fmtUsd6(d.bridgeUsd6) : active && d.error ? pipelineCopy(d.error) : active ? "In progress" : done ? "Done" : "Waiting"}</span>
+          </span>
           {link && <a className="fineprint" href={link} target="_blank" rel="noreferrer"><ExternalLink size={14} /> {st.key === "arc" ? "Arc" : "Solscan"}</a>}
-        </li>; })}
-      {d.entries.map(e => { const name = assetName(e.assetId, e.name); const busy = signing === e.assetId || e.status === "sent";
+        </li>;
+      })}
+      {d.entries.map(e => {
+        const name = assetName(e.assetId, e.name);
+        const busy = signing === e.assetId || e.status === "sent";
+        const entryErr = pipelineCopy(e.error);
+        const sub = e.status === "bought" ? `${e.qty} ${e.token ?? ""} at ${fmtUsd6(e.fillPriceUsd6 ?? "0")}`
+          : busy ? "Approve in wallet, then confirming on Solana…"
+          : e.status === "paused" ? (entryErr || "Didn't go through")
+          : canSwap ? "Ready to sign"
+          : "Waits for USDC on Solana";
         return <li className="row" key={e.assetId}>
           <Monogram tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : busy ? <Loader2 size={16} className="spin" /> : name.slice(0, 2).toUpperCase()}</Monogram>
           <span className="row-main">
             <span className="row-title">Buy {e.token ?? name}</span>
-            <span className="row-sub">{e.status === "bought" ? `${e.qty} ${e.token ?? ""} at ${fmtUsd6(e.fillPriceUsd6 ?? "0")}` : busy ? "Approve in wallet, then confirming on Solana…" : e.status === "paused" ? `Didn't go through${e.error ? ` · ${e.error}` : ""}` : canSwap ? "Ready to sign" : "Waits for USDC on Solana"}</span>
+            <span className="row-sub">{sub}</span>
           </span>
           <span className="row-end">
             <span className="row-value">{fmtUsd6(e.spentUsd6 ?? e.amountUsd6)}</span>
             {e.explorerUrl && <a className="fineprint" href={e.explorerUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Solscan</a>}
-            {canSwap && !busy && (e.status === "quoted" || e.status === "paused" || e.status === "waiting") && <button className="button secondary sm" disabled={!!signing} onClick={() => swapOne(e)}>{e.status === "quoted" ? "Sign and buy" : "Retry"}</button>}
+            {canSwap && !busy && e.status !== "bought" && (
+              <button className="button secondary sm" disabled={!!signing || retrying} onClick={() => swapOne(e)}>
+                {e.status === "quoted" && !e.error ? "Sign and buy" : "Retry"}
+              </button>
+            )}
           </span>
-        </li>; })}
+        </li>;
+      })}
     </ol>}
     {!d && !b.error && <Skeleton h={180} mt={28} />}
     {d && d.status !== "done" && <p className="fineprint center">You can leave this screen; the transfer keeps going. Come back from Activity to sign the swaps.</p>}
     <div className="dock">
-      <button className="button primary full lg" onClick={() => navigate("/holdings")}>See what you own <ArrowRight size={18} /></button>
+      {needsNewBuy && <button className="button primary full lg" onClick={() => navigate("/buy/review")}>Start a new buy <ArrowRight size={18} /></button>}
+      {showRetry && !needsNewBuy && (
+        <button className="button primary full lg" disabled={retrying || !!signing} onClick={retryPipeline}>
+          {retrying ? <><Loader2 size={16} className="spin" /> Retrying…</> : <><RefreshCw size={16} /> Retry</>}
+        </button>
+      )}
+      <button className={`button ${showRetry || needsNewBuy ? "quiet" : "primary"} full lg`} onClick={() => navigate("/holdings")}>
+        See what you own {!(showRetry || needsNewBuy) && <ArrowRight size={18} />}
+      </button>
       {bought[0] && <button className="button quiet full" onClick={() => navigate(`/holdings/${encodeURIComponent(bought[0].assetId)}#share`)}><Share2 size={16} /> Share what I own</button>}
     </div>
   </div>;

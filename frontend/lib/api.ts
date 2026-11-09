@@ -110,6 +110,7 @@ export const api = {
   buyArcSubmitted: (batchId: string, txHash: string) => send<{ status: BuyStatus }>("POST", `/buys/${batchId}/arc-submitted`, { txHash }),
   buySwap: (batchId: string, assetId: string) => send<{ action: SolAction; estQty: string; token: string }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}`, {}),
   buySwapSubmit: (batchId: string, assetId: string, signedTx: string) => send<{ status: "bought"; venueTx: string; explorerUrl: string; qty: string; spentUsd6: Usd6 }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}/submit`, { signedTx }),
+  buyRetry: (batchId: string) => send<{ status: BuyStatus }>("POST", `/buys/${batchId}/retry`, {}),
   arcTx: (hash: string) => get<{ status: "pending" | "success" | "reverted"; explorerUrl: string }>(`/chain/arc/tx/${hash}`),
   buyProgress: (batchId: string) => get<BuyProgress>(`/buys/${batchId}`),
   sellsReview: (assetId: string, qty?: string) => get<SellReview>(`/sells/review?assetId=${encodeURIComponent(assetId)}${qty ? `&qty=${encodeURIComponent(qty)}` : ""}`),

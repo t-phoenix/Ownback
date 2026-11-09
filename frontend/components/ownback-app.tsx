@@ -21,6 +21,7 @@ import { Jars, BuyReview, BuyDone, SellReview, SellDone } from "./screens/buy";
 import { Receipts } from "./screens/receipts";
 import { Settings, Funds } from "./screens/settings";
 import { SignIn, Rules } from "./screens/onboarding";
+import { ScreenBoundary } from "./states";
 
 const tabs = [
   { path: "/", label: "Home", Icon: HomeIcon, key: "H" },
@@ -176,7 +177,9 @@ function Shell({ initialPath }: { initialPath: string }) {
       {!bare && <Sidebar path={route} navigate={navigate} />}
       <main className="stage" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
         {isTab && <div className={`ptr ${refreshing ? "spin" : ""}`} style={{ height: pull, opacity: Math.min(1, pull / 60) }} aria-hidden="true"><RefreshCw size={18} style={{ transform: `rotate(${pull * 3}deg)` }} /></div>}
-        <div key={path} className={`screen enter-${dir}`}>{screen}</div>
+        <div key={path} className={`screen enter-${dir}`}>
+          <ScreenBoundary resetKey={path}>{screen}</ScreenBoundary>
+        </div>
       </main>
       {isTab && me && <TabBar path={route} navigate={navigate} />}
       {toast && <div key={toast.id} className="toast" role="status">{toast.text}</div>}

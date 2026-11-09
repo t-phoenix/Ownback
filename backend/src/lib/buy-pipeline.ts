@@ -12,6 +12,7 @@ import { arcChain, getKeeperWalletClient } from './keeper.js';
 import { fetchAttestation, receiveOnSolana } from './cctp.js';
 import { usdcAtaBytes32 } from './solana-ata.js';
 import { newId } from './ids.js';
+import { pipelineError } from './pipeline-error.js';
 
 export const VAULT_ABI = parseAbi([
   'function solanaRecipient(address) view returns (bytes32)',
@@ -120,9 +121,9 @@ export async function advanceBatch(id: string): Promise<void> {
       await sql`UPDATE buy_batches SET mint_tx = COALESCE(${sig}, mint_tx), status = 'swap_ready', error = NULL, updated_at = now() WHERE id = ${id}::uuid`;
     }
   } catch (e) {
-    // Keep the state so the next tick retries; surface the reason to the user.
-    const msg = e instanceof ApiError ? `${e.code}${e.details ? ` ${JSON.stringify(e.details)}` : ''}` : (e as Error).message;
-    await sql`UPDATE buy_batches SET error = ${msg.slice(0, 300)}, updated_at = now() WHERE id = ${id}::uuid`.catch(() => {});
+    // Keep the state so the next tick / user Retry can continue; surface a short code the UI maps.
+    const msg = pipelineError(e);
+    await sql`UPDATE buy_batches SET error = ${msg}, updated_at = now() WHERE id = ${id}::uuid`.catch(() => {});
   } finally {
     running.delete(id);
   }

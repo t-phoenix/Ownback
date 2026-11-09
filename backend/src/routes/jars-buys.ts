@@ -25,6 +25,7 @@ import {
   logEvent,
   verifyArcBurn,
 } from '../lib/buy-pipeline.js';
+import { pipelineError } from '../lib/pipeline-error.js';
 
 /** Smallest buy we build (testing with small numbers is a feature; dust routes are not). */
 export const MIN_BUY_USD6 = 100_000n;
@@ -368,6 +369,12 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId', async (c) => {
       token: mint.symbol,
     });
   } catch (err) {
+    const msg = pipelineError(err);
+    const batchId = c.req.param('batchId');
+    const assetId = c.req.param('assetId');
+    await getSql()`UPDATE buy_entries SET status = 'paused', error = ${msg}, swap_msg_hash = NULL
+      WHERE batch_id = ${batchId}::uuid AND asset_id = ${assetId} AND status <> 'bought'`.catch(() => {});
+    await getSql()`UPDATE buy_batches SET error = ${msg}, updated_at = now() WHERE id = ${batchId}::uuid`.catch(() => {});
     return jsonError(c, err);
   }
 });
@@ -396,19 +403,68 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId/submit', async (c) => {
     const spent = usdcDelta < 0n ? -usdcDelta : BigInt(e.amount_usd6);
     const qty = rawToQty(outRaw, mint.decimals);
     await sql`UPDATE buy_entries SET status = 'bought', spent_usd6 = ${spent.toString()}::bigint, qty = ${qty}::numeric,
-      qty_raw = ${outRaw.toString()}, fill_price_usd6 = ${priceUsd6FromBuyQuote(spent, outRaw, mint.decimals).toString()}::bigint
+      qty_raw = ${outRaw.toString()}, fill_price_usd6 = ${priceUsd6FromBuyQuote(spent, outRaw, mint.decimals).toString()}::bigint, error = NULL
       WHERE id = ${e.id}::uuid`;
     await debitJars(user.id, e.asset_id, spent);
     await logEvent(user.id, 'buy_done', { amountUsd6: spent.toString(), assetId: e.asset_id, qty, token: mint.symbol, tx: sig }, `/holdings/${e.asset_id}`);
     const left = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM buy_entries WHERE batch_id = ${b.id}::uuid AND status <> 'bought'`;
-    if (left[0]!.n === 0) await sql`UPDATE buy_batches SET status = 'done', finished_at = now(), updated_at = now() WHERE id = ${b.id}::uuid`;
+    if (left[0]!.n === 0) {
+      await sql`UPDATE buy_batches SET status = 'done', error = NULL, finished_at = now(), updated_at = now() WHERE id = ${b.id}::uuid`;
+    } else {
+      await sql`UPDATE buy_batches SET error = NULL, updated_at = now() WHERE id = ${b.id}::uuid`;
+    }
     return c.json({ status: 'bought', venueTx: sig, explorerUrl: EXPLORER.solTx(sig), qty, spentUsd6: toUsd6(spent) });
   } catch (err) {
     if (entryId) {
-      const msg = err instanceof ApiError ? `${err.code}${err.details ? ` ${JSON.stringify(err.details)}` : ''}` : (err as Error).message;
-      await sql`UPDATE buy_entries SET status = 'paused', error = ${msg.slice(0, 300)} WHERE id = ${entryId}::uuid AND status <> 'bought'`.catch(() => {});
+      const msg = pipelineError(err);
+      await sql`UPDATE buy_entries SET status = 'paused', error = ${msg}, swap_msg_hash = NULL WHERE id = ${entryId}::uuid AND status <> 'bought'`.catch(() => {});
+      await sql`UPDATE buy_batches SET error = ${msg}, updated_at = now() WHERE id = ${c.req.param('batchId')}::uuid`.catch(() => {});
     }
     return jsonError(c, err instanceof z.ZodError ? new ApiError('VALIDATION', { issues: err.issues }) : err);
+  }
+});
+
+/**
+ * User-facing Retry: kick CCTP delivery, or reopen paused swaps.
+ * Bridging with no Arc tx yet needs a fresh buy from review (nothing on-chain to resume).
+ */
+jarsBuysRoutes.post('/buys/:batchId/retry', async (c) => {
+  try {
+    requireCsrf(c);
+    const user = await requireUser(c);
+    const b = await loadBatch(user, c.req.param('batchId'));
+    const sql = getSql();
+
+    if (b.status === 'done') throw new ApiError('VALIDATION', { reason: 'already_done' });
+
+    if (b.status === 'bridging' && !b.arc_tx) {
+      throw new ApiError('VALIDATION', { reason: 'needs_new_buy' });
+    }
+
+    if (b.status === 'bridging' && b.arc_tx) {
+      await sql`UPDATE buy_batches SET status = 'attesting', error = NULL, updated_at = now() WHERE id = ${b.id}::uuid`;
+      await advanceBatch(b.id);
+      const [n] = await sql<{ status: string }[]>`SELECT status FROM buy_batches WHERE id = ${b.id}::uuid`;
+      return c.json({ status: n?.status ?? 'attesting' });
+    }
+
+    if (b.status === 'attesting' || b.status === 'minting') {
+      await sql`UPDATE buy_batches SET error = NULL, updated_at = now() WHERE id = ${b.id}::uuid`;
+      await advanceBatch(b.id);
+      const [n] = await sql<{ status: string }[]>`SELECT status FROM buy_batches WHERE id = ${b.id}::uuid`;
+      return c.json({ status: n?.status ?? b.status });
+    }
+
+    if (b.status === 'swap_ready' || b.status === 'swapping' || b.status === 'failed' || b.status === 'done_partial') {
+      await sql`UPDATE buy_entries SET status = 'quoted', error = NULL, swap_msg_hash = NULL
+        WHERE batch_id = ${b.id}::uuid AND status IN ('paused', 'waiting', 'quoted', 'sent')`;
+      await sql`UPDATE buy_batches SET status = 'swap_ready', error = NULL, updated_at = now() WHERE id = ${b.id}::uuid`;
+      return c.json({ status: 'swap_ready' });
+    }
+
+    throw new ApiError('DEPOSIT_NOT_READY', { status: b.status });
+  } catch (e) {
+    return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
   }
 });
 

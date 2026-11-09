@@ -23,5 +23,6 @@ export function installShotApi() {
   api.confirm = async () => ({ action: { kind: "typed_data" as const, typedData: {}, summary: "demo" } });
   api.confirmSubmitted = async () => ({ ...f.purchase, status: "saved" as const });
   api.buy = async () => ({ batchId: f.SHOT_IDS.batch });
+  api.buyRetry = async () => ({ status: "swap_ready" as const });
   api.putRules = async (patch) => ({ ...f.rules, ...patch });
 }

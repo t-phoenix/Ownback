@@ -26,6 +26,26 @@ const errors: Record<string, string> = {
   DEPOSIT_NOT_READY: "That buy isn't ready to swap yet. Wait a moment and try again.",
 };
 
+/** Maps buy_batches.error / buy_entries.error (short codes from the API) to calm copy. */
+export function pipelineCopy(raw?: string | null): string {
+  if (!raw) return "";
+  const s = raw.trim();
+  if (/^INSUFFICIENT_FREE/i.test(s)) return "Not enough USDC on Solana for this amount. Add funds or buy a smaller amount.";
+  if (/^UPSTREAM:no_route|^UPSTREAM:swap_build/i.test(s)) return "The swap route didn't build. Tap Retry.";
+  if (/tx_too_large|overruns Uint8Array/i.test(s)) return "Solana delivery hit a size limit. Tap Retry.";
+  if (/^TX_REVERTED|^CHALLENGE_FAILED/i.test(s)) return "Nothing was moved. Tap Retry.";
+  if (/^BAD_SIGNATURE/i.test(s)) return "That approval didn't go through. Tap Retry.";
+  if (/^TX_NOT_FOUND/i.test(s)) return "Still confirming. Tap Retry in a moment.";
+  if (/^KEEPER_DISABLED/i.test(s)) return "Buys are paused while we check something. Your money is safe.";
+  if (/^UPSTREAM/i.test(s)) return "A network step failed. Your money is safe — tap Retry.";
+  if (/superseded/i.test(s)) return "This buy was replaced by a later one.";
+  // Never show raw codes/JSON to the user.
+  if (/^[A-Z_]+(:\S+)?$/.test(s) || s.startsWith("{") || s.includes("0x")) {
+    return "Something went wrong. Your money is safe — tap Retry.";
+  }
+  return s.length > 140 ? "Something went wrong. Your money is safe — tap Retry." : s;
+}
+
 export function errorCopy(code: string | undefined, details?: { freeUsd6?: string; shortUsd6?: string; leftUsd6?: string }): string {
   if (code === "OFFLINE") return "You're offline · showing what we had";
   if (code === "INSUFFICIENT_FREE" && details?.freeUsd6 && details?.shortUsd6) {

@@ -208,6 +208,7 @@ type PurchaseDetails = {
 | POST | `/api/buys/:batchId/arc-submitted` | `{ txHash }` | `{ status }` (server reads the receipt for `Withdrawn(user, bridge, 5)`) | `TX_NOT_FOUND`, `TX_REVERTED` |
 | POST | `/api/buys/:batchId/swaps/:assetId` | — | `{ action: sol_tx /* relay-signed, user signs */; estQty; token }` | `DEPOSIT_NOT_READY` (USDC not on Solana yet), `INSUFFICIENT_FREE`, `UPSTREAM` |
 | POST | `/api/buys/:batchId/swaps/:assetId/submit` | `{ signedTx }` (base64) | `{ status: 'bought'; venueTx; explorerUrl; qty; spentUsd6 }` | `BAD_SIGNATURE` (message changed), `TX_REVERTED` |
+| POST | `/api/buys/:batchId/retry` | — | `{ status }` (kick CCTP delivery, or reopen paused swaps → `swap_ready`) | `VALIDATION` (`needs_new_buy` if Arc never signed; `already_done`), `DEPOSIT_NOT_READY` |
 | GET | `/api/chain/arc/tx/:hash` | — | `{ status: 'pending' \| 'success' \| 'reverted'; explorerUrl }` | — |
 | GET | `/api/buys/:batchId` | — | `BuyProgress` (poll every 2–3 s) | — |
 | GET | `/api/sells/review?assetId&qty?` | — | `{ assetId; name; token; mint; decimals; heldQty /* on-chain */; qty; amountRaw; estUsdcUsd6; priceUsd6; fees; destination }` | `FEATURE_OFF`, `NOT_FOUND` |

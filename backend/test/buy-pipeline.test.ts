@@ -6,6 +6,8 @@ import { qtyToRaw } from '../src/lib/qty.js';
 import { formatUsd, largestRemainderCents } from '../src/shared/money.js';
 import { burnToArcInstruction, mintRecipientOf } from '../src/lib/cctp.js';
 import { usdcAtaForSolAddress } from '../src/lib/solana-ata.js';
+import { pipelineError } from '../src/lib/pipeline-error.js';
+import { ApiError } from '../src/shared/errors.js';
 
 describe('money and decimals', () => {
   it('formats $1.05 as $1.05 (old deposit copy printed $1.50)', () => {
@@ -38,6 +40,14 @@ describe('money and decimals', () => {
     expect(out).toBe(995_767n); // floor of 995767.5
     expect(routeFeeUsd6(1_000_000n, out)).toBe(4_233n);
     expect(routeFeeUsd6(1_000_000n, 1_100_000n)).toBe(0n);
+  });
+});
+
+describe('pipeline errors', () => {
+  it('stores short codes, not JSON dumps', () => {
+    expect(pipelineError(new ApiError('UPSTREAM', { reason: 'swap_build_failed' }))).toBe('UPSTREAM:swap_build_failed');
+    expect(pipelineError(new Error('RangeError: encoding overruns Uint8Array'))).toBe('UPSTREAM:tx_too_large');
+    expect(pipelineError(new ApiError('INSUFFICIENT_FREE', { availableUsd6: '400000', where: 'solana' }))).toBe('INSUFFICIENT_FREE');
   });
 });
 
