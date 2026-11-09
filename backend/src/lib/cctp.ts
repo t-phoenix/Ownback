@@ -77,18 +77,35 @@ export async function receiveOnSolana(messageHex: string, attestationHex: string
     throw new ApiError('NO_SOLANA_RECIPIENT', { reason: 'mint_recipient_mismatch' });
   }
 
+  // receiveMessage alone is ~1226 bytes (under the 1232 cap). Bundling ATA create overflows
+  // ("encoding overruns Uint8Array") and the worker retries forever with USDC stuck in CCTP.
+  if (!(await c.getAccountInfo(recipientAta))) {
+    const { blockhash: bh } = await c.getLatestBlockhash();
+    const create = new VersionedTransaction(
+      new TransactionMessage({
+        payerKey: relay.publicKey,
+        recentBlockhash: bh,
+        instructions: [
+          createAssociatedTokenAccountIdempotentInstruction(relay.publicKey, recipientAta, owner, SOL_USDC, TOKEN_PROGRAM_ID),
+        ],
+      }).compileToV0Message(),
+    );
+    create.sign([relay]);
+    await confirmSig(await c.sendRawTransaction(create.serialize(), { skipPreflight: false, maxRetries: 3 }));
+  }
+
   const tmInfo = await c.getAccountInfo(pda([Buffer.from('token_messenger')], TMM));
   if (!tmInfo) throw new ApiError('UPSTREAM', { reason: 'token_messenger_missing' });
   const feeRecipient = new PublicKey(tmInfo.data.subarray(FEE_RECIPIENT_OFFSET, FEE_RECIPIENT_OFFSET + 32));
   const keys = receiveMessageKeys(relay.publicKey, nonce, recipientAta, feeRecipient);
   const data = Buffer.concat([RECEIVE_MESSAGE, borshBytes(message), borshBytes(hexBytes(attestationHex))]);
-  const ixs = [
-    createAssociatedTokenAccountIdempotentInstruction(relay.publicKey, recipientAta, owner, SOL_USDC, TOKEN_PROGRAM_ID),
-    new TransactionInstruction({ programId: MT, keys, data }),
-  ];
   const { blockhash } = await c.getLatestBlockhash();
   const tx = new VersionedTransaction(
-    new TransactionMessage({ payerKey: relay.publicKey, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message(),
+    new TransactionMessage({
+      payerKey: relay.publicKey,
+      recentBlockhash: blockhash,
+      instructions: [new TransactionInstruction({ programId: MT, keys, data })],
+    }).compileToV0Message(),
   );
   tx.sign([relay]);
   const sig = await c.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });

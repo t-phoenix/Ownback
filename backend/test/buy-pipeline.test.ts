@@ -42,6 +42,33 @@ describe('money and decimals', () => {
 });
 
 describe('CCTP', () => {
+  it('receiveMessage alone fits the 1232-byte tx cap; ATA create in the same tx does not', async () => {
+    // Regression for minting spinner: "encoding overruns Uint8Array".
+    const { TransactionInstruction, TransactionMessage, Keypair } = await import('@solana/web3.js');
+    const { TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } = await import('@solana/spl-token');
+    const { receiveMessageKeys, hexBytes } = await import('../src/lib/cctp.js');
+    const msg = hexBytes('0x000000010000001a0000000549c2a5fc82e64116485cee711b41c13af1b128c22bb8f1a3cc26cef3df94837400000000000000000000000028b5a0e9c621a5badaa536219b3a228c8168cf5da65fc81d0fefa8860cb3b83f089b0224be8a6687b7ae49f594c0b9b4d7e938930000000000000000000000000000000000000000000000000000000000000000000007d0000007d00000000100000000000000000000000036000000000000000000000000000000000000000dd248e8be761ef8e3a444edf3ef92b69b7ff423959eb69910bb497d7b9cd08200000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000273104299bb7795ac06ef1caac59c88e3efeb864000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000');
+    const att = hexBytes('0x2e023cc9a67506df1a265917566c5b470e7e197f4ecd3232514d3ca35735ba3902b66b38f0bbfbc98c2ac396934bd4e43d9988708e26e7bda64033a7886d31ea1bef3b36125aad15f323b677fa9d5ccbb29a6ad126f81422dff2689dd6439543214759eba09ef3e3a8cdd3f247533738a0e6485066f2dfc6f70ff9fb503f27fd6d1b');
+    const payer = Keypair.generate().publicKey;
+    const owner = Keypair.generate().publicKey;
+    const ata = new PublicKey(msg.subarray(148 + 36, 148 + 68));
+    const borsh = (b: Buffer) => { const l = Buffer.alloc(4); l.writeUInt32LE(b.length); return Buffer.concat([l, b]); };
+    const recv = new TransactionInstruction({
+      programId: new PublicKey('CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC'),
+      keys: receiveMessageKeys(payer, msg.subarray(12, 44), ata, Keypair.generate().publicKey),
+      data: Buffer.concat([Buffer.from([38, 144, 127, 225, 31, 225, 238, 25]), borsh(msg), borsh(att)]),
+    });
+    const create = createAssociatedTokenAccountIdempotentInstruction(
+      payer, ata, owner, new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'), TOKEN_PROGRAM_ID,
+    );
+    const bh = Keypair.generate().publicKey.toBase58();
+    const alone = new TransactionMessage({ payerKey: payer, recentBlockhash: bh, instructions: [recv] }).compileToV0Message().serialize();
+    expect(alone.length + 65).toBeLessThanOrEqual(1232);
+    expect(() =>
+      new TransactionMessage({ payerKey: payer, recentBlockhash: bh, instructions: [create, recv] }).compileToV0Message().serialize(),
+    ).toThrow(/overruns|too large/i);
+  });
+
   it('reads the mint recipient from a V2 burn message (header 148, body 36..68)', () => {
     const ata = new PublicKey(usdcAtaForSolAddress('DUjBeocZjZxPnUy7v9LSAinKmue5qr4bfaBD9ewBUG5T'));
     const msg = Buffer.alloc(148 + 228);
