@@ -61,16 +61,30 @@ export type Jar = { assetId: string; name: string; role: string; amountUsd6: Usd
 export type Jars = { jars: Jar[]; nextReminderAt: string; estFeesUsd6: Usd6 };
 export type Fees = { totalUsd6: Usd6; pctBps: number; covered?: boolean; withinCap?: boolean };
 export type SignableAction =
-  | { kind: "evm_calls"; chain: string; calls: { to: string; data: string; value: "0" }[]; summary: string }
+  | { kind: "evm_calls"; chain: string; calls: { to: string; data: string; value: "0" }[]; labels?: string[]; summary: string }
   | { kind: "sol_tx"; txBase64: string; feePayer: string; summary: string }
   | { kind: "typed_data"; typedData: unknown; summary: string };
-export type BuyReview = { quoteId: string; expiresAt: string; rows: { assetId: string; name: string; amountUsd6: Usd6; jarAmountUsd6?: Usd6; token?: string; mint?: string; decimals?: number; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; estQty: string; maxPriceUsd6: Usd6; fees: Fees; selectable: boolean; reason?: string; arkiv?: { key: string; url: string } }[]; totalUsd6: Usd6; fees: Fees; destination: string; approval: { kind: "typed_data"; typedData: unknown } };
-export type BuyProgress = { batchId: string; status: string; entries: { assetId: string; name: string; status: string; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; venueTx?: string; explorerUrl?: string }[]; totals?: { boughtUsd6: Usd6; leftInJarsUsd6: Usd6; feesUsd6: Usd6; slippageBps: number }; destination: string };
-export type SellReview = { quoteId: string; expiresAt: string; assetId: string; name: string; token?: string; mint?: string; decimals?: number; qty: string; amountRaw: string; estUsdcUsd6: Usd6; fees: Fees; destination: string; action: SignableAction };
-export type SellProgress = { sellId: string; status: string; venueTx?: string; explorerUrl?: string; receivedUsd6?: Usd6 };
+export type BuyRow = { assetId: string; name: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; token?: string; mint?: string; decimals?: number; issuer?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string } };
+export type BuyReview = { quoteId: string; expiresAt: string; rows: BuyRow[]; totalUsd6: Usd6; fees: Fees; funding: { solanaUsdc6: Usd6; arcUsdc6: Usd6; bridgeUsd6: Usd6 }; destination: string };
+export type BuyStatus = "bridging" | "attesting" | "minting" | "swap_ready" | "swapping" | "done" | "done_partial" | "failed";
+export type BuyEntry = { assetId: string; name: string; token?: string; status: "quoted" | "waiting" | "sent" | "bought" | "paused"; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; error?: string; venueTx?: string; explorerUrl?: string };
+export type BuyProgress = { batchId: string; status: BuyStatus; startedAt: string; totalUsd6: Usd6; bridgeUsd6: Usd6; error?: string; links: { arc?: string; mint?: string }; entries: BuyEntry[]; boughtUsd6: Usd6; destination: string };
+export type BuyStart = { batchId: string; action?: Extract<SignableAction, { kind: "evm_calls" }> };
+export type SolAction = Extract<SignableAction, { kind: "sol_tx" }>;
+export type SellReview = { assetId: string; name: string; token: string; mint: string; decimals: number; heldQty: string; qty: string; amountRaw: string; estUsdcUsd6: Usd6; priceUsd6: Usd6; fees: Fees; destination: string };
+export type SellProgress = { sellId: string; status: "signing" | "sent" | "done" | "failed"; assetId: string; qty: string; venueTx?: string; explorerUrl?: string; receivedUsd6?: Usd6; error?: string };
+export type MoveProgress = { moveId: string; status: string; amountUsd6: Usd6; links: { sol?: string; arc?: string }; error?: string };
 export type Allocation = { assetId: string; name: string; role: "maker" | "supplier" | "material" | "fallback"; tokenized: boolean; amountUsd6: Usd6; selected: boolean; why?: string };
-export type PurchaseStatus = "reading" | "read_failed" | "ready" | "needs_review" | "not_listed" | "skipped" | "confirming" | "saved" | "deleted";
-export type Purchase = { id: string; status: PurchaseStatus; source: string; receipt?: { shop: string; place?: string; date: string; items: string[]; local: { amount: string; currency: string }; fxRate: string; amountUsd6: Usd6 }; investUsd6?: Usd6; rateBps?: number; split?: { maker: number; behind: number; materials: number }; allocations: Allocation[]; ogRequestIds: string[]; readError?: "no_total" | "no_product" | "not_a_receipt"; limit?: { usedUsd6: Usd6; capUsd6: Usd6; leftUsd6: Usd6 } };
+export type PurchaseStatus = "reading" | "read_failed" | "needs_details" | "ready" | "needs_review" | "not_listed" | "skipped" | "confirming" | "saved" | "deleted";
+export type ReadStep = { key: "read" | "convert" | "understand" | "jury" | "judge" | "resolve"; state: "todo" | "running" | "done" | "failed"; label: string };
+export type ReadError = "not_a_receipt" | "og_unavailable" | "timeout" | "no_total" | "no_product";
+export type DetailItem = { name: string; brand?: string | null; model?: string | null; category?: string | null; qty: number; unitPrice?: string | null; lineTotal?: string | null };
+export type PurchaseDetails = { merchant?: string | null; date?: string | null; currency: string; subtotal?: string | null; tax?: string | null; total: string; items: DetailItem[] };
+export type DetailField = "merchant" | "date" | "currency" | "total" | "items";
+/** D30 jury row: only `buyable` rows can get money. */
+export type JuryRow = { name: string; ticker?: string; role?: string; why: string; agree: number; of: number; status: "buyable" | "tokenized_unverified" | "not_onchain" | "private"; assetId?: string; symbol?: string };
+export type Analysis = { productType: "physical" | "digital" | "service" | "cpg" | null; category: string | null; parent: JuryRow | null; enablers: JuryRow[]; commodities: JuryRow[]; jurors: { model: string; persona: string; ok: boolean }[]; cached: boolean };
+export type Purchase = { id: string; status: PurchaseStatus; source: string; steps: ReadStep[]; receipt?: { shop: string; place?: string; date: string; items: string[]; local: { amount: string; currency: string }; fxRate: string; amountUsd6: Usd6 }; details?: Partial<PurchaseDetails> & { missing?: DetailField[] }; analysis?: Analysis; investUsd6?: Usd6; rateBps?: number; split?: { maker: number; behind: number; materials: number }; allocations: Allocation[]; ogRequestIds: string[]; readError?: ReadError; limit?: { usedUsd6: Usd6; capUsd6: Usd6; leftUsd6: Usd6 } };
 export type Receipts = { stats: { count: number; spentUsd6: Usd6; putToWorkUsd6: Usd6 }; groups: { month: string; rows: ReceiptRow[] }[]; nextCursor: string | null };
 export type Activity = { groups: { label: "Today" | "Earlier"; items: { id: string; kind: string; title: string; body: string; link: string; at: string }[] }[] };
 export type Rules = { rateBps: number; monthlyCapUsd6: Usd6; readyMinUsd6: Usd6; maxFeeBps: number; fallbackAsset: string; split: { maker: number; behind: number; materials: number }; buyDay: "sun"; onchainSynced: boolean };
@@ -92,10 +106,18 @@ export const api = {
     amounts && Object.keys(amounts).length
       ? send<BuyReview>("POST", "/buys/review", { include: all ? "all" : "ready", amounts }, true)
       : get<BuyReview>(`/buys/review${all ? "?include=all" : ""}`),
-  buy: (quoteId: string, approval: unknown, signature: string) => send<{ batchIds: string[] }>("POST", "/buys", { quoteId, approval, signature }, true),
+  buy: (quoteId: string) => send<BuyStart>("POST", "/buys", { quoteId }, true),
+  buyArcSubmitted: (batchId: string, txHash: string) => send<{ status: BuyStatus }>("POST", `/buys/${batchId}/arc-submitted`, { txHash }),
+  buySwap: (batchId: string, assetId: string) => send<{ action: SolAction; estQty: string; token: string }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}`, {}),
+  buySwapSubmit: (batchId: string, assetId: string, signedTx: string) => send<{ status: "bought"; venueTx: string; explorerUrl: string; qty: string; spentUsd6: Usd6 }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}/submit`, { signedTx }),
+  arcTx: (hash: string) => get<{ status: "pending" | "success" | "reverted"; explorerUrl: string }>(`/chain/arc/tx/${hash}`),
   buyProgress: (batchId: string) => get<BuyProgress>(`/buys/${batchId}`),
   sellsReview: (assetId: string, qty?: string) => get<SellReview>(`/sells/review?assetId=${encodeURIComponent(assetId)}${qty ? `&qty=${encodeURIComponent(qty)}` : ""}`),
-  sell: (quoteId: string, txHash?: string) => send<{ sellId: string }>("POST", "/sells", { quoteId, ...(txHash ? { txHash } : {}) }, true),
+  sell: (assetId: string, qty?: string) => send<{ sellId: string; action?: SolAction; estUsdcUsd6?: Usd6 }>("POST", "/sells", { assetId, ...(qty ? { qty } : {}) }),
+  sellSubmit: (sellId: string, signedTx: string) => send<{ status: "done"; venueTx: string; explorerUrl: string; receivedUsd6: Usd6 }>("POST", `/sells/${sellId}/submit`, { signedTx }),
+  moveToArc: (amountUsd6: Usd6) => send<{ moveId: string; action: SolAction }>("POST", "/moves/to-arc", { amountUsd6 }),
+  moveSubmit: (moveId: string, signedTx: string) => send<{ status: string; solTx: string; explorerUrl: string }>("POST", `/moves/${moveId}/submit`, { signedTx }),
+  moveProgress: (moveId: string) => get<MoveProgress>(`/moves/${moveId}`),
   sellProgress: (sellId: string) => get<SellProgress>(`/sells/${sellId}`),
   receipts: (filter = "all") => get<Receipts>(`/receipts?filter=${filter}`),
   activity: () => get<Activity>("/activity"),
@@ -106,8 +128,9 @@ export const api = {
   gmailState: () => get<GmailState>("/gmail/state"),
   gmailConnect: () => send<{ authUrl: string }>("POST", "/gmail/connect", {}),
   createPurchaseMedia: (field: "image" | "audio", file: Blob, name: string) => { const f = new FormData(); f.append(field, file, name); return send<{ purchaseId: string }>("POST", "/purchases", f, true); },
-  createPurchaseTyped: (text: { product: string; amount: string; currency: string; maker?: string }) => send<{ purchaseId: string }>("POST", "/purchases", { text }, true),
+  createPurchaseTyped: (text: { product: string; amount: string; currency: string; maker?: string; model?: string; shop?: string; date?: string }) => send<{ purchaseId: string }>("POST", "/purchases", { text }, true),
   purchase: (id: string) => get<Purchase>(`/purchases/${id}`),
+  saveDetails: (id: string, d: PurchaseDetails) => send<Purchase>("PUT", `/purchases/${id}/details`, d),
   deselect: (id: string, deselect: string[]) => send<Purchase>("PUT", `/purchases/${id}/assets`, { deselect }),
   makerOnly: (id: string, s: { maker: number; behind: number; materials: number }) => send<Purchase>("PUT", `/purchases/${id}/split`, { ...s, makerOnly: true, saveForFuture: false }),
   fallback: (id: string, choice: "fallback" | "skip") => send<Purchase>("PUT", `/purchases/${id}/fallback`, { choice }),

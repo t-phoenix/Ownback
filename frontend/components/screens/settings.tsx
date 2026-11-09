@@ -37,7 +37,7 @@ const FALLBACKS = [
 
 export function Settings() {
   const { navigate, notify } = useApp();
-  const { me, signOut } = useSession();
+  const { me, signOut, refresh } = useSession();
   const rules = useApi("rules", api.rules);
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [rate, setRate] = useState(5);
@@ -61,7 +61,7 @@ export function Settings() {
     try { if (t === "system") localStorage.removeItem("ob-theme"); else localStorage.setItem("ob-theme", t); } catch { /* ignore */ }
   };
   const save = async (patch: Parameters<typeof api.putRules>[0]) => {
-    try { await api.putRules(patch); setSheet(null); rules.reload(); notify("Saved"); }
+    try { await api.putRules(patch); setSheet(null); rules.reload(); await refresh(); notify("Saved"); }
     catch (e) { notify(errorCopy(e instanceof ApiError ? e.code : undefined)); }
   };
   const download = async () => {

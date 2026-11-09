@@ -1,4 +1,4 @@
-import { configForJob, type OgJob } from './models.js';
+import { configForJob, type OgJob, type OgModelConfig } from './models.js';
 
 const BASE = 'https://router-api.0g.ai/v1';
 
@@ -57,14 +57,22 @@ function messageContent(raw: unknown): string {
   return (msg?.reasoning_content ?? '').trim();
 }
 
+/** Read failures the user can retry (og_unavailable / timeout) vs everything else. */
+export function ogErrorKind(e: unknown): 'timeout' | 'og_unavailable' {
+  const name = (e as { name?: string })?.name;
+  return name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'og_unavailable';
+}
+
 export async function ogChat(opts: {
   job: OgJob;
+  /** Override the job's model (jurors run on different models). */
+  model?: OgModelConfig;
   messages: unknown[];
   responseFormat?: { type: 'json_object' };
   maxTokens?: number;
   timeoutMs?: number;
 }): Promise<OgChatResult> {
-  const cfg = configForJob(opts.job);
+  const cfg = opts.model ?? configForJob(opts.job);
   if (cfg.endpoint !== 'chat') throw new Error(`ogChat: job ${opts.job} is ${cfg.endpoint}`);
   const t0 = Date.now();
   const res = await fetch(`${BASE}/chat/completions`, {
@@ -78,7 +86,7 @@ export async function ogChat(opts: {
       ...(opts.responseFormat ? { response_format: opts.responseFormat } : {}),
     }),
     // GLM private parse often lands 12–20s; 10s default aborted typed receipts (demo 7 Nov).
-    signal: AbortSignal.timeout(opts.timeoutMs ?? (opts.job === 'read_receipt' ? 45_000 : 45_000)),
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 45_000),
   });
   const raw = await res.json().catch(() => ({}));
   if (!res.ok) {

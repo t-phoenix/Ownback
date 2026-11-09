@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Camera, Check, ChevronDown, FileText, Mail, Mic, ShieldCheck, Sparkles, Square } from "lucide-react";
+import { ArrowRight, Camera, Check, ChevronDown, FileText, Mail, Mic, Plus, ShieldCheck, Sparkles, Square, Trash2, X } from "lucide-react";
 import { useApp } from "../app-context";
 import { ConfirmAction, Creative, GlassJar, Monogram, Tilt, haptic, useCoarse } from "../ui";
 import { ErrorState, Skeleton } from "../states";
-import { api, ApiError, type Purchase } from "../../lib/api";
+import { api, ApiError, type Allocation, type DetailField, type JuryRow, type Purchase, type PurchaseDetails, type ReadStep } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
-import { errorCopy, readErrorCopy, readTips } from "../../lib/copy";
-import { setPending, takePending, type PendingRead } from "../../lib/pending";
+import { errorCopy, readErrorCopy, readErrorText, readTips } from "../../lib/copy";
+import { lastRead, setLastRead, setPending, takePending, type PendingRead } from "../../lib/pending";
 import { signAction } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtLocal, fmtUsd6 } from "../../lib/money";
@@ -95,30 +95,101 @@ export function AddPurchase() {
   </div>;
 }
 
+const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SGD", "JPY", "CAD", "AUD"];
+const money = /^\d+(\.\d{1,2})?$/;
+type ItemDraft = { name: string; brand: string; model: string; category: string; qty: string; lineTotal: string };
+const toDraft = (i?: Partial<PurchaseDetails["items"][number]>): ItemDraft => ({ name: i?.name ?? "", brand: i?.brand ?? "", model: i?.model ?? "", category: i?.category ?? "", qty: String(i?.qty ?? 1), lineTotal: i?.lineTotal ?? "" });
+const opt = (v: string) => (v.trim() ? v.trim() : undefined);
+
+/** "Check the details": the read's fields, prefilled and editable. Typed purchases use it too (D30). */
+export function DetailsForm({ initial, missing = [], single, submitLabel, onSubmit }: {
+  initial?: Partial<PurchaseDetails>; missing?: DetailField[]; single?: boolean; submitLabel: string; onSubmit: (d: PurchaseDetails) => Promise<void> | void;
+}) {
+  const [merchant, setMerchant] = useState(initial?.merchant ?? "");
+  const [date, setDate] = useState(initial?.date ?? "");
+  const [currency, setCurrency] = useState(initial?.currency || "INR");
+  const [total, setTotal] = useState(initial?.total ?? "");
+  const [items, setItems] = useState<ItemDraft[]>(initial?.items?.length ? initial.items.map(toDraft) : [toDraft()]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const miss = (f: DetailField) => missing.includes(f);
+  const totalOk = money.test(total) && Number(total) > 0;
+  const named = items.filter(i => i.name.trim());
+  const valid = totalOk && /^[A-Z]{3}$/.test(currency) && named.length > 0 && named.every(i => !i.lineTotal || money.test(i.lineTotal));
+  const setItem = (n: number, k: keyof ItemDraft, v: string) => setItems(xs => xs.map((x, i) => (i === n ? { ...x, [k]: v } : x)));
+  const submit = async () => {
+    if (!valid || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      await onSubmit({
+        merchant: opt(merchant), date: opt(date), currency, total,
+        items: named.map(i => ({ name: i.name.trim(), brand: opt(i.brand), model: opt(i.model), category: opt(i.category), qty: Math.max(1, parseInt(i.qty, 10) || 1), lineTotal: opt(i.lineTotal) })),
+      });
+    } catch (e) { setErr(errorCopy(e instanceof ApiError ? e.code : undefined)); setBusy(false); }
+  };
+  const hint = (f: DetailField) => miss(f) ? <em className="missing-hint">We couldn't read this</em> : null;
+  return <form className="card form details-form" onSubmit={e => { e.preventDefault(); void submit(); }}>
+    {items.map((it, n) => <fieldset key={n} className={`item-fields ${miss("items") && !it.name ? "missing" : ""}`}>
+      <label className={`field ${miss("items") && !it.name ? "missing" : ""}`}><span>{single ? "What did you buy?" : `Item ${n + 1}`} {n === 0 && hint("items")}</span>
+        <input value={it.name} onChange={e => setItem(n, "name", e.target.value)} placeholder="iPhone 17 Pro" aria-invalid={miss("items") && !it.name} autoFocus={n === 0 && !it.name} /></label>
+      <div className="field-row">
+        <label className="field grow"><span>Brand <em>(optional)</em></span><input value={it.brand} onChange={e => setItem(n, "brand", e.target.value)} placeholder="Apple" /></label>
+        <label className="field grow"><span>Model <em>(optional)</em></span><input value={it.model} onChange={e => setItem(n, "model", e.target.value)} placeholder="256 GB" /></label>
+      </div>
+      {!single && <div className="field-row">
+        <label className="field"><span>Qty</span><input value={it.qty} onChange={e => setItem(n, "qty", e.target.value.replace(/\D/g, ""))} inputMode="numeric" /></label>
+        <label className="field grow"><span>Line total <em>(optional)</em></span><input value={it.lineTotal} onChange={e => setItem(n, "lineTotal", e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" /></label>
+        {items.length > 1 && <button type="button" className="button quiet icon-only" aria-label={`Remove item ${n + 1}`} onClick={() => setItems(xs => xs.filter((_, i) => i !== n))}><Trash2 size={16} /></button>}
+      </div>}
+    </fieldset>)}
+    {!single && items.length < 30 && <button type="button" className="button quiet" onClick={() => setItems(xs => [...xs, toDraft()])}><Plus size={16} /> Add an item</button>}
+    <div className="field-row">
+      <label className={`field grow ${miss("total") ? "missing" : ""}`}><span>Amount paid {hint("total")}</span><input value={total} onChange={e => setTotal(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" placeholder="79900" aria-invalid={miss("total")} /></label>
+      <label className={`field ${miss("currency") ? "missing" : ""}`}><span>Currency {hint("currency")}</span><select value={currency} onChange={e => setCurrency(e.target.value)} aria-invalid={miss("currency")}>{[...new Set([currency, ...CURRENCIES])].map(c => <option key={c}>{c}</option>)}</select></label>
+    </div>
+    {total && !totalOk && <p className="error left">Enter an amount above $0.</p>}
+    <div className="field-row">
+      <label className={`field grow ${miss("merchant") ? "missing" : ""}`}><span>Shop <em>(optional)</em> {hint("merchant")}</span><input value={merchant} onChange={e => setMerchant(e.target.value)} placeholder="Croma" /></label>
+      <label className={`field ${miss("date") ? "missing" : ""}`}><span>Date <em>(optional)</em></span><input type="date" value={date} max={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} /></label>
+    </div>
+    {err && <p className="error" role="alert">{err}</p>}
+    <button className="button primary full lg" disabled={!valid || busy}>{busy ? "Saving…" : submitLabel} {!busy && <ArrowRight size={18} />}</button>
+  </form>;
+}
+
 export function TypeIt() {
   const { navigate } = useApp();
-  const [product, setProduct] = useState(""); const [amount, setAmount] = useState(""); const [currency, setCurrency] = useState("INR"); const [maker, setMaker] = useState("");
-  const valid = product.trim().length > 0 && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
   return <div className="page flow narrow">
     <FlowHead title="Type it" back="/add" />
-    <form className="card form" onSubmit={e => { e.preventDefault(); if (valid) startRead({ kind: "typed", text: { product: product.trim(), amount, currency, ...(maker.trim() ? { maker: maker.trim() } : {}) } }, navigate); }}>
-      <label className="field"><span>What did you buy?</span><input value={product} onChange={e => setProduct(e.target.value)} placeholder="iPhone 16 Pro" autoFocus /></label>
-      <div className="field-row">
-        <label className="field grow"><span>Amount paid</span><input value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" placeholder="79900" /></label>
-        <label className="field"><span>Currency</span><select value={currency} onChange={e => setCurrency(e.target.value)}><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
-      </div>
-      {amount && !valid && <p className="error left">Enter an amount above $0.</p>}
-      <label className="field"><span>Brand <em>(optional)</em></span><input value={maker} onChange={e => setMaker(e.target.value)} placeholder="Apple" /></label>
-      <button className="button primary full lg" disabled={!valid}>Find the companies <ArrowRight size={18} /></button>
-    </form>
+    <DetailsForm single submitLabel="Find the companies" onSubmit={d => {
+      const i = d.items[0]!;
+      startRead({ kind: "typed", text: { product: i.name, amount: d.total, currency: d.currency, ...(i.brand ? { maker: i.brand } : {}), ...(i.model ? { model: i.model } : {}), ...(d.merchant ? { shop: d.merchant } : {}), ...(d.date ? { date: d.date } : {}) } }, navigate);
+    }} />
   </div>;
 }
 
-const steps = ["Read the receipt", "Converted to dollars", "Found the maker", "Finding companies behind it", "Checking which ones you can buy"];
+/** The read that needs a human: prefilled form, missing fields highlighted. Saving re-runs the jury. */
+function CheckDetails({ p, onCancel }: { p: Purchase; onCancel?: () => void }) {
+  const { navigate } = useApp();
+  const d = p.details;
+  return <div className="page flow narrow">
+    <FlowHead title="Check the details" back="/add" />
+    <p className="lede">{p.status === "needs_details" ? "We couldn't read everything. Fix or fill in what's highlighted, then we'll find the companies." : "Change anything that's wrong. We'll look for the companies again."}</p>
+    <DetailsForm initial={d} missing={p.status === "needs_details" ? d?.missing : []} submitLabel="Find the companies" onSubmit={async v => {
+      await api.saveDetails(p.id, v);
+      startRead({ kind: "resume", id: p.id }, navigate);
+    }} />
+    {onCancel && <button className="button quiet full" onClick={onCancel}><X size={16} /> Keep the current match</button>}
+  </div>;
+}
+
+const placeholderSteps: ReadStep[] = ["Read the receipt", "Convert to dollars", "Understand the product", "Ask 3 private AI jurors", "Merge their answers", "Check which ones you can buy"]
+  .map((label, i) => ({ key: "read", label, state: i === 0 ? "running" : "todo" }));
+const READ_LIMIT_MS = 330_000; // server reaper fails a read after 5 min
 
 export function Reading() {
   const { navigate } = useApp();
-  const [done, setDone] = useState(0);
+  const [steps, setSteps] = useState<ReadStep[]>(placeholderSteps);
   const [error, setError] = useState<ApiError | null>(null);
   const [req, setReq] = useState<string | null>(null);
   const started = useRef(false);
@@ -126,30 +197,44 @@ export function Reading() {
     if (started.current) return; started.current = true;
     const p = takePending();
     if (!p) { navigate("/add", { dir: "back" }); return; }
-    // Steps tick while 0G works (p50 ≈ 5–10 s); the last one waits for the real answer.
-    const t = setInterval(() => setDone(d => { if (d < steps.length - 1) { haptic(4); return d + 1; } return d; }), 1800);
+    let alive = true;
     (async () => {
       try {
-        const { purchaseId } = p.kind === "typed" ? await api.createPurchaseTyped(p.text) : await api.createPurchaseMedia(p.kind === "image" ? "image" : "audio", p.file, p.name);
+        // D30: the POST answers at once; the steps below are the server's real progress.
+        const purchaseId = p.kind === "resume" ? p.id : (p.kind === "typed" ? await api.createPurchaseTyped(p.text) : await api.createPurchaseMedia(p.kind === "image" ? "image" : "audio", p.file, p.name)).purchaseId;
+        const t0 = Date.now();
         let pur: Purchase = await api.purchase(purchaseId);
-        for (let i = 0; pur.status === "reading" && i < 40; i++) { await new Promise(r => setTimeout(r, 700)); pur = await api.purchase(purchaseId); }
+        let done = 0;
+        while (alive && pur.status === "reading" && Date.now() - t0 < READ_LIMIT_MS) {
+          if (pur.steps?.length) {
+            const n = pur.steps.filter(s => s.state === "done").length;
+            if (n > done) { haptic(4); done = n; }
+            setSteps(pur.steps);
+          }
+          await new Promise(r => setTimeout(r, 700));
+          pur = await api.purchase(purchaseId);
+        }
+        if (!alive) return;
+        if (pur.steps?.length) setSteps(pur.steps);
         setReq(pur.ogRequestIds[0] ?? null);
-        clearInterval(t); setDone(steps.length); refreshAll();
-        setTimeout(() => navigate(pur.status === "read_failed" ? "/add/error" : `/add/${purchaseId}`), 450);
-      } catch (e) { clearInterval(t); setError(e instanceof ApiError ? e : new ApiError("UPSTREAM", 0)); }
+        refreshAll();
+        if (pur.status === "reading") { setLastRead(p, "timeout"); navigate("/add/error"); return; }
+        if (pur.status === "read_failed") { setLastRead(p, pur.readError); setTimeout(() => navigate("/add/error"), 300); return; }
+        setTimeout(() => navigate(`/add/${purchaseId}`), 450);
+      } catch (e) { setError(e instanceof ApiError ? e : new ApiError("UPSTREAM", 0)); }
     })();
-    return () => clearInterval(t);
+    return () => { alive = false; };
   }, [navigate]);
   return <div className="page flow narrow">
     <FlowHead title="Reading your receipt" back="/add" />
     <div className="scan"><Creative name="receipt" className="scan-img" priority /><span className="scan-line" aria-hidden="true" /></div>
     <h2 className="h-title center">Finding what's inside</h2>
-    <p className="sub center">This usually takes a few seconds.</p>
+    <p className="sub center">Three private AI models on 0G look at it. Usually under a minute.</p>
     <ErrorState error={error} onRetry={() => navigate("/add", { dir: "back" })} />
     <ol className="steps" aria-live="polite">
-      {steps.map((s, i) => <li key={s} className={i < done ? "done" : i === done ? "now" : ""}>
-        <span className="step-dot">{i < done ? <Check size={14} strokeWidth={2.6} /> : i === done ? <Sparkles size={13} className="spin" /> : null}</span>
-        <span>{s}</span>
+      {steps.map((s, i) => <li key={`${s.key}-${i}`} className={s.state === "done" ? "done" : s.state === "running" ? "now" : s.state === "failed" ? "failed" : ""}>
+        <span className="step-dot">{s.state === "done" ? <Check size={14} strokeWidth={2.6} /> : s.state === "running" ? <Sparkles size={13} className="spin" /> : s.state === "failed" ? <X size={13} /> : null}</span>
+        <span>{s.label}</span>
       </li>)}
     </ol>
     <p className="fineprint center">Read by a private AI model on 0G. The photo is deleted after reading.{req && <><br /><span className="mono">Request ID {req.slice(0, 4)}…{req.slice(-3)}</span></>}</p>
@@ -158,16 +243,56 @@ export function Reading() {
 
 export function ReadError() {
   const { navigate } = useApp();
+  const last = lastRead();
+  const e = (last?.readError && readErrorText[last.readError]) || { text: readErrorCopy, retry: false };
+  const canRetry = e.retry && last && last.input.kind !== "resume";
   return <div className="page flow narrow center">
     <FlowHead title="Couldn't read" back="/add" />
     <div className="scan dim"><Creative name="receipt" className="scan-img" /></div>
-    <p className="lede">{readErrorCopy}</p>
-    <ul className="tips">{readTips.map(t => <li key={t}>{t}</li>)}</ul>
+    <p className="lede">{e.text}</p>
+    {!e.retry && <ul className="tips">{readTips.map(t => <li key={t}>{t}</li>)}</ul>}
     <div className="dock">
-      <button className="button primary full lg" onClick={() => navigate("/add", { dir: "back" })}>Retake photo</button>
+      {canRetry ? <button className="button primary full lg" onClick={() => startRead(last!.input, navigate)}>Try again</button>
+        : <button className="button primary full lg" onClick={() => navigate("/add", { dir: "back" })}>Retake photo</button>}
       <button className="button quiet full" onClick={() => navigate("/add/type")}>Type it instead</button>
     </div>
   </div>;
+}
+
+const badge = (r: JuryRow) => r.status === "buyable" && r.symbol ? `Buy on Solana · ${r.symbol}` : r.status === "private" ? "Private company" : "Not on-chain yet";
+
+/** D30 Confirm: parent, top 5 enablers, top 3 commodities. Only buyable rows (they hold an allocation) get a checkbox. */
+function JurySections({ a, allocs, done, onToggle }: { a: NonNullable<Purchase["analysis"]>; allocs: Allocation[]; done: boolean; onToggle: (assetId: string) => void }) {
+  const byId = new Map(allocs.map(x => [x.assetId, x]));
+  const selectedCount = allocs.filter(x => x.selected).length;
+  const tick = (al: Allocation, label: string) =>
+    <input type="checkbox" className="tick" checked={al.selected} disabled={done || (al.selected && selectedCount === 1)} onChange={() => onToggle(al.assetId)} aria-label={`Include ${label}`} />;
+  const row = (r: JuryRow, i: number) => {
+    const al = r.status === "buyable" && r.assetId ? byId.get(r.assetId) : undefined;
+    const body = <>
+      {al ? tick(al, r.name) : <span className="tick-gap" aria-hidden="true" />}
+      <Monogram name={r.name} tone={toneFor(r.assetId ?? r.name)} size={38} />
+      <span className="row-main">
+        <span className="row-title">{r.name}{r.ticker && <span className="ticker"> {r.ticker}</span>}</span>
+        <span className="jury-why">{r.why}</span>
+        <span className="jury-meta"><span className={`jury-badge ${al ? "on" : ""}`}>{badge(r)}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
+      </span>
+      {al && <span className="row-end"><span className="row-value">{fmtUsd6(al.amountUsd6)}</span></span>}
+    </>;
+    return al ? <label key={`${r.name}-${i}`} className="row split-row jury-row">{body}</label> : <div key={`${r.name}-${i}`} className="row jury-row off">{body}</div>;
+  };
+  const fallback = allocs.filter(x => x.role === "fallback");
+  return <>
+    <section className="jury-section"><h3 className="micro">Parent company</h3><div className="card list">{a.parent ? row(a.parent, 0) : <p className="sub pad">No clear parent company.</p>}</div></section>
+    <section className="jury-section"><h3 className="micro">Top 5 companies that help build it</h3><div className="card list">{a.enablers.length ? a.enablers.map(row) : <p className="sub pad">None found.</p>}</div></section>
+    <section className="jury-section"><h3 className="micro">Top 3 commodities</h3><div className="card list">{a.commodities.length ? a.commodities.map(row) : <p className="sub pad">None that matter for this one.</p>}</div></section>
+    {!!fallback.length && <section className="jury-section"><h3 className="micro">Your fallback</h3><div className="card list">{fallback.map(f => <label key={f.assetId} className="row split-row jury-row">
+      {tick(f, assetName(f.assetId, f.name))}
+      <Monogram name={assetName(f.assetId, f.name)} tone={toneFor(f.assetId)} size={38} />
+      <span className="row-main"><span className="row-title">{assetName(f.assetId, f.name)}</span><span className="jury-why">Gets the share we can't buy on-chain yet.</span></span>
+      <span className="row-end"><span className="row-value">{fmtUsd6(f.amountUsd6)}</span></span>
+    </label>)}</div></section>}
+  </>;
 }
 
 const roleLabel: Record<string, string> = { maker: "Maker", supplier: "Behind it", material: "Material", fallback: "Fallback" };
@@ -179,11 +304,14 @@ export function Confirm({ id }: { id: string }) {
   const home = useApi("home", api.home);
   const rules = useApi("rules", api.rules);
   const [why, setWhy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [shortfall, setShortfall] = useState<{ freeUsd6: string; shortUsd6: string } | null>(null);
   const [limitLeft, setLimitLeft] = useState<string | null>(null);
   const data = p.data;
+  // Opened while the read still runs (reload, deep link): go back to the live steps.
+  useEffect(() => { if (data?.status === "reading") startRead({ kind: "resume", id }, navigate); }, [data?.status, id, navigate]);
   const toggle = async (assetId: string) => {
     if (!data) return; haptic(5);
     const off = data.allocations.filter(a => (a.assetId === assetId ? a.selected : !a.selected)).map(a => a.assetId);
@@ -213,6 +341,8 @@ export function Confirm({ id }: { id: string }) {
   };
   if (p.error) return <div className="page flow"><FlowHead title="Confirm purchase" back="/add" /><ErrorState error={p.error} onRetry={p.reload} /></div>;
   if (!data) return <div className="page flow"><FlowHead title="Confirm purchase" back="/add" /><Skeleton h={110} /><Skeleton h={260} mt={18} /></div>;
+
+  if (data.status === "needs_details" || editing) return <CheckDetails p={data} onCancel={editing ? () => setEditing(false) : undefined} />;
 
   const r = data.receipt;
   const selected = data.allocations.filter(a => a.selected);
@@ -259,20 +389,22 @@ export function Confirm({ id }: { id: string }) {
       </div>
 
       <div>
-        <div className="card list">
+        {data.analysis ? <JurySections a={data.analysis} allocs={data.allocations} done={done} onToggle={toggle} /> : <div className="card list">
           {data.allocations.map(a => <label key={a.assetId} className="row split-row">
             <input type="checkbox" className="tick" checked={a.selected} disabled={done || data.allocations.length === 1} onChange={() => toggle(a.assetId)} />
             <Monogram name={assetName(a.assetId, a.name)} tone={toneFor(a.assetId)} size={38} />
             <span className="row-main"><span className="row-title">{assetName(a.assetId, a.name)}</span><span className="role">{roleLabel[a.role] ?? a.role}</span></span>
             <span className="row-end"><span className="row-value">{fmtUsd6(a.amountUsd6)}</span></span>
           </label>)}
-        </div>
-        <button className="disclose" aria-expanded={why} onClick={() => setWhy(!why)}>Why these companies? <ChevronDown size={16} /></button>
+        </div>}
+        <button className="disclose" aria-expanded={why} onClick={() => setWhy(!why)}>{data.analysis ? "How we chose these" : "Why these companies?"} <ChevronDown size={16} /></button>
         {why && <div className="why">
-          {data.allocations.filter(a => a.why).map(a => <p key={a.assetId}><b>{assetName(a.assetId, a.name)}:</b> {a.why}</p>)}
+          {data.analysis ? <p>{data.analysis.cached ? "Answered earlier by the jury for this product: " : "Three private AI jurors on 0G answered on their own, then a judge merged them: "}{data.analysis.jurors.map(j => `${j.model}${j.ok ? "" : " (no answer)"}`).join(", ") || "seed list"}. Code checked every name against the token registry; only verified tokens with a live Jupiter route can be bought.</p>
+            : data.allocations.filter(a => a.why).map(a => <p key={a.assetId}><b>{assetName(a.assetId, a.name)}:</b> {a.why}</p>)}
           {!!data.ogRequestIds.length && <p className="mono">AI request ID: {data.ogRequestIds.map(x => `${x.slice(0, 4)}…${x.slice(-3)}`).join(", ")}</p>}
           {!data.ogRequestIds.length && data.source === "typed" && <p className="sub">Typed entry — matched from the company registry (no receipt AI read).</p>}
         </div>}
+        {!done && data.details && <button className="button quiet" onClick={() => setEditing(true)}>Wrong details? Edit them</button>}
         <p className="fee"><ShieldCheck size={15} /> Network fee $0.00 · we cover it</p>
         {err && <p className="error" role="alert">{err}</p>}
         {done ? <div className="dock"><button className="button primary full lg" onClick={() => navigate("/jars")}>View your jars</button></div>

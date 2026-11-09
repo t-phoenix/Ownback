@@ -109,6 +109,12 @@ jobRoutes.post('/jobs/rest-pending', async (c) => {
   try {
     cronAuth(c);
     const sql = getSql();
+    // Reaper (D30): a read that died with its process never leaves `reading`; fail it as retryable.
+    const reaped = await sql`
+      UPDATE purchases SET status = 'read_failed', read_error = 'timeout', updated_at = now()
+      WHERE status = 'reading' AND updated_at < now() - interval '5 minutes'
+      RETURNING id
+    `;
     const rows = await sql<{ id: string; user_id: string; rest_usd6: bigint }[]>`
       SELECT id, user_id, rest_usd6 FROM purchases
       WHERE rest_usd6 > 0 AND status = 'saved'
@@ -123,7 +129,7 @@ jobRoutes.post('/jobs/rest-pending', async (c) => {
         )
       `;
     }
-    return c.json({ ok: true, notified: rows.length });
+    return c.json({ ok: true, notified: rows.length, reaped: reaped.length });
   } catch (e) {
     return jsonError(c, e);
   }

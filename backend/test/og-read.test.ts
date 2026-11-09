@@ -25,7 +25,7 @@ describe('model output parsing', () => {
     expect(r.total).toBe('114900.00');
     expect(r.currency).toBe('INR');
     expect(r.items[0]!.qty).toBe(1);
-    expect(r.isProduct).toBe(true);
+    expect(r.merchant).toBe('Croma');
   });
   it('throws when there is no JSON', () => {
     expect(() => extractJson('I cannot read this image.')).toThrow();

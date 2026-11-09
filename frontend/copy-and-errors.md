@@ -29,6 +29,9 @@ The UI never shows the code itself.
 | `UPLOAD_TOO_LARGE` | Add | "That file is too big. Try a screenshot instead." | — |
 | `UNSUPPORTED_MEDIA` | Add | "We can read photos, screenshots and voice notes." | — |
 | `READ_FAILED` | Couldn't read | "We couldn't find a total or a product name. Nothing was saved." + tips "Flat surface, good light · Whole receipt in the frame · Or a screenshot of the order page" | Retake photo · Type it instead |
+| readError `not_a_receipt` | Couldn't read | "This doesn't look like a receipt or order screen. Nothing was saved." + tips | Retake photo · Type it instead |
+| readError `og_unavailable` | Couldn't read | "The private AI on 0G didn't answer. Nothing was saved. Try again in a moment." | Try again · Type it instead |
+| readError `timeout` | Couldn't read | "Reading took too long. Nothing was saved. Try again." | Try again · Type it instead |
 | `NOTHING_TO_BUY` | Confirm | → Brand not listed screen | — |
 | `INSUFFICIENT_FREE` | Confirm | "You have {free} free. Add {short} or save {free} now and the rest later." | Add funds · Save {free} |
 | `LIMIT_REACHED` | Confirm | → Limit reached screen | — |
@@ -45,6 +48,8 @@ The UI never shows the code itself.
 | `NO_READY_JARS` | Jars, Buy review | "No jar is ready yet. You can still buy a smaller jar with Buy now anyway." | — |
 | `GMAIL_DISABLED` | Gmail card | Hide the Gmail card; show only Snap / Say / Type | — |
 | `FEATURE_OFF` | Settings (0G account) | Hide the row | — |
+| `INSUFFICIENT_FREE` (buy, `availableUsd6`) | Buy review | "You have {available} available on Arc. Add funds or buy a smaller amount." | Add funds |
+| `VALIDATION` (amount) | Buy review, Sell | "Check the amount and try again. The smallest buy is $0.10." | — |
 | `NO_SOLANA_RECIPIENT` | Withdraw | "Set up your Solana wallet first." (shows one approval) | Set up |
 | `GMAIL_REVOKED` | Gmail card | (state 6 copy below) | Reconnect |
 | `UPSTREAM`, `INTERNAL`, unknown | any | "We couldn't load this. Your money isn't affected." | Try again |
@@ -84,7 +89,9 @@ The UI never shows the code itself.
 | Screen / state | Copy |
 |---|---|
 | Add footer | "Receipts and emails are read by a private AI model on 0G and not stored. Only shop, item, amount and date are kept." |
-| Reading steps | "Read the receipt · {shop}, {date}" · "Converted {local} → {usd} ({rate}/$)" · "Found the maker · {maker}" · "Finding companies behind it" · "Checking which ones you can buy" · footer "Read by a private AI model on 0G. The photo is deleted after reading. Request ID {id}" |
+| Reading steps (D30, from the server) | "Read the receipt" · "Convert to dollars" · "Understand the product" · "Ask 3 private AI jurors" · "Merge their answers" · "Check which ones you can buy" · sub "Three private AI models on 0G look at it. Usually under a minute." · footer "Read by a private AI model on 0G. The photo is deleted after reading. Request ID {id}" |
+| Check the details | title "Check the details" · needs_details "We couldn't read everything. Fix or fill in what's highlighted, then we'll find the companies." · edit "Change anything that's wrong. We'll look for the companies again." · missing field hint "We couldn't read this" · "Add an item" · button "Find the companies" · "Keep the current match" · Confirm link "Wrong details? Edit them" |
+| Confirm sections (D30) | "Parent company" · "Top 5 companies that help build it" · "Top 3 commodities" · "Your fallback" ("Gets the share we can't buy on-chain yet.") · row badge "Buy on Solana · {symbol}" / "Not on-chain yet" / "Private company" · "{n}/{of} agree" · disclosure "How we chose these" |
 | Confirm button | "Confirm {invest} across {n}" · "Only {maker}" · "Wrong product? Fix it" |
 | Confirm approval (Privy / seed) | "Move {invest} into {n} jars on Arc" |
 | Confirm fee (Q2) | "Network fee $0.00 · we cover it" (or "< $0.01") |

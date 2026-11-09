@@ -20,3 +20,20 @@ export const USDC = {
 export function isDepositChain(c: string): c is DepositChain {
   return (DEPOSIT_CHAINS as string[]).includes(c);
 }
+
+/** CCTP V2, ✓ in chain-config.md. Domains: Arc 26, Solana 5. */
+export const CCTP = {
+  arcDomain: 26,
+  solanaDomain: 5,
+  arcTokenMessenger: '0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d',
+  arcMessageTransmitter: '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+  solMessageTransmitter: 'CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC',
+  solTokenMessengerMinter: 'CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe',
+  iris: 'https://iris-api.circle.com',
+} as const;
+
+/** Explorer bases, ✓ in chain-config.md. */
+export const EXPLORER = {
+  arcTx: (h: string) => `https://explorer.arc.io/tx/${h}`,
+  solTx: (s: string) => `https://solscan.io/tx/${s}`,
+} as const;

@@ -14,7 +14,7 @@ When two sources disagree, the higher one wins:
 ## Never invent
 
 - **Addresses, mints, decimals, or "verified" flags.** Use only values marked ✓ in [contracts/chain-config.md](../contracts/chain-config.md). If a value is ☐, mark the asset `not tokenized yet` or the jar `no_venue`, or turn that venue's flag off.
-- **Automatic buys.** Jars never buy without a user-signed `BuyApproval` that the vault verifies.
+- **Automatic buys.** Jars never buy without the user signing. Since D29 that signature is the user's own Arc `withdrawCrossChain` plus one Solana swap signature per asset; the server checks the Arc `Withdrawn` event and the exact Solana message it built before acting.
 - **A per-company or per-asset cap** (`maxPerAssetBps`, `OverAssetCap`, `capOverflow`). These were removed (Q1). The monthly limit is the only spend cap. `readyMinUsd6` (default $5, user range $1–$50) is a reminder threshold, not a cap.
 - **Float money.** Money is `bigint` micro-USDC (`Usd6` digit strings in JSON). Invest amounts and split rows are whole cents (multiples of `10_000n`), using largest-remainder rounding (D18).
 - **Fee comparisons as ratios.** The only fee check is `(feeUsd6 * 10_000n) / amountUsd6 <= maxFeeBps` (docs/05).
@@ -29,7 +29,7 @@ When two sources disagree, the higher one wins:
 | Auth | Session cookie after `POST /api/auth/privy` or `/api/auth/seed`. No `x-circle-user-token` | [api-contract § Conventions](../backend/api-contract.md#conventions) |
 | Trust | The server never trusts a client's "it succeeded". It reads Arc receipts and events before changing state. The PWA decodes every action (`verifyAction`) before the user signs | docs/02, A5 |
 | Arc gas buffer | Deposits leave $0.10 USDC in the user's Arc wallet for gas (Google and seed) | [docs/05](05-gasless-and-fees.md) |
-| Solana buys | Relay pays gas/rent; Jupiter `payer` = relay, destination = ATA(`solAddress`, mint, token program) derived at swap time; never airdrop SOL (D26). Vault `solanaRecipient` is USDC-withdraw / CCTP only | docs/05, Q9, docs/03 O7 |
+| Solana buys | D29: user's Arc USDC → `withdrawCrossChain` → user's Solana USDC ATA → user-signed Jupiter swap with `payer` = relay (relay co-signs, pays gas/rent); never airdrop SOL. Quantity comes from the tx's token balances | docs/05, Q9, docs/03 D29 |
 | Arkiv reads | Always `.createdBy(WRITER).ownedBy(WRITER)`. A mint must also match `assets.ts` | [database/arkiv-schema.md](../database/arkiv-schema.md), A1 |
 | Keeper | EOA (`KEEPER_*`). Executes only stored, unexpired, signature-checked approvals. Re-simulates before each irreversible step. Anything not bought goes back to the jar (we pay) | [backend/keeper-and-jobs.md](../backend/keeper-and-jobs.md) |
 | Privacy | Never store images, audio or email bodies. Never put an address, email or shop name on Arkiv or in logs | [docs/06](06-security.md) |

@@ -16,7 +16,10 @@ import {
 } from '../lib/http.js';
 import { createHash } from 'node:crypto';
 import { newId, shareId } from '../lib/ids.js';
-import { isDepositChain } from '../shared/chains.js';
+import { EXPLORER, isDepositChain } from '../shared/chains.js';
+import { portfolio, type Held } from '../lib/portfolio.js';
+import { qtyToRaw } from '../lib/qty.js';
+import { verifiedMint } from '../shared/assets.js';
 
 export const activityRoutes = new Hono();
 
@@ -40,8 +43,12 @@ activityRoutes.get('/activity', async (c) => {
       const item = {
         id: r.id,
         kind: r.kind,
-        title: r.kind === 'deposit_added' && amt ? `${amt} added` : r.kind,
-        body: r.kind === 'deposit_added' && chainName ? `From ${chainName}` : '',
+        title: r.kind === 'deposit_added' && amt ? `${amt} added`
+          : r.kind === 'buy_done' && amt ? `Bought ${amt} of ${assetDisplayName(String(r.payload.assetId))}`
+          : r.kind === 'sell_done' && amt ? `Sold ${assetDisplayName(String(r.payload.assetId))} for ${amt}`
+          : r.kind,
+        body: r.kind === 'deposit_added' && chainName ? `From ${chainName}`
+          : (r.kind === 'buy_done' || r.kind === 'sell_done') && typeof r.payload?.tx === 'string' ? EXPLORER.solTx(r.payload.tx) : '',
         link: r.link ?? '/',
         at: r.created_at.toISOString(),
       };
@@ -194,60 +201,43 @@ activityRoutes.delete('/receipts', async (c) => {
   }
 });
 
+export function balanceJson(p: Awaited<ReturnType<typeof portfolio>>, inJars: bigint) {
+  return {
+    totalUsd6: toUsd6(p.dollars + p.owned),
+    byType: { stocksCommodities: toUsd6(p.owned), stablecoins: toUsd6(p.dollars), crypto: '0' },
+    byChain: { arc: toUsd6(p.arcUsdc), solana: toUsd6(p.solUsdc), base: '0', ethereum: '0', arbitrum: '0', bnb: '0' },
+    pricesAt: new Date().toISOString(),
+    stale: p.stale,
+    usdc: { freeUsd6: toUsd6(p.dollars), inJarsUsd6: toUsd6(inJars), arrivingUsd6: toUsd6(p.arriving) },
+  };
+}
+
+export function heldRow(h: Held) {
+  return { assetId: h.assetId, name: h.name, subtitle: `${h.qty} ${h.token} · Solana`, qty: h.qty, token: h.token, chain: 'solana', valueUsd6: toUsd6(h.valueUsd6) };
+}
+
+export async function jarsTotal(userId: string): Promise<bigint> {
+  const [r] = await getSql()<{ amount: bigint }[]>`
+    SELECT COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amount
+    FROM allocations a JOIN purchases p ON p.id = a.purchase_id
+    WHERE p.user_id = ${userId}::uuid AND p.status = 'saved' AND a.selected = true`;
+  return BigInt(r?.amount ?? 0);
+}
+
 activityRoutes.get('/holdings', async (c) => {
   try {
     const user = await requireUser(c);
-    const sql = getSql();
-    const funds = await freeByChain(user);
-    const free = funds.total;
-    const bought = await sql<{ asset_id: string; spent: bigint; qty: string | null }[]>`
-      SELECT asset_id, COALESCE(SUM(spent_usd6), 0) AS spent, MAX(qty)::text AS qty
-      FROM buy_entries WHERE user_id = ${user.id}::uuid AND status = 'bought'
-      GROUP BY asset_id ORDER BY spent DESC
-    `;
-    const owned = bought.reduce((s, r) => s + r.spent, 0n);
-    // MOCK: buy USDC still sits in the Arc wallet — show dollars as free − owned so total = live balance.
-    const dollars = free > owned ? free - owned : 0n;
-    const jars = await sql<{ amount: bigint }[]>`
-      SELECT COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amount
-      FROM allocations a JOIN purchases p ON p.id = a.purchase_id
-      WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved'
-    `;
-    const inJars = jars[0]?.amount ?? 0n;
-    const stockRows = bought.map((h) => ({
-      assetId: h.asset_id,
-      name: assetDisplayName(h.asset_id),
-      subtitle: h.qty ? `${h.qty} bought` : 'Bought',
-      ...(h.qty ? { qty: h.qty } : {}),
-      valueUsd6: toUsd6(h.spent),
-    }));
-    const sections = [
-      ...(owned > 0n
-        ? [{ key: 'stocksCommodities' as const, totalUsd6: toUsd6(owned), rows: stockRows }]
-        : []),
-      {
-        key: 'stablecoins' as const,
-        totalUsd6: toUsd6(dollars),
-        rows: [{ assetId: 'usdc', name: 'USDC', subtitle: 'Free', valueUsd6: toUsd6(dollars) }],
-      },
+    const [p, inJars] = await Promise.all([portfolio(user), jarsTotal(user.id)]);
+    const usdcRows = [
+      { assetId: 'usdc', name: 'USDC on Arc', subtitle: 'Free to buy with', chain: 'arc', valueUsd6: toUsd6(p.arcUsdc) },
+      ...(p.solUsdc > 0n ? [{ assetId: 'usdc-sol', name: 'USDC on Solana', subtitle: 'From sells or unspent buys', chain: 'solana', valueUsd6: toUsd6(p.solUsdc) }] : []),
     ];
     return c.json({
-      balance: {
-        totalUsd6: toUsd6(dollars + owned),
-        byType: { stocksCommodities: toUsd6(owned), stablecoins: toUsd6(dollars), crypto: '0' },
-        byChain: {
-          arc: toUsd6(free),
-          solana: '0',
-          base: '0',
-          ethereum: '0',
-          arbitrum: '0',
-          bnb: '0',
-        },
-        pricesAt: new Date().toISOString(),
-        stale: false,
-        usdc: { freeUsd6: toUsd6(dollars), inJarsUsd6: toUsd6(inJars), arrivingUsd6: toUsd6(funds.arriving) },
-      },
-      sections,
+      balance: balanceJson(p, inJars),
+      sections: [
+        ...(p.held.length ? [{ key: 'stocksCommodities' as const, totalUsd6: toUsd6(p.owned), rows: p.held.map(heldRow) }] : []),
+        { key: 'stablecoins' as const, totalUsd6: toUsd6(p.dollars), rows: usdcRows },
+      ],
     });
   } catch (e) {
     return jsonError(c, e);
@@ -259,48 +249,50 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
     const user = await requireUser(c);
     const assetId = c.req.param('assetId');
     const sql = getSql();
-    const rows = await sql<
-      {
-        spent: bigint;
-        qty: string | null;
-        fill: bigint | null;
-        batch_id: string;
-        venue_tx: string | null;
-        started_at: Date | null;
-      }[]
-    >`
-      SELECT e.spent_usd6 AS spent, e.qty::text AS qty, e.fill_price_usd6 AS fill,
-             e.batch_id, e.venue_tx, b.started_at
-      FROM buy_entries e
-      JOIN buy_batches b ON b.id = e.batch_id
-      WHERE e.user_id = ${user.id}::uuid AND e.asset_id = ${assetId} AND e.status = 'bought'
-      ORDER BY b.started_at DESC NULLS LAST
-    `;
-    const value = rows.reduce((s, r) => s + (r.spent ?? 0n), 0n);
-    const qty = rows.find((r) => r.qty)?.qty ?? undefined;
-    const lastFill = rows.find((r) => r.fill != null)?.fill ?? 0n;
+    const [p, rows] = await Promise.all([
+      portfolio(user),
+      sql<{ spent: bigint; qty: string | null; fill: bigint | null; batch_id: string; venue_tx: string | null; arc_tx: string | null; started_at: Date | null }[]>`
+        SELECT e.spent_usd6 AS spent, e.qty::text AS qty, e.fill_price_usd6 AS fill, e.batch_id, e.venue_tx, b.arc_tx, b.started_at
+        FROM buy_entries e JOIN buy_batches b ON b.id = e.batch_id
+        WHERE e.user_id = ${user.id}::uuid AND e.asset_id = ${assetId} AND e.status = 'bought'
+        ORDER BY b.started_at DESC NULLS LAST`,
+    ]);
+    const h = p.held.find((x) => x.assetId === assetId);
+    const mint = verifiedMint(assetId, 'solana');
+    const paid = rows.reduce((s, r) => s + BigInt(r.spent ?? 0), 0n);
+    const yearStart = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+    const paidYear = rows.filter((r) => (r.started_at ?? new Date()) >= yearStart).reduce((s, r) => s + BigInt(r.spent ?? 0), 0n);
+    const boughtRaw = mint ? rows.reduce((s, r) => s + (r.qty ? qtyToRaw(r.qty, mint.decimals) ?? 0n : 0n), 0n) : 0n;
+    const avg = mint && boughtRaw > 0n ? (paid * 10n ** BigInt(mint.decimals)) / boughtRaw : 0n;
+    const last = rows[0];
     return c.json({
       assetId,
       name: assetDisplayName(assetId),
-      subtitle: qty ? `${qty} in your wallet` : '',
-      ...(qty ? { qty } : {}),
-      valueUsd6: toUsd6(value),
-      spentThisYearUsd6: toUsd6(value),
-      price: { usd6PerUnit: toUsd6(lastFill), at: new Date().toISOString(), source: 'jupiter' as const },
-      avgPriceUsd6: toUsd6(lastFill),
-      paidTotalUsd6: toUsd6(value),
+      subtitle: h ? `${h.qty} ${h.token} in your wallet` : '',
+      ...(h ? { qty: h.qty } : {}),
+      ...(mint ? { token: mint.symbol, chain: 'solana' } : {}),
+      valueUsd6: toUsd6(h?.valueUsd6 ?? 0n),
+      spentThisYearUsd6: toUsd6(paidYear),
+      price: { usd6PerUnit: toUsd6(h?.priceUsd6 ?? 0n), at: new Date().toISOString(), source: 'jupiter' as const },
+      avgPriceUsd6: toUsd6(avg),
+      paidTotalUsd6: toUsd6(paid),
       buys: rows.map((r) => ({
         batchId: r.batch_id,
-        at: r.started_at?.toISOString() ?? new Date().toISOString(),
-        qty: r.qty ?? '0',
+        at: (r.started_at ?? new Date()).toISOString(),
+        qty: r.qty ? String(r.qty).replace(/\.?0+$/, '') : '0',
         priceUsd6: toUsd6(r.fill ?? 0n),
         amountUsd6: toUsd6(r.spent ?? 0n),
       })),
       proof: {
-        ...(rows[0]?.venue_tx ? { venueTx: rows[0].venue_tx } : {}),
-        links: {},
+        ...(last?.arc_tx ? { arcTx: last.arc_tx } : {}),
+        ...(last?.venue_tx ? { venueTx: last.venue_tx } : {}),
+        links: {
+          ...(last?.arc_tx ? { arc: EXPLORER.arcTx(last.arc_tx) } : {}),
+          ...(last?.venue_tx ? { venue: EXPLORER.solTx(last.venue_tx) } : {}),
+          ...(mint ? { mint: `https://solscan.io/token/${mint.mint}` } : {}),
+        },
       },
-      issuerNote: rows.length ? 'Bought via Ownback' : 'Nothing bought yet',
+      issuerNote: mint ? `${mint.symbol} is issued by ${mint.issuer ?? 'the issuer'} on Solana · mint ${mint.mint} · ${mint.decimals} decimals` : 'Not on-chain yet',
     });
   } catch (e) {
     return jsonError(c, e);

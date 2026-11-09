@@ -103,6 +103,17 @@ export const ERROR_RETRYABLE: Record<ErrorCode, boolean> = {
   INTERNAL: true,
 };
 
+/** Purchase.readError values (api-contract.md). Retryable ones show "Try again" instead of "Retake photo". */
+export const ReadErrors = ['not_a_receipt', 'og_unavailable', 'timeout', 'no_total', 'no_product'] as const;
+export type ReadError = (typeof ReadErrors)[number];
+export const READ_ERROR_RETRYABLE: Record<ReadError, boolean> = {
+  not_a_receipt: false,
+  og_unavailable: true,
+  timeout: true,
+  no_total: false,
+  no_product: false,
+};
+
 /** Vault custom error name → API code (api-contract.md). No OverAssetCap (Q1). */
 export function mapVaultError(name: string): ErrorCode {
   switch (name) {

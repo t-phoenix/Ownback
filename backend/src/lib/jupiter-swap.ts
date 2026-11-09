@@ -1,186 +1,145 @@
 /**
- * Solana Jupiter venue swap (D26): relay pays gas; tokens land in user's ATA.
- * shortcut: Arc execute + CCTP not wired (docs/03 O6) — relay must already hold USDC.
+ * Solana side of buys and sells (D26, D29). The user owns the input tokens and signs; the relay is only
+ * the fee payer (gas + ATA rent) and co-signs. Tokens never pass through the relay.
  */
+import { createHash } from 'node:crypto';
 import { Connection, Keypair, PublicKey, VersionedTransaction } from '@solana/web3.js';
-import {
-  TOKEN_2022_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountIdempotentInstruction,
-  getAssociatedTokenAddressSync,
-} from '@solana/spl-token';
-import { jupiterBuildSwap, jupiterBuyQuote, jupiterSellQuote, SOL_USDC } from './jupiter-price.js';
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { ApiError } from '../shared/errors.js';
+import { jupiterBuildSwap, jupiterQuote, type JupiterQuote } from './jupiter-price.js';
 
-function loadRelay(): Keypair | null {
+export function loadRelay(): Keypair | null {
   const raw = process.env.RELAY_SOL_KEY;
   if (!raw) return null;
   try {
     if (raw.startsWith('[')) return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(raw)));
     const buf = Buffer.from(raw, 'base64');
     if (buf.length === 64) return Keypair.fromSecretKey(buf);
-    // hex seed
     const hex = raw.startsWith('0x') ? raw.slice(2) : raw;
-    if (/^[0-9a-fA-F]+$/.test(hex) && hex.length >= 64) {
-      return Keypair.fromSecretKey(Uint8Array.from(Buffer.from(hex.slice(0, 128), 'hex')));
-    }
+    if (/^[0-9a-fA-F]{128}$/.test(hex)) return Keypair.fromSecretKey(Uint8Array.from(Buffer.from(hex, 'hex')));
   } catch {
     return null;
   }
   return null;
 }
 
-function rpc(): Connection {
-  return new Connection(process.env.RPC_SOLANA || 'https://api.mainnet-beta.solana.com', 'confirmed');
-}
-
-async function detectTokenProgram(connection: Connection, mint: PublicKey): Promise<PublicKey> {
-  const info = await connection.getAccountInfo(mint);
-  if (info?.owner.equals(TOKEN_2022_PROGRAM_ID)) return TOKEN_2022_PROGRAM_ID;
-  return TOKEN_PROGRAM_ID;
-}
-
-async function ensureAta(
-  connection: Connection,
-  payer: Keypair,
-  owner: PublicKey,
-  mint: PublicKey,
-  programId: PublicKey,
-): Promise<PublicKey> {
-  const ata = getAssociatedTokenAddressSync(mint, owner, false, programId);
-  const existing = await connection.getAccountInfo(ata);
-  if (existing) return ata;
-  const ix = createAssociatedTokenAccountIdempotentInstruction(payer.publicKey, ata, owner, mint, programId);
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  const { TransactionMessage } = await import('@solana/web3.js');
-  const msg = new TransactionMessage({
-    payerKey: payer.publicKey,
-    recentBlockhash: blockhash,
-    instructions: [ix],
-  }).compileToV0Message();
-  const tx = new VersionedTransaction(msg);
-  tx.sign([payer]);
-  const sig = await connection.sendTransaction(tx, { skipPreflight: false });
-  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
-  return ata;
-}
-
 export function relayConfigured(): boolean {
   return !!loadRelay();
 }
 
-export type SwapResult = {
-  venueTx: string;
-  outAmountRaw: string;
-  inAmountRaw: string;
-  explorerUrl: string;
-};
-
-function solscan(sig: string) {
-  return `https://solscan.io/tx/${sig}`;
+export function requireRelay(): Keypair {
+  const k = loadRelay();
+  if (!k) throw new ApiError('KEEPER_DISABLED', { reason: 'relay_not_configured' });
+  return k;
 }
 
-/** USDC → verified RWA mint into user's wallet. */
-export async function executeBuySwap(opts: {
-  userSolAddress: string;
-  mint: string;
-  amountUsd6: bigint;
-  decimals: number;
-}): Promise<SwapResult> {
-  const payer = loadRelay();
-  if (!payer) throw new Error('relay_not_configured');
-  const connection = rpc();
-  const mintPk = new PublicKey(opts.mint);
-  const user = new PublicKey(opts.userSolAddress);
-  const programId = await detectTokenProgram(connection, mintPk);
-  const destAta = await ensureAta(connection, payer, user, mintPk, programId);
+let conn: Connection | null = null;
+export function solRpc(): Connection {
+  if (!conn) conn = new Connection(process.env.RPC_SOLANA || 'https://api.mainnet-beta.solana.com', 'confirmed');
+  return conn;
+}
 
-  const quote = await jupiterBuyQuote(opts.mint, opts.amountUsd6, 100);
-  if (!quote) throw new Error('quote_failed');
+const programCache = new Map<string, PublicKey>();
+/** Token program that owns the mint (xStocks are Token-2022). Read on-chain, never assumed. */
+export async function tokenProgramOf(mint: string): Promise<PublicKey> {
+  const hit = programCache.get(mint);
+  if (hit) return hit;
+  const info = await solRpc().getAccountInfo(new PublicKey(mint));
+  if (!info) throw new ApiError('UPSTREAM', { reason: 'mint_not_found', mint });
+  const p = info.owner.equals(TOKEN_2022_PROGRAM_ID) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+  programCache.set(mint, p);
+  return p;
+}
 
-  const swapTxB64 = await jupiterBuildSwap({
+/** Raw balance of owner's ATA for mint; 0 if the account doesn't exist. */
+export async function tokenBalanceRaw(owner: string, mint: string): Promise<bigint> {
+  const program = await tokenProgramOf(mint);
+  const ata = getAssociatedTokenAddressSync(new PublicKey(mint), new PublicKey(owner), false, program);
+  const bal = await solRpc().getTokenAccountBalance(ata).catch(() => null);
+  return BigInt(bal?.value.amount ?? '0');
+}
+
+export function msgHash(tx: VersionedTransaction): string {
+  return createHash('sha256').update(tx.message.serialize()).digest('hex');
+}
+
+export type BuiltSwap = { txBase64: string; msgHash: string; feePayer: string; quote: JupiterQuote };
+
+/**
+ * Jupiter swap where `owner` spends its own `inputMint`. Relay is fee payer and signs first;
+ * the returned tx still needs the owner's signature (Privy).
+ */
+export async function buildUserSwap(opts: {
+  owner: string;
+  inputMint: string;
+  outputMint: string;
+  amountRaw: bigint;
+  slippageBps?: number;
+}): Promise<BuiltSwap> {
+  const relay = requireRelay();
+  const quote = await jupiterQuote({ ...opts, slippageBps: opts.slippageBps ?? 100 });
+  if (!quote) throw new ApiError('UPSTREAM', { reason: 'no_route' });
+  const b64 = await jupiterBuildSwap({
     quoteResponse: quote.raw,
-    userPublicKey: payer.publicKey.toBase58(),
-    payer: payer.publicKey.toBase58(),
-    destinationTokenAccount: destAta.toBase58(),
+    userPublicKey: opts.owner,
+    payer: relay.publicKey.toBase58(),
   });
-  if (!swapTxB64) throw new Error('swap_build_failed');
-
-  const tx = VersionedTransaction.deserialize(Buffer.from(swapTxB64, 'base64'));
-  tx.sign([payer]);
-  const sig = await connection.sendTransaction(tx, { skipPreflight: false, maxRetries: 3 });
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+  if (!b64) throw new ApiError('UPSTREAM', { reason: 'swap_build_failed' });
+  const tx = VersionedTransaction.deserialize(Buffer.from(b64, 'base64'));
+  // Relay only signs a tx where it is fee payer and the owner is the only other signer.
+  const n = tx.message.header.numRequiredSignatures;
+  const signers = tx.message.staticAccountKeys.slice(0, n).map((k) => k.toBase58());
+  if (signers[0] !== relay.publicKey.toBase58() || n !== 2 || signers[1] !== opts.owner) {
+    throw new ApiError('UPSTREAM', { reason: 'unexpected_signers', signers });
+  }
+  tx.sign([relay]);
   return {
-    venueTx: sig,
-    outAmountRaw: quote.outAmount,
-    inAmountRaw: quote.inAmount,
-    explorerUrl: solscan(sig),
+    txBase64: Buffer.from(tx.serialize()).toString('base64'),
+    msgHash: msgHash(tx),
+    feePayer: relay.publicKey.toBase58(),
+    quote,
   };
 }
 
-/** Verified RWA mint → USDC into user's USDC ATA. User must hold the tokens; relay pays gas. */
-export async function executeSellSwap(opts: {
-  userSolAddress: string;
-  mint: string;
-  amountRaw: bigint;
-}): Promise<SwapResult> {
-  const payer = loadRelay();
-  if (!payer) throw new Error('relay_not_configured');
-  const connection = rpc();
-  const mintPk = new PublicKey(opts.mint);
-  const user = new PublicKey(opts.userSolAddress);
-  const usdc = new PublicKey(SOL_USDC);
-  const programId = await detectTokenProgram(connection, mintPk);
-  // Destination for USDC out is the user's USDC ATA (Tokenkeg).
-  const destAta = await ensureAta(connection, payer, user, usdc, TOKEN_PROGRAM_ID);
-
-  const quote = await jupiterSellQuote(opts.mint, opts.amountRaw, 100);
-  if (!quote) throw new Error('quote_failed');
-
-  // Sell: user owns the input tokens — Jupiter userPublicKey must be the user; relay is fee payer.
-  const swapTxB64 = await jupiterBuildSwap({
-    quoteResponse: quote.raw,
-    userPublicKey: user.toBase58(),
-    payer: payer.publicKey.toBase58(),
-    destinationTokenAccount: destAta.toBase58(),
-  });
-  if (!swapTxB64) throw new Error('swap_build_failed');
-
-  const tx = VersionedTransaction.deserialize(Buffer.from(swapTxB64, 'base64'));
-  // User must co-sign sells (token authority). Without their key we can't drain their ATA from the API.
-  // shortcut: sells return an unsigned tx for the PWA to sign via Privy; buys use relay as source of USDC.
-  void programId;
-  void tx;
-  throw new Error('sell_needs_user_signature');
+/** Poll statuses (HTTP RPCs have no signatureSubscribe). */
+export async function confirmSig(sig: string, tries = 60): Promise<void> {
+  const c = solRpc();
+  for (let i = 0; i < tries; i++) {
+    const st = await c.getSignatureStatuses([sig], { searchTransactionHistory: true });
+    const v = st.value[0];
+    if (v?.err) throw new ApiError('TX_REVERTED', { chain: 'solana', sig, err: JSON.stringify(v.err) });
+    if (v?.confirmationStatus === 'confirmed' || v?.confirmationStatus === 'finalized') return;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new ApiError('TX_NOT_FOUND', { chain: 'solana', sig });
 }
 
-/** Build sell swap tx (base64) for the user to sign; relay is fee payer when Jupiter supports it. */
-export async function buildSellSwapTx(opts: {
-  userSolAddress: string;
-  mint: string;
-  amountRaw: bigint;
-}): Promise<{ swapTransaction: string; quoteOutAmount: string; quoteInAmount: string } | null> {
-  const payer = loadRelay();
-  const feePayer = payer?.publicKey.toBase58() ?? opts.userSolAddress;
-  const connection = rpc();
-  const mintPk = new PublicKey(opts.mint);
-  const user = new PublicKey(opts.userSolAddress);
-  const usdc = new PublicKey(SOL_USDC);
-  // If relay available, create ATA as relay; else user creates on sign.
-  let destAta: PublicKey;
-  if (payer) {
-    destAta = await ensureAta(connection, payer, user, usdc, TOKEN_PROGRAM_ID);
-  } else {
-    destAta = getAssociatedTokenAddressSync(usdc, user, false, TOKEN_PROGRAM_ID);
+/** Accept the user-signed tx only if it is the exact message we built, then send and confirm it. */
+export async function submitSigned(signedBase64: string, expectedHash: string): Promise<string> {
+  let tx: VersionedTransaction;
+  try {
+    tx = VersionedTransaction.deserialize(Buffer.from(signedBase64, 'base64'));
+  } catch {
+    throw new ApiError('BAD_SIGNATURE');
   }
-  const quote = await jupiterSellQuote(opts.mint, opts.amountRaw, 100);
-  if (!quote) return null;
-  const swapTxB64 = await jupiterBuildSwap({
-    quoteResponse: quote.raw,
-    userPublicKey: user.toBase58(),
-    payer: feePayer,
-    destinationTokenAccount: destAta.toBase58(),
-  });
-  if (!swapTxB64) return null;
-  return { swapTransaction: swapTxB64, quoteOutAmount: quote.outAmount, quoteInAmount: quote.inAmount };
+  if (msgHash(tx) !== expectedHash) throw new ApiError('BAD_SIGNATURE', { reason: 'message_changed' });
+  if (tx.signatures.some((s) => s.every((b) => b === 0))) throw new ApiError('BAD_SIGNATURE', { reason: 'missing_signature' });
+  const raw = tx.serialize();
+  const sig = await solRpc().sendRawTransaction(raw, { skipPreflight: false, maxRetries: 3 });
+  await confirmSig(sig);
+  return sig;
+}
+
+/** Owner's balance change for a mint inside a confirmed tx (raw units). Real fill, not the quote. */
+export async function tokenDeltaInTx(sig: string, owner: string, mint: string): Promise<bigint> {
+  for (let i = 0; i < 10; i++) {
+    const t = await solRpc().getTransaction(sig, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' });
+    if (t?.meta) {
+      const pick = (arr: typeof t.meta.preTokenBalances) =>
+        BigInt(arr?.find((b) => b.owner === owner && b.mint === mint)?.uiTokenAmount.amount ?? '0');
+      return pick(t.meta.postTokenBalances) - pick(t.meta.preTokenBalances);
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new ApiError('TX_NOT_FOUND', { chain: 'solana', sig });
 }

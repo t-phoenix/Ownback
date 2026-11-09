@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { getSql } from '../db/client.js';
 import { ApiError } from '../shared/errors.js';
 import { isDepositChain, type DepositChain } from '../shared/chains.js';
-import { toUsd6 } from '../shared/money.js';
+import { formatUsd, toUsd6 } from '../shared/money.js';
 import { MIN_DEPOSIT_USD6 } from '../shared/timing.js';
 import {
   assertIdempotencyKey,
@@ -156,7 +156,7 @@ depositRoutes.post('/deposits/:id/approve', async (c) => {
     if (!d) throw new ApiError('NOT_FOUND');
     if (d.status !== 'needs_approval') throw new ApiError('DEPOSIT_NOT_READY');
     return c.json({
-      action: mockEvmAction(`Add $${Number(d.amount_usd6 / 1_000_000n)}.${String(d.amount_usd6 % 1_000_000n).padStart(2,'0').slice(0,2)} to your vault`),
+      action: mockEvmAction(`Add ${formatUsd(BigInt(d.amount_usd6))} to your vault`),
     });
   } catch (e) {
     return jsonError(c, e);

@@ -12,6 +12,9 @@ export type OgJob =
   | 'find_maker'
   | 'brand_embed'
   | 'extract_suppliers'
+  | 'understand'
+  | 'jury'
+  | 'judge'
   | 'transcribe';
 
 export type OgModelConfig = {
@@ -53,6 +56,17 @@ export const OG_MODELS = {
     /** GLM's switch (chat_template_kwargs is ignored here): 4.9 s vs 7.1 s, same answer (7 Nov live test). */
     extraBody: { thinking: { type: 'disabled' } },
   },
+  /**
+   * 0G-native text model (SIA variant of 0GM). Third independent juror (D30).
+   * Thinking on returns the plan in `content`; enable_thinking=false returns clean JSON in ~4 s (9 Nov live test).
+   */
+  sia: {
+    id: '0GM-1.0-35B-A3B-SIA',
+    provider: '0x15aDd680050Ecd0B25eb7d480e7BB1f48594Eabe',
+    endpoint: 'chat',
+    maxTokens: 1024,
+    extraBody: { chat_template_kwargs: { enable_thinking: false } },
+  },
   /** Fix-the-match brand embeddings */
   embed: {
     id: 'qwen3-embedding-0.6b',
@@ -75,7 +89,12 @@ export function configForJob(job: OgJob): OgModelConfig {
     case 'parse_spoken':
     case 'find_maker':
     case 'extract_suppliers':
+    case 'jury':
       return OG_MODELS.llm;
+    // glm-5.3 reasons inside `content` (15–40 s, needs ~4k tokens); 0GM with thinking off answers in ~5 s (9 Nov live test).
+    case 'understand':
+    case 'judge':
+      return OG_MODELS.vision;
     case 'brand_embed':
       return OG_MODELS.embed;
     case 'transcribe':
@@ -83,6 +102,32 @@ export function configForJob(job: OgJob): OgModelConfig {
     default:
       return OG_MODELS.llm;
   }
+}
+
+/**
+ * Jurors (D30): every healthy private TeeML chat model on the Router, pinned here
+ * (GET router-api.0g.ai/v1/providers, 9 Nov 2026: exactly these three are private + healthy).
+ */
+export const JURY_MODELS: OgModelConfig[] = [OG_MODELS.llm, OG_MODELS.sia, OG_MODELS.vision];
+
+let healthCache: { at: number; healthy: Set<string> } | null = null;
+
+/** Pinned jurors the Router reports healthy right now (10 min cache). If the list can't be read, trust the pins. */
+export async function healthyJuryModels(fetchImpl: typeof fetch = fetch): Promise<OgModelConfig[]> {
+  if (!healthCache || Date.now() - healthCache.at > 600_000) {
+    try {
+      const res = await fetchImpl('https://router-api.0g.ai/v1/providers', { signal: AbortSignal.timeout(5_000) });
+      const body = (await res.json()) as { data?: { address: string; is_healthy?: boolean; trust_mode?: string }[] };
+      const healthy = new Set(
+        (body.data ?? []).filter((p) => p.is_healthy && p.trust_mode === 'private').map((p) => p.address.toLowerCase()),
+      );
+      healthCache = { at: Date.now(), healthy };
+    } catch {
+      return JURY_MODELS;
+    }
+  }
+  const h = healthCache.healthy;
+  return JURY_MODELS.filter((m) => h.has(m.provider.toLowerCase()));
 }
 
 /** @deprecated use configForJob(job).id */

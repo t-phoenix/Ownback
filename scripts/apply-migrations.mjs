@@ -8,9 +8,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import postgres from 'postgres';
+import { createRequire } from 'node:module';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+// No root node_modules: resolve postgres from the backend package.
+const postgres = createRequire(join(root, 'backend/package.json'))('postgres');
 const url = process.env.DATABASE_URL;
 if (!url) {
   console.error('DATABASE_URL required');

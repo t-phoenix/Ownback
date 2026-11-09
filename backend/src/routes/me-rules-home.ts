@@ -1,3 +1,5 @@
+import { portfolio } from '../lib/portfolio.js';
+import { balanceJson, heldRow, jarsTotal } from './activity.js';
 import { freeByChain } from '../lib/wallet-sync.js';
 import { assetDisplayName } from '../lib/asset-name.js';
 import { Hono } from 'hono';
@@ -166,27 +168,9 @@ meRulesHomeRoutes.get('/home', async (c) => {
       FROM purchases
       WHERE user_id = ${user.id}::uuid AND status NOT IN ('deleted', 'read_failed', 'skipped')
     `;
-    // Live Arc wallet (side-effect: records new deposits). Jars are still USDC in that wallet under MOCK.
-    const funds = await freeByChain(user);
-    const chainMap: Record<string, string> = {
-      arc: '0',
-      solana: '0',
-      base: '0',
-      ethereum: '0',
-      arbitrum: '0',
-      bnb: '0',
-    };
-    for (const [chain, amount] of Object.entries(funds.byChain)) chainMap[chain] = toUsd6(amount);
-    const free = funds.total;
-    // postgres.js returns int8 as string — coerce before bigint math (freeByChain already does).
-    const inJars = BigInt(stats[0]?.jars ?? 0);
-    const bought = await sql<{ spent: bigint | string }[]>`
-      SELECT COALESCE(SUM(spent_usd6), 0) AS spent FROM buy_entries
-      WHERE user_id = ${user.id}::uuid AND status = 'bought'
-    `;
-    const owned = BigInt(bought[0]?.spent ?? 0);
-    // Wallet still holds buy USDC under MOCK — show dollars as free − owned so total stays the live balance.
-    const dollars = free > owned ? free - owned : 0n;
+    // Live Arc wallet (side-effect: records new deposits) + on-chain Solana holdings priced by Jupiter.
+    const p = await portfolio(user);
+    const inJars = await jarsTotal(user.id);
     const rules = await sql<{ ready_min_usd6: bigint | string }[]>`
       SELECT ready_min_usd6 FROM rules WHERE user_id = ${user.id}::uuid
     `;
@@ -199,65 +183,40 @@ meRulesHomeRoutes.get('/home', async (c) => {
       GROUP BY a.asset_id
     `;
     const readyJars = jars.filter((j) => jarState(BigInt(j.amt), readyMin) === 'ready').length;
-    const topHoldings = await sql<{ asset_id: string; spent: bigint; qty: string | null }[]>`
-      SELECT asset_id, COALESCE(SUM(spent_usd6), 0) AS spent, MAX(qty)::text AS qty
-      FROM buy_entries WHERE user_id = ${user.id}::uuid AND status = 'bought'
-      GROUP BY asset_id ORDER BY spent DESC LIMIT 3
-    `;
-
     const recent = await sql<
       {
         id: string;
         shop: string | null;
         amount_usd6: bigint | null;
+        local_amount: string | null;
+        local_currency: string | null;
         invest_usd6: bigint | null;
         purchased_on: string | null;
         status: string;
         items: unknown;
       }[]
     >`
-      SELECT id, shop, amount_usd6, invest_usd6, purchased_on::text, status, items
+      SELECT id, shop, amount_usd6, amount_local::text AS local_amount, currency AS local_currency, invest_usd6, purchased_on::text, status, items
       FROM purchases
       WHERE user_id = ${user.id}::uuid AND status NOT IN ('deleted', 'read_failed')
       ORDER BY created_at DESC LIMIT 2
     `;
 
     return c.json({
-      balance: {
-        totalUsd6: toUsd6(dollars + owned),
-        byType: {
-          stocksCommodities: toUsd6(owned),
-          stablecoins: toUsd6(dollars),
-          crypto: '0',
-        },
-        byChain: chainMap,
-        pricesAt: new Date().toISOString(),
-        stale: false,
-        usdc: {
-          freeUsd6: toUsd6(dollars),
-          inJarsUsd6: toUsd6(inJars),
-          arrivingUsd6: toUsd6(funds.arriving),
-        },
-      },
+      balance: balanceJson(p, inJars),
       stats: {
         receipts: stats[0]?.receipts ?? 0,
         spendingUsd6: toUsd6(BigInt(stats[0]?.spending ?? 0)),
         inJarsUsd6: toUsd6(inJars),
       },
-      topHoldings: topHoldings.map((h) => ({
-        assetId: h.asset_id,
-        name: assetDisplayName(h.asset_id),
-        subtitle: h.qty ? `${h.qty} bought` : 'Bought',
-        ...(h.qty ? { qty: h.qty } : {}),
-        valueUsd6: toUsd6(BigInt(h.spent)),
-      })),
+      topHoldings: p.held.slice(0, 3).map(heldRow),
       recentReceipts: recent.map((r) => {
         const items = Array.isArray(r.items) ? (r.items as { name?: string }[]) : [];
         return {
           id: r.id,
           shop: r.shop ?? '',
           item: items[0]?.name ?? '',
-          local: { amount: '0', currency: 'USD' },
+          local: { amount: r.local_amount ?? '0', currency: r.local_currency ?? 'USD' },
           amountUsd6: toUsd6(BigInt(r.amount_usd6 ?? 0)),
           date: r.purchased_on ?? '',
           status: r.status === 'needs_review' ? 'needs_review' : r.status === 'saved' ? 'in_jar' : 'needs_review',

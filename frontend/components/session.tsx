@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { PrivyProvider, useLogin, useLogout, useModalStatus, usePrivy, useSignTypedData, useWallets } from "@privy-io/react-auth";
+import { PrivyProvider, useLogin, useLogout, useModalStatus, usePrivy, useSendTransaction, useSignTypedData, useWallets } from "@privy-io/react-auth";
+import { useSignTransaction as useSolSignTransaction, useWallets as useSolWallets } from "@privy-io/react-auth/solana";
 import { api, ApiError, type Me } from "../lib/api";
 import { clearApiCache } from "../lib/use-api";
 import { setPrivyBridge } from "../lib/sign-action";
@@ -11,6 +12,18 @@ import { SessionCtx, useSession, type Session } from "./session-context";
 export { useSession, MockSessionProvider } from "./session-context";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
+
+/** Arc mainnet (✓ contracts/chain-config.md). Gas is native USDC with 18 decimals; the ERC-20 view uses 6. */
+const ARC = {
+  id: 5042,
+  name: "Arc",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.mainnet.arc.io"] } },
+  blockExplorers: { default: { name: "Arc Explorer", url: "https://explorer.arc.io" } },
+} as const;
+
+const b64ToBytes = (b64: string) => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+const bytesToB64 = (u8: Uint8Array) => { let s = ""; for (const b of u8) s += String.fromCharCode(b); return btoa(s); };
 
 async function fetchMe(): Promise<Me | null> {
   try { return await api.me(); }
@@ -33,7 +46,10 @@ function PrivySession({ children }: { children: ReactNode }) {
   const synced = useRef(false);
   const { logout } = useLogout();
   const { signTypedData } = useSignTypedData();
+  const { sendTransaction } = useSendTransaction();
   const { wallets } = useWallets();
+  const { wallets: solWallets } = useSolWallets();
+  const { signTransaction: signSolTx } = useSolSignTransaction();
 
   const refresh = useCallback(async () => { const m = await fetchMe().catch(() => null); setMe(m); return m; }, []);
   useEffect(() => { refresh(); }, [refresh]);
@@ -76,16 +92,26 @@ function PrivySession({ children }: { children: ReactNode }) {
     if (hasSol) { synced.current = true; exchange(); }
   }, [me, user, busy, exchange]);
 
-  // Wallet bridge for SignableActions. Typed data (buy approvals) via the embedded EVM wallet.
+  // Wallet bridge for SignableActions: Arc txs from the embedded EVM wallet, Solana signatures from the embedded Solana wallet.
   useEffect(() => {
     const evm = wallets.find(w => w.walletClientType === "privy");
+    const sol = solWallets.find(w => !me?.solAddress || w.address === me.solAddress) ?? solWallets[0];
+    const noWallet = () => Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" });
     setPrivyBridge({
       signTypedData: async (td) => (await signTypedData(td as Parameters<typeof signTypedData>[0], evm ? { address: evm.address } : undefined)).signature,
-      sendCalls: async () => { throw Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" }); },
-      signAndSendSol: async () => { throw Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" }); },
+      sendEvmTx: async (chainId, call) => {
+        if (!evm) throw noWallet();
+        const { hash } = await sendTransaction({ to: call.to, data: call.data, value: 0, chainId }, { address: evm.address });
+        return hash;
+      },
+      signSol: async (txBase64) => {
+        if (!sol) throw noWallet();
+        const { signedTransaction } = await signSolTx({ transaction: b64ToBytes(txBase64), wallet: sol });
+        return bytesToB64(signedTransaction);
+      },
     });
     return () => setPrivyBridge(null);
-  }, [wallets, signTypedData]);
+  }, [wallets, solWallets, me?.solAddress, signTypedData, sendTransaction, signSolTx]);
 
   const value = useMemo<Session>(() => ({
     me, refresh, busy, error, configured: true,
@@ -113,6 +139,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     loginMethods: ["google"],
     appearance: { theme: "light", accentColor: "#0F7B4F", landingHeader: "Sign in to Ownback", showWalletLoginFirst: false },
     embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" }, solana: { createOnLogin: "users-without-wallets" } },
+    defaultChain: ARC,
+    supportedChains: [ARC],
   }}>
     <PrivySession>{children}</PrivySession>
   </PrivyProvider>;

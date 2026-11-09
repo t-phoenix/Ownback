@@ -833,3 +833,26 @@ button.watching { width: 100%; text-align: left; }
   margin: 0; font: 600 14px/1.3 var(--font-body); color: #29443A; letter-spacing: .01em;
 }
 .error-page { min-height: 100svh; display: grid; place-items: center; align-content: center; gap: 14px; padding: 24px; text-align: center; }
+/* Inline loaders on pipeline steps and busy buttons. */
+svg.spin { animation: spin .8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { svg.spin { animation: none; } }
+/* D30 · Check the details + jury Confirm */
+.details-form { display: grid; gap: 14px; }
+.item-fields { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+.field.missing input, .field.missing select { border-color: var(--accent); box-shadow: 0 0 0 3px var(--warn-soft); }
+.missing-hint { font-style: normal; font-weight: 600; color: var(--accent); margin-left: 6px; }
+.icon-only { align-self: end; min-width: 44px; }
+.jury-section { margin-top: 14px; }
+.jury-section .micro { margin-left: 4px; }
+.jury-row { align-items: flex-start; }
+.jury-row .row-main { min-width: 0; }
+.jury-row.off .row-title { opacity: .8; }
+.tick-gap { width: 22px; flex: none; }
+.ticker { font-weight: 500; color: var(--muted); font-size: 13px; }
+.jury-why { display: block; margin-top: 3px; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+.jury-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.jury-badge { padding: 2px 8px; border-radius: 99px; background: var(--paper-2); color: var(--muted); font-size: 12px; font-weight: 600; }
+.jury-badge.on { background: var(--soft); color: var(--on-soft); }
+.agree { padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 600; }
+.sub.pad { padding: 14px 16px; margin: 0; }
+.steps li.failed { color: var(--muted); }

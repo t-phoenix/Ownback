@@ -5,7 +5,8 @@ export function envFlag(name: string, fallback = false): boolean {
 }
 
 export function mockChain(): boolean {
-  return envFlag('MOCK_CHAIN', true);
+  // Fail closed in prod: an unset flag must never fake buys with real users.
+  return envFlag('MOCK_CHAIN', process.env.NODE_ENV !== 'production');
 }
 
 export function requireCron(authHeader: string | undefined): void {

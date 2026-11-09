@@ -22,6 +22,6 @@ export function installShotApi() {
   api.makerOnly = async () => f.purchase;
   api.confirm = async () => ({ action: { kind: "typed_data" as const, typedData: {}, summary: "demo" } });
   api.confirmSubmitted = async () => ({ ...f.purchase, status: "saved" as const });
-  api.buy = async () => ({ batchIds: [f.SHOT_IDS.batch] });
+  api.buy = async () => ({ batchId: f.SHOT_IDS.batch });
   api.putRules = async (patch) => ({ ...f.rules, ...patch });
 }

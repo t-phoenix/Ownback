@@ -64,6 +64,7 @@ export const purchase: Purchase = {
   id: SHOT_IDS.purchase,
   status: "ready",
   source: "image",
+  steps: [],
   receipt: {
     shop: "Croma",
     place: "Mumbai",
@@ -93,30 +94,34 @@ export const buyReview: BuyReview = {
   rows: [
     {
       assetId: "co:apple", name: "Apple", amountUsd6: u(33.43), token: "AAPLx", chain: "solana", venue: "jupiter",
-      price: { usd6PerUnit: u(236.4) }, estQty: "0.1414", maxPriceUsd6: u(238.76),
+      price: { usd6PerUnit: u(236.4) }, estQty: "0.1414", jarAmountUsd6: u(33.43), suggestedUsd6: u(33.43), refPriceUsd6: u(235.9),
       fees: { totalUsd6: u(0.08), pctBps: 24, withinCap: true }, selectable: true,
       arkiv: { key: "ownback.asset.v1:co:apple", url: "https://explorer.arkiv.network" },
     },
     {
       assetId: "co:tsmc", name: "TSMC", amountUsd6: u(5.12), token: "TSMXx", chain: "solana", venue: "jupiter",
-      price: { usd6PerUnit: u(198.2) }, estQty: "0.0258", maxPriceUsd6: u(200.18),
+      price: { usd6PerUnit: u(198.2) }, estQty: "0.0258", jarAmountUsd6: u(5.12), suggestedUsd6: u(5.12), refPriceUsd6: u(197.8),
       fees: { totalUsd6: u(0.04), pctBps: 78, withinCap: true }, selectable: true,
     },
   ],
   totalUsd6: u(38.55),
   fees: { totalUsd6: u(0.12), pctBps: 31, withinCap: true },
   destination: "AbhiSo1111111111111111111111111111111",
-  approval: { kind: "typed_data", typedData: { domain: { name: "Ownback" }, types: {}, primaryType: "BuyApproval", message: {} } },
+  funding: { solanaUsdc6: u(0), arcUsdc6: u(120), bridgeUsd6: u(38.55) },
 };
 
 export const buyDone: BuyProgress = {
   batchId: SHOT_IDS.batch,
   status: "done",
+  startedAt: new Date(Date.now() - 74_000).toISOString(),
+  totalUsd6: u(38.55),
+  bridgeUsd6: u(38.55),
+  boughtUsd6: u(38.52),
+  links: { arc: "https://explorer.arc.io/tx/0x0", mint: "https://solscan.io/tx/demo" },
   entries: [
     { assetId: "co:apple", name: "Apple", status: "bought", amountUsd6: u(33.43), spentUsd6: u(33.41), fillPriceUsd6: u(236.12), qty: "0.1415" },
     { assetId: "co:tsmc", name: "TSMC", status: "bought", amountUsd6: u(5.12), spentUsd6: u(5.11), fillPriceUsd6: u(197.9), qty: "0.0258" },
   ],
-  totals: { boughtUsd6: u(38.52), leftInJarsUsd6: u(5.08), feesUsd6: u(0.11), slippageBps: 12 },
   destination: "AbhiSo1111111111111111111111111111111",
 };
 

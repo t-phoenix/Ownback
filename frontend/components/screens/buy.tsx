@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, ExternalLink, Share2, ShieldCheck, Zap } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, ArrowRight, Check, ExternalLink, Loader2, Share2, ShieldCheck, Zap } from "lucide-react";
 import { useApp } from "../app-context";
 import { Coin3D, ConfirmAction, GlassJar, Monogram, Ring, Sheet, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
-import { api, ApiError, type Jar } from "../../lib/api";
+import { api, ApiError, type BuyEntry, type BuyProgress, type Jar } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
 import { errorCopy } from "../../lib/copy";
-import { signAction } from "../../lib/sign-action";
+import { signAction, type StepUpdate } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6, pct } from "../../lib/money";
 import { FlowHead } from "./home";
@@ -42,7 +42,7 @@ export function Jars() {
 
   return <div className="page flow wide">
     <FlowHead title="Your jars" back="/" />
-    <p className="lede left">Dollars wait in your vault on Arc. When a jar reaches {fmtUsd6(jars[0]?.readyMinUsd6 ?? "5000000")} we'll remind you on Sunday. Nothing buys without your OK.</p>
+    <p className="lede left">Jars set aside part of your balance for each company. When a jar reaches {fmtUsd6(jars[0]?.readyMinUsd6 ?? "5000000")} we'll remind you on Sunday. Nothing buys without your OK.</p>
     <ErrorState error={j.error} onRetry={j.reload} />
     {j.loading && <div className="jar-grid block">{[0, 1, 2].map(i => <Skeleton key={i} h={200} />)}</div>}
     {j.data && !jars.length && <Empty title="No jars yet" body="Confirm a purchase and its share lands in a jar for each company.">
@@ -72,119 +72,226 @@ export function Jars() {
 }
 
 /** Dollars string like "0.50" → Usd6 digit string (whole cents). */
-function dollarsToUsd6(s: string): string | null {
-  const t = s.trim();
+export function dollarsToUsd6(s: string): string | null {
+  const t = s.trim().replace(/^\$/, "");
   if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
   const [w, f = ""] = t.split(".");
-  const cents = BigInt(w) * 100n + BigInt((f + "00").slice(0, 2));
-  return (cents * 10_000n).toString();
+  return ((BigInt(w) * 100n + BigInt((f + "00").slice(0, 2))) * 10_000n).toString();
 }
 
-function usd6ToDollarsInput(usd6: string): string {
+export function usd6ToDollarsInput(usd6: string): string {
   const n = BigInt(usd6);
-  const dollars = n / 1_000_000n;
   const cents = (n % 1_000_000n) / 10_000n;
-  return cents === 0n ? dollars.toString() : `${dollars}.${cents.toString().padStart(2, "0")}`;
+  return `${n / 1_000_000n}.${cents.toString().padStart(2, "0")}`;
 }
 
-export function BuyReview({ all = false }: { all?: boolean }) {
+const MIN_BUY_USD6 = 100_000n;
+const codeOf = (e: unknown) => (e instanceof ApiError ? e.code : (e as { code?: string })?.code);
+const detailsOf = (e: unknown) => (e instanceof ApiError ? (e.details as Record<string, string> | undefined) : undefined);
+
+/** Arc steps the user signs, with a live status per call and explorer links. */
+function ArcSteps({ steps }: { steps: StepUpdate[] }) {
+  if (!steps.length) return null;
+  return <ol className="card list" aria-live="polite">
+    {steps.map(s => <li className="row" key={s.index}>
+      <span className="mini-icon sm">{s.state === "done" ? <Check size={16} /> : <Loader2 size={16} className="spin" />}</span>
+      <span className="row-main"><span className="row-title">{s.label}</span>
+        <span className="row-sub">{s.state === "signing" ? "Approve in wallet…" : s.state === "confirming" ? "Confirming on Arc…" : "Confirmed"}</span></span>
+      {s.txHash && <a className="fineprint" href={`https://explorer.arc.io/tx/${s.txHash}`} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc</a>}
+    </li>)}
+  </ol>;
+}
+
+export function BuyReview({ all = false, assetId }: { all?: boolean; assetId?: string }) {
   const { navigate } = useApp();
+  // A typed amount is a buy request; we only *suggest* the jar amount (your rules).
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
-  const [phase, setPhase] = useState<"idle" | "signing" | "submitting">("idle");
-  const amountsKey = JSON.stringify(amounts);
-  const r = useApi(`review:${all}:${amountsKey}`, () => api.buysReview(all, Object.keys(amounts).length ? amounts : undefined));
-  const [left, setLeft] = useState(30);
+  const [phase, setPhase] = useState<"idle" | "starting" | "arc" | "submitting">("idle");
+  const [steps, setSteps] = useState<StepUpdate[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const seeded = assetId && !amounts[assetId] ? { [assetId]: "1000000" } : {};
+  const req = { ...seeded, ...amounts };
+  const r = useApi(`review:${all}:${JSON.stringify(req)}`, () => api.buysReview(all, Object.keys(req).length ? req : undefined));
+  const [left, setLeft] = useState(30);
   useEffect(() => {
-    if (!r.data) return;
+    if (!r.data || phase !== "idle") return;
     const end = new Date(r.data.expiresAt).getTime();
-    const t = setInterval(() => { const s = Math.max(0, Math.round((end - Date.now()) / 1000)); setLeft(s); if (s === 0) r.reload(); }, 1000);
+    const t = setInterval(() => { const sLeft = Math.max(0, Math.round((end - Date.now()) / 1000)); setLeft(sLeft); if (sLeft === 0) r.reload(); }, 1000);
     return () => clearInterval(t);
-  }, [r.data, r]);
+  }, [r.data, r, phase]);
   useEffect(() => {
-    const data = r.data;
-    if (!data) return;
-    setInputs(prev => {
-      const next = { ...prev };
-      for (const row of data.rows) {
-        if (next[row.assetId] == null) next[row.assetId] = usd6ToDollarsInput(row.amountUsd6);
-      }
-      return next;
-    });
+    const data = r.data; if (!data) return;
+    setInputs(prev => { const next = { ...prev }; for (const row of data.rows) if (next[row.assetId] == null) next[row.assetId] = usd6ToDollarsInput(row.amountUsd6); return next; });
   }, [r.data]);
   const d = r.data;
   const rows = d?.rows ?? [];
   const selectable = rows.filter(x => x.selectable);
-  const applyAmount = (assetId: string, jarCap: string) => {
-    const raw = inputs[assetId] ?? "";
-    const usd6 = dollarsToUsd6(raw);
-    if (!usd6) { setErr("Enter a dollar amount like 0.50"); return; }
-    const capped = BigInt(usd6) > BigInt(jarCap) ? jarCap : usd6;
-    setAmounts(a => ({ ...a, [assetId]: capped }));
-    setErr(null);
+  const dirty = rows.some(q => { const v = dollarsToUsd6(inputs[q.assetId] ?? ""); return v !== null && v !== q.amountUsd6; });
+  const applyAmounts = () => {
+    const next: Record<string, string> = {};
+    for (const q of rows) {
+      const v = dollarsToUsd6(inputs[q.assetId] ?? "");
+      if (!v) { setErr("Enter a dollar amount like 0.50"); return; }
+      if (BigInt(v) < MIN_BUY_USD6) { setErr("The smallest buy is $0.10"); return; }
+      next[q.assetId] = v;
+    }
+    setErr(null); setAmounts(next);
   };
   const buy = async () => {
     if (!d) return;
-    setPhase("signing"); setErr(null);
+    setErr(null); setSteps([]); setPhase("starting");
     try {
-      const signed = await signAction({ kind: "typed_data", typedData: d.approval.typedData, summary: `Buy ${selectable.length} assets` });
-      setPhase("submitting");
-      const { batchIds } = await api.buy(d.quoteId, d.approval.typedData, signed.signature ?? "mock");
-      refreshAll(); navigate(`/buy/${batchIds[0]}`);
+      const start = await api.buy(d.quoteId);
+      if (start.action) {
+        setPhase("arc");
+        const signed = await signAction(start.action, { onStep: st => setSteps(prev => [...prev.filter(x => x.index !== st.index), st].sort((a, b) => a.index - b.index)) });
+        setPhase("submitting");
+        await api.buyArcSubmitted(start.batchId, signed.txHash!);
+      }
+      refreshAll(); navigate(`/buy/${start.batchId}`);
     } catch (e) {
-      const code = e instanceof ApiError ? e.code : (e as { code?: string }).code;
-      setErr(errorCopy(code ?? "BAD_SIGNATURE")); setPhase("idle");
+      const code = codeOf(e);
+      setErr(code === "INSUFFICIENT_FREE" && detailsOf(e)?.availableUsd6 ? `You have ${fmtUsd6(detailsOf(e)!.availableUsd6)} available on Arc. Add funds or buy a smaller amount.` : errorCopy(code ?? "CHALLENGE_FAILED"));
+      setPhase("idle");
       if (code === "QUOTE_EXPIRED") r.reload();
     }
   };
-  const phaseLabel = phase === "signing" ? "Approve in wallet…" : phase === "submitting" ? "Submitting…" : null;
+  const busy = phase !== "idle";
+  const phaseLabel = phase === "starting" ? "Preparing…" : phase === "arc" ? "Approve on Arc…" : phase === "submitting" ? "Checking Arc receipt…" : null;
   return <div className="page flow wide">
-    <FlowHead title={rows.length ? `Buy ${selectable.length || rows.length} jar${rows.length > 1 ? "s" : ""}` : "Buy"} back="/jars" />
+    <FlowHead title={rows.length ? `Buy ${selectable.length || rows.length} asset${rows.length > 1 ? "s" : ""}` : "Buy"} back="/jars" />
     <ErrorState error={r.error} onRetry={r.reload} />
-    {d && <div className="live"><Ring value={(left / 30) * 100} size={30} stroke={3} /><span>Prices update live · next in <b className="num">{left} s</b></span></div>}
-    {r.loading && <SkeletonList rows={3} />}
+    {d && !busy && <div className="live"><Ring value={(left / 30) * 100} size={30} stroke={3} /><span>Live Jupiter quotes · refresh in <b className="num">{left} s</b></span></div>}
+    {r.loading && !d && <SkeletonList rows={3} />}
     {d && <div className="two-col">
       <div className="quotes">
-        {rows.map(q => { const name = assetName(q.assetId, q.name); const jarCap = q.jarAmountUsd6 ?? q.amountUsd6; return <article className={`card quote ${q.selectable ? "" : "off"}`} key={q.assetId}>
+        {rows.map(q => { const name = assetName(q.assetId, q.name); return <article className={`card quote ${q.selectable ? "" : "off"}`} key={q.assetId}>
           <header className="quote-top">
             <Monogram name={name} tone={toneFor(q.assetId)} />
-            <div className="row-main"><div className="row-title">{name} {q.token && <span className="sub">{q.token}</span>}</div><div className="row-sub">{q.selectable ? `Best price on ${q.chain === "solana" ? "Solana" : q.chain}` : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(1)}%)` : "Buys when available"}</div></div>
+            <div className="row-main"><div className="row-title">{name} {q.token && <span className="sub">{q.token}</span>}</div><div className="row-sub">{q.selectable ? "Jupiter on Solana · into your wallet" : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
             <strong className="num">{fmtUsd6(q.amountUsd6)}</strong>
           </header>
-          {q.mint && <p className="fineprint mono">mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
+          {q.mint && <p className="fineprint mono">{q.issuer ?? "Token"} · mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
           {q.arkiv && <a className="fineprint" href={q.arkiv.url} target="_blank" rel="noreferrer"><ShieldCheck size={14} /> Token verified on Arkiv</a>}
           {BigInt(q.price.usd6PerUnit || "0") > 0n && <dl className="quote-grid">
-            <div><dt>Price now</dt><dd>{fmtUsd6(q.price.usd6PerUnit)}{q.token ? ` per ${q.token}` : ""}</dd></div>
+            <div><dt>Your price</dt><dd>{fmtUsd6(q.price.usd6PerUnit)}{q.token ? ` / ${q.token}` : ""}</dd></div>
             <div><dt>You get about</dt><dd>{q.estQty} {q.token}</dd></div>
-            <div><dt>Won't buy above</dt><dd>{fmtUsd6(q.maxPriceUsd6)} (+1%)</dd></div>
-            <div><dt>Fees</dt><dd>{fmtUsd6(q.fees.totalUsd6)} ({(q.fees.pctBps / 100).toFixed(1)}%)</dd></div>
+            <div><dt>Market price</dt><dd>{fmtUsd6(q.refPriceUsd6)}</dd></div>
+            <div><dt>Route cost</dt><dd>{fmtUsd6(q.fees.totalUsd6)} ({(q.fees.pctBps / 100).toFixed(2)}%)</dd></div>
           </dl>}
-          <div className="quote-amount field">
-            <label htmlFor={`amt-${q.assetId}`}>Buy amount <em>(jar has {fmtUsd6(jarCap)})</em></label>
+          {(q.mint || q.selectable) && <div className="quote-amount field">
+            <label htmlFor={`amt-${q.assetId}`}>Amount (USD)</label>
             <div className="btn-row">
-              <input id={`amt-${q.assetId}`} inputMode="decimal" value={inputs[q.assetId] ?? ""} onChange={e => setInputs(i => ({ ...i, [q.assetId]: e.target.value }))} aria-label={`Amount for ${name}`} />
-              <button type="button" className="button secondary sm" onClick={() => applyAmount(q.assetId, jarCap)}>Update</button>
+              <input id={`amt-${q.assetId}`} inputMode="decimal" disabled={busy} value={inputs[q.assetId] ?? ""} onChange={e => setInputs(i => ({ ...i, [q.assetId]: e.target.value }))} aria-label={`Amount for ${name}`} />
+              {BigInt(q.suggestedUsd6) > 0n && <button type="button" className="chip" disabled={busy} onClick={() => setInputs(i => ({ ...i, [q.assetId]: usd6ToDollarsInput(q.suggestedUsd6) }))}>Suggested {fmtUsd6(q.suggestedUsd6)}</button>}
             </div>
-          </div>
+          </div>}
         </article>; })}
+        {dirty && !busy && <button className="button secondary full" onClick={applyAmounts}>Update quotes</button>}
       </div>
       <div>
         <section className="card summary">
-          <div className="summary-line"><span>From your jars</span><strong>{fmtUsd6(d.totalUsd6)}</strong></div>
-          <div className="summary-line"><span>Fees</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({(d.fees.pctBps / 100).toFixed(1)}%)</strong></div>
-          <p className="sub">Price protection 1% · if the price moves more, that jar waits</p>
+          <div className="summary-line"><span>Total</span><strong>{fmtUsd6(d.totalUsd6)}</strong></div>
+          <div className="summary-line"><span>Route costs</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({(d.fees.pctBps / 100).toFixed(2)}%)</strong></div>
+          {BigInt(d.funding.solanaUsdc6) > 0n && <div className="summary-line"><span>From your Solana USDC</span><strong>{fmtUsd6(BigInt(d.totalUsd6) - BigInt(d.funding.bridgeUsd6))}</strong></div>}
+          {BigInt(d.funding.bridgeUsd6) > 0n && <div className="summary-line"><span>Moved from Arc (CCTP)</span><strong>{fmtUsd6(d.funding.bridgeUsd6)}</strong></div>}
+          <p className="sub">Arc balance {fmtUsd6(d.funding.arcUsdc6)} · Solana USDC {fmtUsd6(d.funding.solanaUsdc6)}. Price protection 1%.</p>
         </section>
-        {d.destination && <p className="fineprint">Shares go straight to your Solana wallet <span className="mono">{d.destination.slice(0, 4)}…{d.destination.slice(-4)}</span>.</p>}
+        {d.destination && <p className="fineprint">Shares go straight to your Solana wallet <span className="mono">{d.destination.slice(0, 4)}…{d.destination.slice(-4)}</span>. Ownback pays the Solana gas.</p>}
+        <ArcSteps steps={steps} />
         {err && <p className="error" role="alert">{err}</p>}
         <div className="dock">
-          {phaseLabel ? <button className="button primary full lg" disabled>{phaseLabel}</button>
+          {phaseLabel ? <button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {phaseLabel}</button>
+            : dirty ? <button className="button primary full lg" onClick={applyAmounts}>Update quotes first</button>
             : selectable.length ? <ConfirmAction label={`Buy now · ${fmtUsd6(d.totalUsd6)}`} onConfirm={buy} />
             : <button className="button primary full lg" disabled>Nothing can be bought right now</button>}
-          <p className="fineprint center"><ShieldCheck size={14} /> Nothing buys without this approval.</p>
+          <p className="fineprint center"><ShieldCheck size={14} /> You sign every step. Nothing moves without you.</p>
         </div>
       </div>
     </div>}
+  </div>;
+}
+
+const STAGES: { key: string; label: string; doneAfter: BuyProgress["status"][] }[] = [
+  { key: "arc", label: "USDC leaves your Arc vault", doneAfter: ["attesting", "minting", "swap_ready", "swapping", "done", "done_partial"] },
+  { key: "attest", label: "Circle attests the transfer (CCTP)", doneAfter: ["minting", "swap_ready", "swapping", "done", "done_partial"] },
+  { key: "mint", label: "USDC arrives in your Solana wallet", doneAfter: ["swap_ready", "swapping", "done", "done_partial"] },
+];
+
+function elapsed(from: string) { const s = Math.max(0, Math.round((Date.now() - new Date(from).getTime()) / 1000)); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`; }
+
+export function BuyDone({ batchId }: { batchId: string }) {
+  const { navigate } = useApp();
+  const [signing, setSigning] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [, tick] = useState(0);
+  const b = useApi(`buy:${batchId}`, () => api.buyProgress(batchId), { pollMs: 2500 });
+  const d = b.data;
+  const finished = d && (d.status === "done" || d.status === "failed");
+  useEffect(() => { if (finished) { refreshAll(); haptic([12, 60, 12, 60, 24]); } }, [finished]);
+  useEffect(() => { if (finished) return; const t = setInterval(() => tick(x => x + 1), 1000); return () => clearInterval(t); }, [finished]);
+
+  const swapOne = useCallback(async (e: BuyEntry) => {
+    setSigning(e.assetId); setErr(null);
+    try {
+      const { action } = await api.buySwap(batchId, e.assetId);
+      const signed = await signAction(action);
+      await api.buySwapSubmit(batchId, e.assetId, signed.signedTx!);
+    } catch (x) { setErr(`${assetName(e.assetId, e.name)}: ${errorCopy(codeOf(x))}`); }
+    finally { setSigning(null); b.reload(); }
+  }, [batchId, b]);
+
+  // Once USDC is on Solana, ask for each swap signature in turn (the user can also tap Retry).
+  const auto = useRef(false);
+  useEffect(() => {
+    if (!d || auto.current || signing || (d.status !== "swap_ready")) return;
+    const next = d.entries.find(e => e.status === "quoted");
+    if (next) { auto.current = true; (async () => { for (const e of d.entries.filter(x => x.status === "quoted")) await swapOne(e); })(); }
+  }, [d, signing, swapOne]);
+
+  const bought = d?.entries.filter(e => e.status === "bought") ?? [];
+  const canSwap = d && (d.status === "swap_ready" || d.status === "swapping");
+  const stages = d && BigInt(d.bridgeUsd6) > 0n ? STAGES : [];
+  const kicker = !d ? "Loading…" : d.status === "done" ? "In your wallet" : d.status === "bridging" ? "Waiting for your Arc approval" : d.status === "attesting" ? "Circle is attesting the transfer · usually under a minute" : d.status === "minting" ? "Delivering USDC on Solana" : "Sign each swap to finish";
+  return <div className="page flow narrow">
+    <FlowHead title={finished ? "Buy done" : "Buying"} back="/" />
+    <ErrorState error={b.error} onRetry={b.reload} />
+    <div className="center celebrate">
+      <div className="burst" aria-hidden="true">{d?.status === "done" && Array.from({ length: 10 }, (_, i) => <i key={i} style={{ "--a": `${i * 36}deg` } as React.CSSProperties} />)}<Coin3D size={112} /></div>
+      <p className="kicker">{kicker}</p>
+      <h1 className="h-hero">{bought.length} of {d?.entries.length ?? "…"}<br />bought</h1>
+      {d && <p className="sub">{fmtUsd6(d.boughtUsd6)} of {fmtUsd6(d.totalUsd6)} · {elapsed(d.startedAt)}</p>}
+    </div>
+    {d?.error && <p className="error" role="alert"><AlertTriangle size={14} /> Retrying automatically: {d.error}</p>}
+    {err && <p className="error" role="alert">{err}</p>}
+    {d && <ol className="card list" style={{ marginTop: 20 }} aria-live="polite">
+      {stages.map(st => { const done = st.doneAfter.includes(d.status); const link = st.key === "arc" ? d.links.arc : st.key === "mint" ? d.links.mint : undefined;
+        return <li className="row" key={st.key}>
+          <span className="mini-icon sm">{done ? <Check size={16} /> : <Loader2 size={16} className="spin" />}</span>
+          <span className="row-main"><span className="row-title">{st.label}</span>{st.key === "arc" && <span className="row-sub">{fmtUsd6(d.bridgeUsd6)}</span>}</span>
+          {link && <a className="fineprint" href={link} target="_blank" rel="noreferrer"><ExternalLink size={14} /> {st.key === "arc" ? "Arc" : "Solscan"}</a>}
+        </li>; })}
+      {d.entries.map(e => { const name = assetName(e.assetId, e.name); const busy = signing === e.assetId || e.status === "sent";
+        return <li className="row" key={e.assetId}>
+          <Monogram tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : busy ? <Loader2 size={16} className="spin" /> : name.slice(0, 2).toUpperCase()}</Monogram>
+          <span className="row-main">
+            <span className="row-title">Buy {e.token ?? name}</span>
+            <span className="row-sub">{e.status === "bought" ? `${e.qty} ${e.token ?? ""} at ${fmtUsd6(e.fillPriceUsd6 ?? "0")}` : busy ? "Approve in wallet, then confirming on Solana…" : e.status === "paused" ? `Didn't go through${e.error ? ` · ${e.error}` : ""}` : canSwap ? "Ready to sign" : "Waits for USDC on Solana"}</span>
+          </span>
+          <span className="row-end">
+            <span className="row-value">{fmtUsd6(e.spentUsd6 ?? e.amountUsd6)}</span>
+            {e.explorerUrl && <a className="fineprint" href={e.explorerUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Solscan</a>}
+            {canSwap && !busy && (e.status === "quoted" || e.status === "paused" || e.status === "waiting") && <button className="button secondary sm" disabled={!!signing} onClick={() => swapOne(e)}>{e.status === "quoted" ? "Sign and buy" : "Retry"}</button>}
+          </span>
+        </li>; })}
+    </ol>}
+    {!d && !b.error && <Skeleton h={180} mt={28} />}
+    {d && d.status !== "done" && <p className="fineprint center">You can leave this screen; the transfer keeps going. Come back from Activity to sign the swaps.</p>}
+    <div className="dock">
+      <button className="button primary full lg" onClick={() => navigate("/holdings")}>See what you own <ArrowRight size={18} /></button>
+      {bought[0] && <button className="button quiet full" onClick={() => navigate(`/holdings/${encodeURIComponent(bought[0].assetId)}#share`)}><Share2 size={16} /> Share what I own</button>}
+    </div>
   </div>;
 }
 
@@ -193,44 +300,49 @@ export function SellReview({ assetId }: { assetId: string }) {
   const [qty, setQty] = useState("");
   const [qtyApplied, setQtyApplied] = useState<string | undefined>();
   const r = useApi(`sell:${assetId}:${qtyApplied ?? "all"}`, () => api.sellsReview(assetId, qtyApplied));
-  const [phase, setPhase] = useState<"idle" | "signing" | "submitting">("idle");
+  const [phase, setPhase] = useState<"idle" | "building" | "signing" | "submitting">("idle");
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { if (r.data && !qty) setQty(r.data.qty); }, [r.data, qty]);
-  const sell = async () => {
-    if (!r.data) return;
-    setPhase("signing"); setErr(null);
-    try {
-      const signed = await signAction(r.data.action);
-      setPhase("submitting");
-      const txHash = signed.txHash ?? (r.data.action.kind === "typed_data" ? "mock" : undefined);
-      if (!txHash) throw Object.assign(new Error("BAD_SIGNATURE"), { code: "BAD_SIGNATURE" });
-      const { sellId } = await api.sell(r.data.quoteId, txHash);
-      refreshAll(); navigate(`/sell/${sellId}`);
-    } catch (e) {
-      setErr(errorCopy(e instanceof ApiError ? e.code : (e as { code?: string }).code)); setPhase("idle");
-    }
-  };
   const d = r.data;
+  const dirty = !!d && qty.trim() !== "" && qty.trim() !== d.qty;
+  const sell = async () => {
+    if (!d) return;
+    setErr(null); setPhase("building");
+    try {
+      const start = await api.sell(assetId, d.qty);
+      if (start.action) {
+        setPhase("signing");
+        const signed = await signAction(start.action);
+        setPhase("submitting");
+        await api.sellSubmit(start.sellId, signed.signedTx!);
+      }
+      refreshAll(); navigate(`/sell/${start.sellId}`);
+    } catch (e) { setErr(errorCopy(codeOf(e))); setPhase("idle"); r.reload(); }
+  };
+  const label = phase === "building" ? "Getting the best route…" : phase === "signing" ? "Approve in wallet…" : phase === "submitting" ? "Confirming on Solana…" : null;
   return <div className="page flow narrow">
     <FlowHead title="Sell" back={`/holdings/${encodeURIComponent(assetId)}`} />
     <ErrorState error={r.error} onRetry={r.reload} />
-    {r.loading && <SkeletonList rows={3} />}
+    {r.loading && !d && <SkeletonList rows={3} />}
     {d && <>
       <section className="card summary">
-        <div className="summary-line"><span>{d.name}{d.token ? ` · ${d.token}` : ""}</span><strong>{d.qty}</strong></div>
+        <div className="summary-line"><span>You hold</span><strong>{d.heldQty} {d.token}</strong></div>
+        <div className="summary-line"><span>Selling</span><strong>{d.qty} {d.token}</strong></div>
         <div className="summary-line"><span>You get about</span><strong>{fmtUsd6(d.estUsdcUsd6)} USDC</strong></div>
-        <div className="summary-line"><span>Fees</span><strong>{fmtUsd6(d.fees.totalUsd6)}</strong></div>
-        {d.mint && <p className="fineprint mono">mint {d.mint.slice(0, 4)}…{d.mint.slice(-4)} · {d.decimals} decimals</p>}
+        <div className="summary-line"><span>Route cost</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({(d.fees.pctBps / 100).toFixed(2)}%)</strong></div>
+        <p className="fineprint mono">mint {d.mint.slice(0, 4)}…{d.mint.slice(-4)} · {d.decimals} decimals · market {fmtUsd6(d.priceUsd6)}</p>
       </section>
       <label className="field" htmlFor="sell-qty">Quantity to sell
         <div className="btn-row">
-          <input id="sell-qty" value={qty} onChange={e => setQty(e.target.value)} />
-          <button type="button" className="button secondary sm" onClick={() => { setQtyApplied(qty); setErr(null); }}>Update</button>
+          <input id="sell-qty" inputMode="decimal" value={qty} disabled={phase !== "idle"} onChange={e => setQty(e.target.value)} />
+          <button type="button" className="chip" disabled={phase !== "idle"} onClick={() => { setQty(d.heldQty); setQtyApplied(d.heldQty); }}>Max</button>
         </div>
       </label>
+      <p className="fineprint">USDC lands in your Solana wallet. You can move it to Arc from Holdings.</p>
       {err && <p className="error" role="alert">{err}</p>}
       <div className="dock">
-        {phase !== "idle" ? <button className="button primary full lg" disabled>{phase === "signing" ? "Approve in wallet…" : "Submitting…"}</button>
+        {label ? <button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {label}</button>
+          : dirty ? <button className="button primary full lg" onClick={() => { setQtyApplied(qty.trim()); setErr(null); }}>Update quote</button>
           : <ConfirmAction label={`Sell · ${fmtUsd6(d.estUsdcUsd6)}`} onConfirm={sell} />}
       </div>
     </>}
@@ -244,56 +356,17 @@ export function SellDone({ sellId }: { sellId: string }) {
   const done = d?.status === "done" || d?.status === "failed";
   useEffect(() => { if (done) refreshAll(); }, [done]);
   return <div className="page flow narrow">
-    <FlowHead title={done ? "Sold" : "Selling"} back="/holdings" />
+    <FlowHead title={d?.status === "failed" ? "Sell failed" : done ? "Sold" : "Selling"} back="/holdings" />
     <ErrorState error={s.error} onRetry={s.reload} />
     <div className="center celebrate">
       <Coin3D size={132} />
-      <p className="kicker">{done ? "USDC in your wallet" : "Working on it"}</p>
-      <h1 className="h-hero">{d?.receivedUsd6 ? <>Sold for<br />{fmtUsd6(d.receivedUsd6)}</> : "Selling…"}</h1>
+      <p className="kicker">{d?.status === "failed" ? "Nothing was sold" : done ? "USDC in your Solana wallet" : "Confirming on Solana"}</p>
+      <h1 className="h-hero">{d?.receivedUsd6 ? <>Sold for<br />{fmtUsd6(d.receivedUsd6)}</> : d?.status === "failed" ? "Try again" : "Selling…"}</h1>
+      {d?.error && <p className="error">{d.error}</p>}
       {d?.explorerUrl && <a className="button secondary" href={d.explorerUrl} target="_blank" rel="noreferrer"><ExternalLink size={16} /> View on Solscan</a>}
     </div>
     <div className="dock">
       <button className="button primary full lg" onClick={() => navigate("/holdings")}>Back to holdings</button>
-    </div>
-  </div>;
-}
-
-export function BuyDone({ batchId }: { batchId: string }) {
-  const { navigate } = useApp();
-  const b = useApi(`buy:${batchId}`, () => api.buyProgress(batchId), { pollMs: 2000 });
-  useEffect(() => { haptic([12, 60, 12, 60, 24]); }, []);
-  const d = b.data;
-  const finished = d && (/^done/.test(d.status) || d.status === "failed");
-  const swapping = d && !finished && (d.status === "swapping" || d.status === "approved" || d.status === "executing");
-  useEffect(() => { if (finished) refreshAll(); }, [finished]);
-  const bought = d?.entries.filter(e => e.status === "bought") ?? [];
-  return <div className="page flow narrow">
-    <FlowHead title={finished ? (d?.status === "failed" ? "Buy failed" : "Buy done") : "Buying"} back="/" />
-    <ErrorState error={b.error} onRetry={b.reload} />
-    <div className="center celebrate">
-      <div className="burst" aria-hidden="true">{finished && Array.from({ length: 10 }, (_, i) => <i key={i} style={{ "--a": `${i * 36}deg` } as React.CSSProperties} />)}<Coin3D size={132} /></div>
-      <p className="kicker">{finished ? (d?.status === "failed" ? "Nothing bought" : "In your wallet") : swapping ? "Swapping on Solana" : "Working on it"}</p>
-      <h1 className="h-hero">{finished ? <>You bought<br />{bought.length} asset{bought.length === 1 ? "" : "s"}</> : <>{bought.length} of {d?.entries.length ?? "…"}<br />bought</>}</h1>
-      {d?.totals && <p className="sub">Bought {fmtUsd6(d.totals.boughtUsd6)} · fees {fmtUsd6(d.totals.feesUsd6)} · left in jars {fmtUsd6(d.totals.leftInJarsUsd6)}</p>}
-      {!finished && <p className="sub">You can leave this screen. We'll notify you when it's done.</p>}
-    </div>
-    {d && <div className="card list" style={{ marginTop: 28 }}>
-      {d.entries.map(e => { const name = assetName(e.assetId, e.name); return <div className="row" key={e.assetId}>
-        <Monogram tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : name.slice(0, 2).toUpperCase()}</Monogram>
-        <button className="row-main" style={{ background: "none", border: 0, textAlign: "left", padding: 0, cursor: "pointer" }} onClick={() => navigate(`/holdings/${encodeURIComponent(e.assetId)}`)}>
-          <span className="row-title">{name}</span>
-          <span className="row-sub">{e.fillPriceUsd6 ? `Bought at ${fmtUsd6(e.fillPriceUsd6)}` : e.status}{e.qty ? ` · ${e.qty}` : ""}</span>
-        </button>
-        <span className="row-end">
-          <span className="row-value">{fmtUsd6(e.spentUsd6 ?? e.amountUsd6)}</span>
-          {e.explorerUrl && <a className="fineprint" href={e.explorerUrl} target="_blank" rel="noreferrer" onClick={ev => ev.stopPropagation()}><ExternalLink size={14} /> Solscan</a>}
-        </span>
-      </div>; })}
-    </div>}
-    {!d && !b.error && <Skeleton h={180} mt={28} />}
-    <div className="dock">
-      <button className="button primary full lg" onClick={() => navigate("/holdings")}>See what you own <ArrowRight size={18} /></button>
-      {bought[0] && <button className="button quiet full" onClick={() => navigate(`/holdings/${encodeURIComponent(bought[0].assetId)}#share`)}><Share2 size={16} /> Share what I own</button>}
     </div>
   </div>;
 }

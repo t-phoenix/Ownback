@@ -76,7 +76,11 @@ function Shell({ initialPath }: { initialPath: string }) {
   useEffect(() => {
     if (me === undefined) return;
     if (me === null && route !== "/signin") { history.replaceState({}, "", "/signin"); setPath("/signin"); }
-    if (me && route === "/signin") { const to = me.onboarded ? "/" : "/onboarding/rules"; history.replaceState({}, "", to); setPath(to); }
+    if (!me) return;
+    // Rules are set once; after that they live in Settings. Onboarded users never see the rules screen again.
+    const to = !me.onboarded ? (route === "/onboarding/rules" || route === "/funds" ? null : "/onboarding/rules")
+      : route === "/signin" || route === "/onboarding/rules" ? "/" : null;
+    if (to) { history.replaceState({}, "", to); setPath(to); }
   }, [me, route]);
 
   /* Desktop: single-key shortcuts. Reaching for the keyboard is faster than the mouse for regulars. */
@@ -155,7 +159,7 @@ function Shell({ initialPath }: { initialPath: string }) {
   else if (seg[0] === "add" && seg[1] && seg[2] === "saved") screen = <Saved id={seg[1]} />;
   else if (seg[0] === "add" && seg[1]) screen = <Confirm id={seg[1]} />;
   else if (route === "/jars") screen = <Jars />;
-  else if (route === "/buy/review") screen = <BuyReview all={query === "all"} />;
+  else if (route === "/buy/review") { const q = new URLSearchParams(query ?? ""); screen = <BuyReview all={q.has("all")} assetId={q.get("asset") ?? undefined} />; }
   else if (seg[0] === "buy" && seg[1]) screen = <BuyDone batchId={seg[1]} />;
   else if (seg[0] === "sell" && seg[1] === "review" && seg[2]) screen = <SellReview assetId={decodeURIComponent(seg[2])} />;
   else if (seg[0] === "sell" && seg[1]) screen = <SellDone sellId={seg[1]} />;

@@ -27,10 +27,14 @@ Notation: `state --event--> state`. **Bold** names are stored in Postgres. *Ital
 
 ```
            ┌──read fails──► **read_failed** (CaptureError; nothing saved, row deleted after 24 h)
-**reading** ┤
-           └──read ok──► match runs ─┬─► **ready**         (Confirm)
-                                     ├─► **needs_review**  (low-confidence brand, from Gmail batch or Blinkit-style multi-brand)
-                                     └─► **not_listed**    (NoMatch: no buyable company or supplier)
+           │                  readError: not_a_receipt | og_unavailable* | timeout*   (* retryable: "Try again")
+**reading** ┼──fields missing / unsure──► **needs_details** ("Check the details" form, prefilled)
+           │                                   └──PUT /details──► reading (analysis only)
+           └──read ok──► jury runs ─┬─► **ready**         (Confirm)
+                                    ├─► **needs_review**  (read confidence < 0.7, or parent agreed by < 2 of 3 jurors)
+                                    └─► **not_listed**    (NoMatch: no buyable row; the whole share goes to the fallback)
+reading --still reading after 5 min (reaper in /jobs/rest-pending)--> read_failed (timeout)
+ready / needs_review / not_listed --user edits details--> reading
 ready / needs_review --user fixes match--> ready
 not_listed --pick fallback--> ready (allocations = fallback asset)
 not_listed / ready --skip--> **skipped**
@@ -90,29 +94,28 @@ any --user cancels jar--> amount → free balance
 Note: ready minimum is not a max. A jar of $33.43 is *ready* and may be bought in one approval.
 ```
 
-## 5 · Buy batch (`buy_batches.status`)
+## 5 · Buy batch (`buy_batches.status`, D29)
 
 ```
-**approved** (BuyApproval stored) --re-simulated--> **executing** (vault.execute sent on Arc)
-**executing** --Executed event--> **bridging** (CCTP attestation pending; "Moved to Solana" step)
-**bridging** --minted to relay--> **swapping**
-**swapping** --all entries final--> **done** | **done_partial** (some entries partly bought or returned)
-**bridging** > 3 min --> slow flag only (BuyStates 6)
-**executing** reverted --> **failed** (no money moved; jars untouched)
+POST /buys --Solana USDC < total--> **bridging** (user signs Arc: [setSolanaRecipient] → approve → deposit → withdrawCrossChain)
+POST /buys --Solana USDC ≥ total--> **swap_ready** (no Arc step)
+**bridging** --arc-submitted, Withdrawn(user, bridge, 5) found in receipt--> **attesting** (Iris V2, source domain 26)
+**attesting** --attestation complete--> **minting** (relay sends Solana receiveMessage; USDC → user's USDC ATA)
+**minting** --landed (or nonce already used)--> **swap_ready**
+**swap_ready** --first swap built--> **swapping** --every entry bought--> **done**
+any worker error --> state kept, `error` set, retried every 5 s (the user sees "Retrying: …")
 ```
 
-One batch covers one venue domain. Batches only contain items from signed, unexpired BuyApprovals (Q7).
+Legacy states `approved`, `executing`, `done_partial`, `failed` stay valid for old rows.
 
-## 6 · Buy entry (`buy_entries.status`, one per user × asset in a batch)
+## 6 · Buy entry (`buy_entries.status`)
 
 ```
-**quoted** --price moved > 1% or fees over the cap before execute--> **waiting** (ask "Buy at $301.10 or Wait?"; a new price needs a new signature)
-**quoted** --included in execute--> **sent**
-**sent** --swap ok, full--> **bought** (fill price, qty, tx stored)
-**sent** --swap ok, partial liquidity--> **bought** with amount < requested (keeper never executes more than the quote supports, D10)
-**sent** --swap failed (attempt 1)--> retry --failed (attempt 2)--> **returning** --CCTP back + returnToJar--> **returned**
-**quoted/sent** --mint ≠ registry--> **paused**
+**quoted** --swap built (relay-signed, msg hash stored)--> **waiting** (user signs in Privy)
+**waiting** --signed tx matches the stored hash, sent--> **sent** --confirmed--> **bought** (qty/spent from tx token balances)
+**waiting/sent** --send or confirm failed--> **paused** (`error` stored; user taps Retry → new swap built)
 ```
+USDC from an unbought entry simply stays in the user's Solana wallet.
 
 ## 7 · Gmail connection (`gmail_connections.state`, GmailStates)
 
@@ -140,6 +143,15 @@ any --token revoked or refresh fails--> **revoked** ("Gmail disconnected", past 
 cross-chain: **sending** covers burn on Arc → attestation → keeper relays the mint on the destination
 ```
 
+Move to Arc (D31, `chain = 'arc'`): **signing** (Solana burn built, relay-signed) --user signs, confirmed--> **attesting** (Iris, source domain 5) --keeper `receiveMessage` on Arc--> **sent**.
+
+## 8b · Sell (`sells.status`, D31)
+
+```
+**signing** (Jupiter token→USDC built, relay-signed) --user signs, sent--> **sent** --confirmed--> **done** (received_usd6 = USDC delta in the tx)
+**signing/sent** --error--> **failed** (`error` stored; tokens untouched unless the tx landed)
+```
+
 ## 9 · Session
 
 ```
@@ -161,6 +173,6 @@ cross-chain: **sending** covers burn on Arc → attestation → keeper relays th
 
 ## Activity event kinds (`events.kind`)
 
-`deposit_added`, `rules_changed` (A22), `fees_high`, `buy_reminder`, `approval_expired`, `solana_recipient_changing` (A6), `receipt_matched`, `needs_review`, `jar_ready`, `fallback_used`, `limit_warning` (80%), `limit_reached`, `buy_done`, `buy_partial`, `buy_returned`, `buy_paused`, `withdraw_sent`, `gmail_found`, `gmail_revoked`, `rest_ready` (Q7).
+`deposit_added`, `rules_changed` (A22), `fees_high`, `buy_reminder`, `approval_expired`, `solana_recipient_changing` (A6), `receipt_matched`, `needs_review`, `jar_ready`, `fallback_used`, `limit_warning` (80%), `limit_reached`, `buy_done`, `sell_done` (D31), `buy_partial`, `buy_returned`, `buy_paused`, `withdraw_sent`, `gmail_found`, `gmail_revoked`, `rest_ready` (Q7).
 
 Each kind has a copy template in [frontend/copy-and-errors.md](../frontend/copy-and-errors.md) and a push on/off flag that follows the three Settings toggles (buy done · receipt needs review · near monthly limit).

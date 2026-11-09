@@ -3,20 +3,34 @@ import { USDC } from '../shared/chains.js';
 const SOL_USDC = USDC.solana.value;
 const JUP_QUOTE = 'https://lite-api.jup.ag/swap/v1/quote';
 const JUP_SWAP = 'https://lite-api.jup.ag/swap/v1/swap';
-const JUP_PRICE = 'https://api.jup.ag/price/v3';
+const JUP_PRICE = 'https://lite-api.jup.ag/price/v3';
+
+/** lite-api is rate limited (429). Back off and retry a few times instead of reporting "no route". */
+async function jupFetch(url: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { ...init, signal: AbortSignal.timeout(init.timeoutMs ?? 8_000) });
+    if (res.status !== 429 || attempt >= 4) return res;
+    await new Promise((r) => setTimeout(r, 1_000 * 2 ** attempt)); // 1, 2, 4, 8 s
+  }
+}
+
+const priceCache = new Map<string, { v: bigint; at: number }>();
+const PRICE_TTL_MS = 15_000;
 
 /** Jupiter price → Usd6 per whole token. Never invent; null if the mint has no quote. */
 export async function jupiterPriceUsd6(mint: string): Promise<bigint | null> {
+  const hit = priceCache.get(mint);
+  if (hit && Date.now() - hit.at < PRICE_TTL_MS) return hit.v;
   try {
-    const res = await fetch(`${JUP_PRICE}?ids=${encodeURIComponent(mint)}`, {
-      signal: AbortSignal.timeout(5_000),
-    });
+    const res = await jupFetch(`${JUP_PRICE}?ids=${encodeURIComponent(mint)}`, { timeoutMs: 5_000 });
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, { usdPrice?: string | number; price?: string | number } | null>;
     const row = body[mint];
     const raw = row?.usdPrice ?? row?.price;
     if (raw == null) return null;
-    return usdStringToUsd6(String(raw));
+    const v = usdStringToUsd6(String(raw));
+    if (v > 0n) priceCache.set(mint, { v, at: Date.now() });
+    return v;
   } catch {
     return null;
   }
@@ -24,7 +38,9 @@ export async function jupiterPriceUsd6(mint: string): Promise<bigint | null> {
 
 /** "236.41" → micro-USDC. Digit string only; no float maths on the money path. */
 export function usdStringToUsd6(s: string): bigint {
-  const cleaned = s.trim();
+  let cleaned = s.trim();
+  // The price API sends JSON numbers; tiny ones arrive as "1.2e-7". Normalise to fixed 6dp first.
+  if (/^\d+(\.\d+)?e[-+]?\d+$/i.test(cleaned)) cleaned = Number(cleaned).toFixed(6);
   if (!/^\d+(\.\d+)?$/.test(cleaned)) return 0n;
   const [w, f = ''] = cleaned.split('.');
   return BigInt(w) * 1_000_000n + BigInt((f + '000000').slice(0, 6));
@@ -79,7 +95,7 @@ export async function jupiterQuote(opts: {
       `&outputMint=${encodeURIComponent(opts.outputMint)}` +
       `&amount=${opts.amountRaw.toString()}` +
       `&slippageBps=${opts.slippageBps ?? 100}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
+    const res = await jupFetch(url);
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
     if (!body.outAmount || !body.inAmount) return null;
@@ -124,36 +140,39 @@ export function priceUsd6FromBuyQuote(inUsd6: bigint, outRaw: bigint, decimals: 
   return (inUsd6 * base) / outRaw;
 }
 
-/** Fee estimate from price impact (bps of amount). Conservative floor for display. */
-export function feeFromImpact(amountUsd6: bigint, priceImpactPct: string): bigint {
-  const cleaned = priceImpactPct.trim();
-  if (!/^\d+(\.\d+)?$/.test(cleaned)) return 0n;
-  const [w, f = ''] = cleaned.split('.');
-  // impact as bps: "0.12" % → 12 bps
-  const impactBps = BigInt(w) * 100n + BigInt((f + '00').slice(0, 2));
-  return (amountUsd6 * impactBps) / 10_000n;
+/** Value of a raw token amount at a Usd6-per-whole-token price. */
+export function valueUsd6(raw: bigint, decimals: number, priceUsd6: bigint): bigint {
+  return (raw * priceUsd6) / 10n ** BigInt(decimals);
+}
+
+/**
+ * Route cost = what goes in minus what comes out, both valued in Usd6 at Jupiter's price.
+ * Measured, not Jupiter's priceImpactPct (whose scale is ambiguous). Never negative.
+ */
+export function routeFeeUsd6(inUsd6: bigint, outUsd6: bigint): bigint {
+  return inUsd6 > outUsd6 ? inUsd6 - outUsd6 : 0n;
 }
 
 export async function jupiterBuildSwap(opts: {
   quoteResponse: Record<string, unknown>;
   userPublicKey: string;
   payer: string;
-  destinationTokenAccount: string;
+  destinationTokenAccount?: string;
 }): Promise<string | null> {
   try {
-    const res = await fetch(JUP_SWAP, {
+    const res = await jupFetch(JUP_SWAP, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         quoteResponse: opts.quoteResponse,
         userPublicKey: opts.userPublicKey,
         payer: opts.payer,
-        destinationTokenAccount: opts.destinationTokenAccount,
+        ...(opts.destinationTokenAccount ? { destinationTokenAccount: opts.destinationTokenAccount } : {}),
         wrapAndUnwrapSol: false,
         dynamicComputeUnitLimit: true,
         prioritizationFeeLamports: 'auto',
       }),
-      signal: AbortSignal.timeout(15_000),
+      timeoutMs: 15_000,
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { swapTransaction?: string };

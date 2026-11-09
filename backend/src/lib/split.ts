@@ -64,16 +64,11 @@ export function splitInvest(opts: {
   }
 
   // Group cents: maker half-up, behind floor of its share, materials = residual (matches Confirm $47.75).
-  const totalCents = Number(investUsd6 / 10_000n);
-  const makerExact = (totalCents * makerPct) / 100;
-  const makerCents = Math.floor(makerExact + 0.5);
-  const behindCents = Math.floor((totalCents * behindPct) / 100);
+  const totalCents = investUsd6 / 10_000n;
+  const makerCents = (totalCents * BigInt(makerPct) * 2n + 100n) / 200n; // half-up
+  const behindCents = (totalCents * BigInt(behindPct)) / 100n;
   const materialsCents = totalCents - makerCents - behindCents;
-  const groupTotals = [
-    BigInt(makerCents) * 10_000n,
-    BigInt(behindCents) * 10_000n,
-    BigInt(materialsCents) * 10_000n,
-  ];
+  const groupTotals = [makerCents * 10_000n, behindCents * 10_000n, materialsCents * 10_000n];
 
   const rows: SplitRow[] = [];
   const pushGroup = (assets: SplitAsset[], total: bigint, defaultRole: AllocationRole) => {

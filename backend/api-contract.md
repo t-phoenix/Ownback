@@ -136,10 +136,11 @@ type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStat
 
 | Method | Path | Request | Response | Errors |
 |---|---|---|---|---|
-| POST | `/api/purchases` | multipart `image` \| `audio`, or JSON `{ text: { product, amount, currency, maker? } }` | `{ purchaseId }` (status `reading`) | `UPLOAD_TOO_LARGE` (> 8 MB), `UNSUPPORTED_MEDIA` |
-| GET | `/api/purchases/:id` | — | `Purchase` (poll every 700 ms while `reading`) | `NOT_FOUND` |
+| POST | `/api/purchases` | multipart `image` \| `audio`, or JSON `{ text: { product, amount, currency, maker?, model?, shop?, date? } }` | `{ purchaseId }` at once (status `reading`); the read + jury run after the response and write `steps` as they go | `UPLOAD_TOO_LARGE` (> 8 MB), `UNSUPPORTED_MEDIA` |
+| GET | `/api/purchases/:id` | — | `Purchase` (poll every 700 ms while `reading`; `steps` are real) | `NOT_FOUND` |
+| PUT | `/api/purchases/:id/details` | `PurchaseDetails` (the "Check the details" form) | `Purchase` (status `reading`; the jury re-runs, no image re-read) | `VALIDATION` (also when status is `confirming` / `saved`) |
 | PUT | `/api/purchases/:id/split` | `{ maker, behind, materials, makerOnly?: boolean, saveForFuture: boolean }` | `Purchase` | `VALIDATION` |
-| PUT | `/api/purchases/:id/assets` | `{ deselect: AssetId[] }` (tick boxes on Confirm) | `Purchase` | — |
+| PUT | `/api/purchases/:id/assets` | `{ deselect: AssetId[] }` (tick boxes on Confirm; `[]` re-selects every row) | `Purchase` | — |
 | GET | `/api/makers/search?q=` | — | `{ items: { companyId; name; ticker; listed; tokenized; token?; chain? }[] }` (Fix the match) | — |
 | PUT | `/api/purchases/:id/match` | `{ companyId } \| { privateBrand: true }` | `Purchase` | — |
 | PUT | `/api/purchases/:id/fallback` | `{ choice: 'fallback' \| 'skip' }` | `Purchase` | — |
@@ -150,17 +151,37 @@ type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStat
 ```ts
 type Purchase = {
   id; status: PurchaseStatus; source: 'gmail' | 'photo' | 'voice' | 'typed';
-  steps: { key: 'read' | 'convert' | 'maker' | 'behind' | 'buyable'; state: 'done' | 'running' | 'todo'; label: string }[];
+  steps: { key: 'read' | 'convert' | 'understand' | 'jury' | 'judge' | 'resolve'; state: 'done' | 'running' | 'todo' | 'failed'; label: string }[];
   receipt?: { shop; place?; date; items: string[]; local: { amount: string; currency: string }; fxRate: string /* local per $ */; amountUsd6 };
+  details?: PurchaseDetails & { missing: ('merchant' | 'date' | 'currency' | 'total' | 'items')[] };  // prefill for the form
   investUsd6?: Usd6; rateBps?: number;
   split?: { maker: number; behind: number; materials: number };
-  allocations?: (AssetRef & { amountUsd6: Usd6; selected: boolean; sourceUrl?: string; quote?: string })[];
+  allocations?: (AssetRef & { amountUsd6: Usd6; selected: boolean; why?: string; sourceUrl?: string; quote?: string })[];  // buyable rows only
+  analysis?: {                                   // D30 jury, shown on Confirm in three sections
+    productType: 'physical' | 'digital' | 'service' | 'cpg'; category: string;
+    parent: JuryRow | null;                      // "Parent company"
+    enablers: JuryRow[];                         // "Top 5 companies that help build it"
+    commodities: JuryRow[];                      // "Top 3 commodities"
+    jurors: { model: string; persona: string; ok: boolean }[];
+    cached: boolean;
+  };
   // no capOverflow — per-company max removed (Q1 revised)
-  notTokenized?: AssetRef[];                     // Foxconn, aluminium… shown as "not tokenized yet"
   limit?: { usedUsd6; capUsd6; leftUsd6 };
   ogRequestIds: string[];
   restPendingUsd6?: Usd6;                        // Q7
-  readError?: 'no_total' | 'no_product' | 'not_a_receipt';
+  readError?: 'not_a_receipt' | 'og_unavailable' | 'timeout' | 'no_total' | 'no_product';  // og_unavailable + timeout are retryable
+};
+
+type JuryRow = {
+  name: string; ticker?: string; why: string;   // why: 1–2 lines, "how they bring this product to you"
+  agree: number; of: number;                     // jurors that named it, e.g. 3 of 3
+  status: 'buyable' | 'tokenized_unverified' | 'not_onchain' | 'private';
+  assetId?: AssetId; symbol?: string;            // symbol only when buyable ("Buy on Solana · AAPLx")
+};
+
+type PurchaseDetails = {
+  merchant?: string; date?: string /* YYYY-MM-DD */; currency: string; subtotal?: string; tax?: string; total: string;
+  items: { name: string; brand?: string; model?: string; category?: string; qty: number; unitPrice?: string; lineTotal?: string }[];
 };
 ```
 
@@ -182,16 +203,26 @@ type Purchase = {
 |---|---|---|---|---|
 | GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; price?: Price; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
 | POST | `/api/jars/:assetId/cancel` | — | `{ action: SignableAction }` | — |
-| GET | `/api/buys/review?include=ready\|all` | — | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; token; chain; venue; price: Price; refPriceUsd6; estQty: string; maxPriceUsd6; fees: Fees; selectable: boolean; reason?: 'fees_high' \| 'price_off_reference' \| 'no_venue'; arkiv?: { key; url } /* ownback.asset.v1 read from Arkiv: createdBy+ownedBy writer AND mint = curated mint; omitted if not found */ }[]; totalUsd6; fees: Fees; destination: string; approval: { kind: 'typed_data'; typedData } }` | `NO_READY_JARS` |
-| POST | `/api/buys` | `{ quoteId, approval, signature }` + Idempotency-Key | `{ batchIds: string[] }` | `QUOTE_EXPIRED`, `PRICE_MOVED`, `FEES_TOO_HIGH`, `BAD_SIGNATURE`, `KEEPER_DISABLED` |
-| POST | `/api/buys/approvals/:hash/cancel` | — | `{ action: SignableAction }` (`cancelApproval`) | — |
-| GET | `/api/buys/:batchId` | — | `BuyProgress` (poll every 2 s) | — |
+| GET/POST | `/api/buys/review` | GET `?include=ready\|all&amounts={json}` or POST `{ include?, amounts?: { [assetId]: Usd6 } }` (whole cents, min $0.10; an amount for a verified asset without a jar is allowed) | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; jarAmountUsd6; suggestedUsd6; token?; mint?; decimals?; issuer?; chain; venue; price: Price; refPriceUsd6 /* Jupiter market price */; estQty; fees: Fees /* route cost = spend − value of output at market */; selectable; reason?: 'fees_high' \| 'no_venue'; arkiv? }[]; totalUsd6; fees; funding: { solanaUsdc6; arcUsdc6; bridgeUsd6 }; destination }` | `NO_READY_JARS`, `VALIDATION` |
+| POST | `/api/buys` | `{ quoteId }` + Idempotency-Key | `{ batchId; batchIds; action?: SignableAction /* evm_calls on Arc with labels[], only when bridgeUsd6 > 0 */ }` | `QUOTE_EXPIRED`, `NOTHING_TO_BUY`, `NO_SOLANA_RECIPIENT`, `INSUFFICIENT_FREE`, `KEEPER_DISABLED` |
+| POST | `/api/buys/:batchId/arc-submitted` | `{ txHash }` | `{ status }` (server reads the receipt for `Withdrawn(user, bridge, 5)`) | `TX_NOT_FOUND`, `TX_REVERTED` |
+| POST | `/api/buys/:batchId/swaps/:assetId` | — | `{ action: sol_tx /* relay-signed, user signs */; estQty; token }` | `DEPOSIT_NOT_READY` (USDC not on Solana yet), `INSUFFICIENT_FREE`, `UPSTREAM` |
+| POST | `/api/buys/:batchId/swaps/:assetId/submit` | `{ signedTx }` (base64) | `{ status: 'bought'; venueTx; explorerUrl; qty; spentUsd6 }` | `BAD_SIGNATURE` (message changed), `TX_REVERTED` |
+| GET | `/api/chain/arc/tx/:hash` | — | `{ status: 'pending' \| 'success' \| 'reverted'; explorerUrl }` | — |
+| GET | `/api/buys/:batchId` | — | `BuyProgress` (poll every 2–3 s) | — |
+| GET | `/api/sells/review?assetId&qty?` | — | `{ assetId; name; token; mint; decimals; heldQty /* on-chain */; qty; amountRaw; estUsdcUsd6; priceUsd6; fees; destination }` | `FEATURE_OFF`, `NOT_FOUND` |
+| POST | `/api/sells` | `{ assetId, qty? }` | `{ sellId; estUsdcUsd6?; action?: sol_tx }` | `NO_SOLANA_RECIPIENT`, `UPSTREAM` |
+| POST | `/api/sells/:sellId/submit` | `{ signedTx }` | `{ status: 'done'; venueTx; explorerUrl; receivedUsd6 }` | `BAD_SIGNATURE`, `TX_REVERTED` |
+| GET | `/api/sells/:sellId` | — | `{ sellId; status; assetId; qty; venueTx?; explorerUrl?; receivedUsd6?; error? }` | — |
+| POST | `/api/moves/to-arc` | `{ amountUsd6 }` | `{ moveId; action: sol_tx }` | `INSUFFICIENT_FREE`, `NO_SOLANA_RECIPIENT` |
+| POST | `/api/moves/:id/submit` | `{ signedTx }` | `{ status: 'attesting'; solTx; explorerUrl }` | `BAD_SIGNATURE` |
+| GET | `/api/moves/:id` | — | `{ moveId; status; amountUsd6; links: { sol?; arc? }; error? }` | — |
 
 ```ts
-type BuyProgress = { batchId; status: BuyBatchStatus; startedAt; arcTx?; cctp?: { message?; seconds? }; slow: boolean;
-  entries: { assetId; name; status: BuyEntryStatus; quotePriceUsd6; maxPriceUsd6; fillPriceUsd6?; qty?; amountUsd6; spentUsd6?; venueTx? ; note? }[];
-  totals?: { boughtUsd6; leftInJarsUsd6; feesUsd6; feesPctBps: number; feesCovered: boolean; slippageBps: number; returnedUsd6 };
-  destination: string };
+type BuyProgress = { batchId; status: BuyBatchStatus /* docs/04 §5 */; startedAt; totalUsd6; bridgeUsd6; error?;
+  links: { arc?: string /* explorer.arc.io */; mint?: string /* solscan receiveMessage */ };
+  entries: { assetId; name; token?; status: BuyEntryStatus; amountUsd6; spentUsd6?; fillPriceUsd6?; qty?; error?; venueTx?; explorerUrl? }[];
+  boughtUsd6; destination: string };
 ```
 
 ### Receipts and activity
@@ -267,7 +298,7 @@ Verified mints only. Pipeline: [database/asset-discovery.md](../database/asset-d
 | `NOT_FOUND` | 404 | no | |
 | `RATE_LIMITED` | 429 | yes | |
 | `UPLOAD_TOO_LARGE` / `UNSUPPORTED_MEDIA` | 413 / 415 | no | |
-| `READ_FAILED` | 422 | no | Couldn't read the receipt → CaptureError |
+| `READ_FAILED` | 422 | no | Couldn't read the receipt → CaptureError. The async read reports its reason in `Purchase.readError` instead (`og_unavailable` / `timeout` retryable) |
 | `NOTHING_TO_BUY` | 409 | no | All assets deselected or untokenized → NoMatch |
 | `INSUFFICIENT_FREE` | 409 | no | ConfirmStates 3 |
 | `LIMIT_REACHED` | 409 | no | Limit screen |

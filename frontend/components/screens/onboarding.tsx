@@ -94,7 +94,7 @@ export function Rules() {
         </div>}
         {err && <p className="error" role="alert">{err}</p>}
         <div className="dock">
-          <button className="button primary full lg" disabled={busy || !r} onClick={save}>{busy ? "Saving…" : "Add $20 to start"} <ArrowRight size={18} /></button>
+          <button className="button primary full lg" disabled={busy || !r} onClick={save}>{busy ? "Saving…" : "Save rules"} <ArrowRight size={18} /></button>
         </div>
       </div>
     </div>

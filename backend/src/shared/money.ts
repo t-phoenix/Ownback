@@ -53,14 +53,16 @@ export function largestRemainderCents(totalUsd6: bigint, weights: number[]): big
   const wSum = weights.reduce((a, b) => a + b, 0);
   if (wSum <= 0) throw new Error('weights must sum > 0');
 
-  const exact = weights.map((w) => (Number(totalCents) * w) / wSum);
-  const floors = exact.map((x) => Math.floor(x));
-  let rem = Number(totalCents) - floors.reduce((a, b) => a + b, 0);
+  // All bigint: weights scaled to micro-units, so no float ever touches the money.
+  const W = weights.map((w) => BigInt(Math.round(w * 1_000_000)));
+  const wBig = W.reduce((a, b) => a + b, 0n);
+  const nums = W.map((w) => totalCents * w);
+  const out = nums.map((n) => n / wBig);
+  const rem = totalCents - out.reduce((a, b) => a + b, 0n);
   // Ties: lower index first (callers should sort assetIds ascending so Confirm fixtures match docs/03).
-  const order = exact
-    .map((x, i) => ({ i, frac: x - Math.floor(x) }))
-    .sort((a, b) => b.frac - a.frac || a.i - b.i);
-  const out = floors.slice();
-  for (let k = 0; k < rem; k++) out[order[k % order.length]!.i]! += 1;
-  return out.map((c) => BigInt(c) * CENT_USD6);
+  const order = nums
+    .map((n, i) => ({ i, frac: n % wBig }))
+    .sort((a, b) => (b.frac > a.frac ? 1 : b.frac < a.frac ? -1 : a.i - b.i));
+  for (let k = 0n; k < rem; k++) out[order[Number(k) % order.length]!.i]! += 1n;
+  return out.map((c) => c * CENT_USD6);
 }

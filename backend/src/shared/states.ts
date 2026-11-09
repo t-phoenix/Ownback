@@ -3,6 +3,7 @@
 export const PurchaseStatuses = [
   'reading',
   'read_failed',
+  'needs_details',
   'ready',
   'needs_review',
   'not_listed',
@@ -101,3 +102,13 @@ export type EventKind = (typeof EventKinds)[number];
 
 export const AllocationRoles = ['maker', 'supplier', 'material', 'fallback'] as const;
 export type AllocationRole = (typeof AllocationRoles)[number];
+
+/** Reading steps, written to purchases.steps while the async read runs (D30). */
+export const ReadStepKeys = ['read', 'convert', 'understand', 'jury', 'judge', 'resolve'] as const;
+export type ReadStepKey = (typeof ReadStepKeys)[number];
+export const ReadStepStates = ['todo', 'running', 'done', 'failed'] as const;
+export type ReadStepState = (typeof ReadStepStates)[number];
+
+/** Jury row status (D30). Only `buyable` rows get money. */
+export const JuryRowStatuses = ['buyable', 'tokenized_unverified', 'not_onchain', 'private'] as const;
+export type JuryRowStatus = (typeof JuryRowStatuses)[number];

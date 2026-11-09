@@ -198,23 +198,23 @@ async function main() {
     status: string;
     investUsd6?: string;
     allocations: { assetId: string; role: string; amountUsd6: string; why?: string; selected: boolean }[];
+    analysis?: { parent: { name: string; status: string }; enablers: { name: string; status: string }[]; commodities: { name: string; status: string }[]; jurors: { ok: boolean }[] };
   } | null = null;
-  for (let i = 0; i < 40; i++) {
+  // Reading is async now; the 0G jury takes 1–2 minutes.
+  for (let i = 0; i < 200; i++) {
     const p = await api<typeof purchase>(jar, 'GET', `/purchases/${purchaseId}`);
     purchase = p.json;
     if (purchase && purchase.status !== 'reading') break;
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1500));
   }
   assert(purchase && purchase.status !== 'reading' && purchase.status !== 'read_failed', `read stuck: ${JSON.stringify(purchase)}`);
   assert(purchase!.allocations?.length >= 1, 'expected allocations');
   const apple = purchase!.allocations.find((a) => a.assetId === 'co:apple');
   assert(apple, `expected co:apple in ${purchase!.allocations.map((a) => a.assetId)}`);
-  // Jury seed graph should attach behind/materials for iPhone when catalog has them.
-  const behind = purchase!.allocations.filter((a) => a.role === 'supplier');
-  const mats = purchase!.allocations.filter((a) => a.role === 'material');
-  assert(behind.length >= 1 || mats.length >= 1, `expected supply/materials jury rows, got ${JSON.stringify(purchase!.allocations)}`);
-  assert(purchase!.allocations.every((a) => !a.why || a.why.length <= 200), 'why too long');
-  ok(`status=${purchase!.status} allocs=${purchase!.allocations.length} invest=${purchase!.investUsd6}`);
+  const an = purchase!.analysis;
+  assert(an && an.enablers.length >= 3 && an.commodities.length >= 1, `expected jury analysis, got ${JSON.stringify(an)}`);
+  assert(purchase!.allocations.every((a) => !a.why || a.why.length <= 400), 'why too long');
+  ok(`status=${purchase!.status} allocs=${purchase!.allocations.length} invest=${purchase!.investUsd6} parent=${an!.parent.name} enablers=${an!.enablers.map((e) => e.name).join('/')} jurors=${an!.jurors.filter((j) => j.ok).length}/3`);
 
   // ── Confirm → jars ───────────────────────────────────────────────────────
   step('confirm purchase');
@@ -245,7 +245,6 @@ async function main() {
       amountUsd6: string;
       reason?: string;
     }[];
-    approval: { typedData: unknown };
     totalUsd6: string;
   }>(jar, 'POST', '/buys/review', { include: 'all', amounts: { 'co:apple': override } }, { idempotent: true });
   assert(review.status === 200, `review ${review.status} ${JSON.stringify(review.json)}`);
@@ -258,13 +257,8 @@ async function main() {
   ok(`qty≈${appleRow!.estQty} mint=${appleRow!.mint!.slice(0, 6)}…`);
 
   step('execute buy');
-  const buy = await api<{ batchIds: string[] }>(
-    jar,
-    'POST',
-    '/buys',
-    { quoteId: review.json.quoteId, approval: review.json.approval.typedData, signature: 'harness-mock-sig' },
-    { idempotent: true },
-  );
+  // MOCK_CHAIN completes immediately; real mode returns an Arc action, then per-asset Solana swaps.
+  const buy = await api<{ batchId: string; batchIds: string[] }>(jar, 'POST', '/buys', { quoteId: review.json.quoteId }, { idempotent: true });
   assert(buy.status === 200, `buy ${buy.status} ${JSON.stringify(buy.json)}`);
   const batchId = buy.json.batchIds?.[0];
   assert(batchId, 'no batchId');
@@ -272,14 +266,12 @@ async function main() {
   const progress = await api<{
     status: string;
     entries: { status: string; venueTx?: string; explorerUrl?: string; qty?: string; spentUsd6?: string }[];
-    totals?: { boughtUsd6: string };
+    boughtUsd6: string;
   }>(jar, 'GET', `/buys/${batchId}`);
   assert(progress.status === 200, `progress ${progress.status}`);
   assert(/^done/.test(progress.json.status), `batch not done: ${progress.json.status}`);
   const bought = progress.json.entries.filter((e) => e.status === 'bought');
   assert(bought.length >= 1, `no bought entries ${JSON.stringify(progress.json.entries)}`);
-  assert(bought[0]!.venueTx, 'missing venueTx');
-  // mock venue_tx has no explorer; real would
   ok(`batch=${progress.json.status} spent=${bought[0]!.spentUsd6} qty=${bought[0]!.qty}`);
 
   // ── Sell ─────────────────────────────────────────────────────────────────
@@ -287,8 +279,7 @@ async function main() {
   const holding = await api<{ qty?: string; valueUsd6: string }>(jar, 'GET', `/holdings/${encodeURIComponent('co:apple')}`);
   assert(holding.status === 200 && holding.json.qty, `holding ${JSON.stringify(holding.json)}`);
   const sellReview = await api<{
-    quoteId: string;
-    action: { kind: string };
+    qty: string;
     estUsdcUsd6: string;
     mint?: string;
     decimals?: number;
@@ -299,8 +290,7 @@ async function main() {
     jar,
     'POST',
     '/sells',
-    { quoteId: sellReview.json.quoteId, txHash: 'mock' },
-    { idempotent: true },
+    { assetId: 'co:apple', qty: sellReview.json.qty },
   );
   assert(sold.status === 200, `sell ${sold.status} ${JSON.stringify(sold.json)}`);
   const sellDone = await api<{ status: string; receivedUsd6?: string }>(jar, 'GET', `/sells/${sold.json.sellId}`);

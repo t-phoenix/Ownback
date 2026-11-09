@@ -1,6 +1,4 @@
-export { findMaker, catalogMakerHit } from './maker.js';
-export { traceSupply } from './supply.js';
-export { traceMaterials } from './materials.js';
 export { checkBuyable } from './buyable.js';
-export { finalizeMatch, type MatchParty, type JuryResult } from './finalize.js';
 export { lookupProductGraph, filterKnown } from './graph.js';
+export { runJury, productKey, getCachedVerdict, putCachedVerdict, seedVerdict, type JuryVerdict, type ProductInput } from './jury.js';
+export { resolveRow, findCompany, findCommodity, type JuryRow } from './resolve.js';

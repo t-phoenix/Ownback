@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { candidatesPath, curatedPath } from './paths.js';
 import type { AssetCandidate, CandidatesFile, CuratedAsset, CuratedFile } from './types.js';
 
@@ -6,9 +6,21 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+let curatedCache: { mtimeMs: number; file: CuratedFile; byId: Map<string, CuratedAsset> } | null = null;
+
+/** Parsed once per file change: verifiedMint() runs on every request and the file holds every verified xStock. */
+function curatedCached() {
+  const mtimeMs = statSync(curatedPath()).mtimeMs;
+  if (!curatedCache || curatedCache.mtimeMs !== mtimeMs) {
+    const file = JSON.parse(readFileSync(curatedPath(), 'utf8')) as CuratedFile;
+    curatedCache = { mtimeMs, file, byId: new Map(file.assets.map((a) => [a.assetId, a])) };
+  }
+  return curatedCache;
+}
+
+/** Returns a fresh copy (callers mutate it before saveCurated). */
 export function loadCurated(): CuratedFile {
-  const raw = readFileSync(curatedPath(), 'utf8');
-  return JSON.parse(raw) as CuratedFile;
+  return structuredClone(curatedCached().file);
 }
 
 export function saveCurated(file: CuratedFile) {
@@ -27,11 +39,11 @@ export function saveCandidates(file: CandidatesFile) {
 }
 
 export function getVerifiedAsset(assetId: string): CuratedAsset | undefined {
-  return loadCurated().assets.find((a) => a.assetId === assetId);
+  return curatedCached().byId.get(assetId);
 }
 
 export function listVerifiedAssets(): CuratedAsset[] {
-  return loadCurated().assets.filter((a) => a.mints.some((m) => m.verified));
+  return curatedCached().file.assets.filter((a) => a.mints.some((m) => m.verified));
 }
 
 export function upsertCandidate(c: AssetCandidate): AssetCandidate {

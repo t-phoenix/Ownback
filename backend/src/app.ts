@@ -9,6 +9,7 @@ import { sellsRoutes } from './routes/sells.js';
 import { activityRoutes } from './routes/activity.js';
 import { jobRoutes } from './routes/jobs.js';
 import { assetRoutes } from './routes/assets.js';
+import { mockChain } from './lib/env.js';
 
 export function createApp() {
   const app = new Hono().basePath('/api');
@@ -21,7 +22,10 @@ export function createApp() {
     }),
   );
 
-  app.get('/health', (c) => c.json({ ok: true }));
+  // commit lets anyone spot a stale deploy (Render sets RENDER_GIT_COMMIT).
+  app.get('/health', (c) =>
+    c.json({ ok: true, commit: (process.env.RENDER_GIT_COMMIT ?? 'dev').slice(0, 7), mockChain: mockChain() }),
+  );
 
   app.route('/', authRoutes);
   app.route('/', meRulesHomeRoutes);

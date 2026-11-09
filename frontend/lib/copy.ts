@@ -16,6 +16,12 @@ const errors: Record<string, string> = {
   NO_READY_JARS: "No jar is ready yet. You can still buy a smaller jar with Buy now anyway.",
   CHAIN_UNSUPPORTED: "We don't support that chain. Use Arc, Solana, Base, Ethereum or Arbitrum.",
   NONCE_USED: "That sign-in link was already used. Try again.",
+  NO_SOLANA_RECIPIENT: "Set up your Solana wallet first.",
+  INSUFFICIENT_FREE: "Not enough USDC for this amount. Add funds or buy a smaller amount.",
+  TX_NOT_FOUND: "Still confirming. Try again in a moment.",
+  QUOTE_EXPIRED: "Prices moved. We fetched fresh quotes; review and buy again.",
+  NOTHING_TO_BUY: "Nothing here can be bought on-chain yet.",
+  VALIDATION: "Check the amount and try again. The smallest buy is $0.10.",
 };
 
 export function errorCopy(code: string | undefined, details?: { freeUsd6?: string; shortUsd6?: string; leftUsd6?: string }): string {
@@ -31,7 +37,7 @@ export function errorCopy(code: string | undefined, details?: { freeUsd6?: strin
 
 /** Activity titles (copy-and-errors.md § Activity titles); the API sends the kind. */
 export const activityTitle: Record<string, string> = {
-  buy_done: "Buy done", receipt_matched: "Receipt matched", needs_review: "Needs your review", jar_ready: "Jar ready",
+  buy_done: "Buy done", sell_done: "Sold for USDC", receipt_matched: "Receipt matched", needs_review: "Needs your review", jar_ready: "Jar ready",
   fallback_used: "Not listed, used fallback", limit_warning: "80% of monthly limit used", limit_reached: "Monthly limit reached",
   fees_high: "Fees are high right now", approval_expired: "Buy approval expired", gmail_revoked: "Gmail disconnected",
   rules_changed: "Your rules changed", buy_reminder: "Jars ready", deposit_added: "Funds added", withdraw_sent: "Withdrawal sent",
@@ -39,4 +45,12 @@ export const activityTitle: Record<string, string> = {
 };
 
 export const readErrorCopy = "We couldn't find a total or a product name. Nothing was saved.";
+/** Purchase.readError → what Couldn't read says. Retryable ones offer "Try again". */
+export const readErrorText: Record<string, { text: string; retry: boolean }> = {
+  not_a_receipt: { text: "This doesn't look like a receipt or order screen. Nothing was saved.", retry: false },
+  og_unavailable: { text: "The private AI on 0G didn't answer. Nothing was saved. Try again in a moment.", retry: true },
+  timeout: { text: "Reading took too long. Nothing was saved. Try again.", retry: true },
+  no_total: { text: readErrorCopy, retry: false },
+  no_product: { text: readErrorCopy, retry: false },
+};
 export const readTips = ["Flat surface, good light", "Whole receipt in the frame", "Or a screenshot of the order page"];

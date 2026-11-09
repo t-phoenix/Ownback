@@ -1,34 +1,34 @@
 import { assetDisplayName } from '../lib/asset-name.js';
 import { Hono } from 'hono';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
 import { ApiError } from '../shared/errors.js';
 import { toUsd6 } from '../shared/money.js';
-import { APPROVAL_TTL_MS, CENT_USD6, QUOTE_REFRESH_MS } from '../shared/timing.js';
-import { buildFees, feeWithinCap, maxFeeUsd6 } from '../lib/fees.js';
+import { CENT_USD6, QUOTE_REFRESH_MS } from '../shared/timing.js';
+import { EXPLORER, USDC } from '../shared/chains.js';
+import { buildFees, feeWithinCap } from '../lib/fees.js';
 import { jarState } from '../lib/limits.js';
-import { envFlag, mockChain } from '../lib/env.js';
-import {
-  assertIdempotencyKey,
-  jsonError,
-  mockEvmAction,
-  requireCsrf,
-  requireUser,
-  withIdempotency,
-} from '../lib/http.js';
+import { mockChain } from '../lib/env.js';
+import { assertIdempotencyKey, jsonError, mockEvmAction, requireCsrf, requireUser, withIdempotency } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
-import { ARC_CHAIN_ID } from '../shared/chains.js';
 import { verifiedMint } from '../shared/assets.js';
+import { jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
+import { buildUserSwap, relayConfigured, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import {
-  feeFromImpact,
-  jupiterBuyQuote,
-  priceUsd6FromBuyQuote,
-  rawToQty,
-} from '../lib/jupiter-price.js';
-import { executeBuySwap, relayConfigured } from '../lib/jupiter-swap.js';
-import { keccak256, stringToHex } from 'viem';
+  advanceBatch,
+  arcBridgeCalls,
+  arcPublic,
+  arcUsdcBalance,
+  debitJars,
+  logEvent,
+  verifyArcBurn,
+} from '../lib/buy-pipeline.js';
+
+/** Smallest buy we build (testing with small numbers is a feature; dust routes are not). */
+export const MIN_BUY_USD6 = 100_000n;
+const SOL_USDC = USDC.solana.value;
 
 export const jarsBuysRoutes = new Hono();
 
@@ -50,14 +50,6 @@ function parseAmounts(raw: string | undefined): Map<string, bigint> {
     /* ignore bad amounts */
   }
   return out;
-}
-
-function solscan(tx: string) {
-  return tx === 'mock' ? undefined : `https://solscan.io/tx/${tx}`;
-}
-
-function assetIdBytes32(assetId: string): `0x${string}` {
-  return keccak256(stringToHex(assetId));
 }
 
 jarsBuysRoutes.get('/jars', async (c) => {
@@ -115,146 +107,115 @@ jarsBuysRoutes.post('/jars/:assetId/cancel', async (c) => {
   }
 });
 
-async function buildBuyReview(
-  user: Awaited<ReturnType<typeof requireUser>>,
-  include: 'all' | 'ready',
-  amounts: Map<string, bigint>,
-) {
+
+type User = Awaited<ReturnType<typeof requireUser>>;
+
+async function solUsdc(user: User): Promise<bigint> {
+  if (mockChain() || !user.solAddress) return 0n;
+  return tokenBalanceRaw(user.solAddress, SOL_USDC).catch(() => 0n);
+}
+
+async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map<string, bigint>) {
   const sql = getSql();
   const rules = await sql<{ ready_min_usd6: bigint; max_fee_bps: number }[]>`
     SELECT ready_min_usd6, max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid
   `;
   const readyMin = rules[0]!.ready_min_usd6;
   const maxFeeBps = rules[0]!.max_fee_bps;
-  const rows = await sql<{ asset_id: string; amt: bigint }[]>`
+  const jarRows = await sql<{ asset_id: string; amt: bigint }[]>`
     SELECT a.asset_id, COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amt
     FROM allocations a JOIN purchases p ON p.id = a.purchase_id
-    WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved'
+    WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved' AND a.selected = true
     GROUP BY a.asset_id
     HAVING COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) > 0
   `;
-  const filtered = rows.filter((r) => include === 'all' || jarState(r.amt, readyMin) === 'ready');
-  if (!filtered.length) throw new ApiError('NO_READY_JARS');
+  const jars = new Map(jarRows.map((r) => [r.asset_id, BigInt(r.amt)]));
+  // An amount the user typed is a buy request even without a jar (free amount, D29).
+  const ids = [
+    ...jarRows.filter((r) => include === 'all' || amounts.has(r.asset_id) || jarState(r.amt, readyMin) === 'ready').map((r) => r.asset_id),
+    ...[...amounts.keys()].filter((k) => !jars.has(k) && verifiedMint(k, 'solana')),
+  ];
+  if (!ids.length) throw new ApiError('NO_READY_JARS');
 
-  const quoteId = newId();
-  const expiresAt = new Date(Date.now() + QUOTE_REFRESH_MS).toISOString();
-  const proofs = await Promise.all(filtered.map((r) => readAssetFromArkiv(r.asset_id, 'solana')));
   const now = new Date().toISOString();
-
-  const priced = await Promise.all(
-    filtered.map(async (r) => {
-      const jarAmt = BigInt(r.amt);
-      const override = amounts.get(r.asset_id);
-      const spend = override != null && override < jarAmt ? override : jarAmt;
-      const mint = verifiedMint(r.asset_id, 'solana');
-      const quote = mint ? await jupiterBuyQuote(mint.mint, spend) : null;
-      return { r, mint, quote, spend, jarAmt };
+  const rows = await Promise.all(
+    ids.map(async (assetId) => {
+      const jarAmt = jars.get(assetId) ?? 0n;
+      const spend = amounts.get(assetId) ?? jarAmt;
+      const mint = verifiedMint(assetId, 'solana');
+      const [quote, oracle, arkiv] = await Promise.all([
+        mint ? jupiterBuyQuote(mint.mint, spend) : null,
+        mint ? jupiterPriceUsd6(mint.mint) : null,
+        readAssetFromArkiv(assetId, 'solana').catch(() => null),
+      ]);
+      const outRaw = quote ? BigInt(quote.outAmount) : 0n;
+      const priceUsd6 = mint && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
+      const fee = mint && oracle ? routeFeeUsd6(spend, valueUsd6(outRaw, mint.decimals, oracle)) : 0n;
+      const fees = buildFees([{ label: 'Jupiter route', usd6: fee }], spend, maxFeeBps, false);
+      const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(fee, spend, maxFeeBps);
+      return {
+        assetId,
+        name: assetDisplayName(assetId),
+        amountUsd6: toUsd6(spend),
+        jarAmountUsd6: toUsd6(jarAmt),
+        suggestedUsd6: toUsd6(jarAmt),
+        ...(mint ? { token: mint.symbol, mint: mint.mint, decimals: mint.decimals, issuer: mint.issuer } : {}),
+        chain: 'solana' as const,
+        venue: 'jupiter' as const,
+        price: { usd6PerUnit: toUsd6(priceUsd6), at: now, source: 'jupiter' as const },
+        refPriceUsd6: toUsd6(oracle ?? 0n),
+        estQty: mint && outRaw > 0n ? rawToQty(outRaw, mint.decimals) : '0',
+        fees,
+        selectable,
+        ...(selectable ? {} : { reason: (mint ? 'fees_high' : 'no_venue') as 'fees_high' | 'no_venue' }),
+        ...(arkiv ? { arkiv } : {}),
+      };
     }),
   );
 
-  const reviewRows = priced.map(({ r, mint, quote, spend, jarAmt }, i) => {
-    const fee = quote ? feeFromImpact(spend, quote.priceImpactPct) : 0n;
-    const fees = buildFees([{ label: 'Jupiter route', usd6: fee }], spend, maxFeeBps, false);
-    const outRaw = quote ? BigInt(quote.outAmount) : 0n;
-    const priceUsd6 =
-      mint && quote && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
-    const selectable =
-      Boolean(mint) && quote != null && outRaw > 0n && feeWithinCap(fee, spend, maxFeeBps);
-    const maxPrice = priceUsd6 > 0n ? (priceUsd6 * 10_100n) / 10_000n : 0n;
-    return {
-      assetId: r.asset_id,
-      name: assetDisplayName(r.asset_id),
-      amountUsd6: toUsd6(spend),
-      jarAmountUsd6: toUsd6(jarAmt),
-      ...(mint
-        ? {
-            token: mint.symbol,
-            mint: mint.mint,
-            decimals: mint.decimals,
-            issuer: mint.issuer,
-          }
-        : {}),
-      chain: 'solana' as const,
-      venue: 'jupiter' as const,
-      price: { usd6PerUnit: toUsd6(priceUsd6), at: now, source: 'jupiter' as const },
-      refPriceUsd6: toUsd6(priceUsd6),
-      estQty: mint && outRaw > 0n ? rawToQty(outRaw, mint.decimals) : '0',
-      outAmountRaw: outRaw.toString(),
-      maxPriceUsd6: toUsd6(maxPrice),
-      fees,
-      selectable,
-      ...(selectable ? {} : { reason: (mint ? 'fees_high' : 'no_venue') as 'fees_high' | 'no_venue' }),
-      ...(proofs[i] ? { arkiv: proofs[i] } : {}),
-      ...(quote ? { jupiterQuote: quote.raw } : {}),
-    };
-  });
-
-  const selectableRows = reviewRows.filter((x) => x.selectable);
-  const total = selectableRows.reduce((a, r) => a + BigInt(r.amountUsd6), 0n);
-  const totalFee = selectableRows.reduce((a, r) => a + BigInt(r.fees.totalUsd6), 0n);
-  const totalFees = buildFees([{ label: 'Jupiter route', usd6: totalFee }], total > 0n ? total : 1n, maxFeeBps, false);
-  const vault = process.env.VAULT_ADDRESS || '0x0000000000000000000000000000000000000000';
-  const deadline = Math.floor((Date.now() + APPROVAL_TTL_MS) / 1000);
-  const items = selectableRows.map((row) => ({
-    asset: assetIdBytes32(row.assetId),
-    amount: row.amountUsd6,
-    domain: 5, // Solana CCTP domain
-    maxPriceUsd6: row.maxPriceUsd6,
-  }));
-  const typedData = {
-    domain: { name: 'OwnbackVault', version: '1', chainId: ARC_CHAIN_ID, verifyingContract: vault as `0x${string}` },
-    types: {
-      Item: [
-        { name: 'asset', type: 'bytes32' },
-        { name: 'amount', type: 'uint256' },
-        { name: 'domain', type: 'uint32' },
-        { name: 'maxPriceUsd6', type: 'uint256' },
-      ],
-      BuyApproval: [
-        { name: 'user', type: 'address' },
-        { name: 'items', type: 'Item[]' },
-        { name: 'maxFeeUsd6', type: 'uint256' },
-        { name: 'nonce', type: 'uint256' },
-        { name: 'deadline', type: 'uint64' },
-      ],
-    },
-    primaryType: 'BuyApproval' as const,
-    message: {
-      user: (user.evmAddress ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      items,
-      maxFeeUsd6: maxFeeUsd6(total, maxFeeBps).toString(),
-      nonce: Date.now().toString(),
-      deadline,
-    },
-  };
-  const payload = {
-    rows: reviewRows,
-    totalUsd6: toUsd6(total),
-    fees: totalFees,
-    typedData,
-    amounts: Object.fromEntries([...amounts].map(([k, v]) => [k, v.toString()])),
-  };
+  const picked = rows.filter((r) => r.selectable);
+  const total = picked.reduce((a, r) => a + BigInt(r.amountUsd6), 0n);
+  const totalFee = picked.reduce((a, r) => a + BigInt(r.fees.totalUsd6), 0n);
+  const [onSolana, onArc] = await Promise.all([
+    solUsdc(user),
+    !mockChain() && user.evmAddress ? arcUsdcBalance(user.evmAddress).catch(() => 0n) : Promise.resolve(0n),
+  ]);
+  const bridge = total > onSolana ? total - onSolana : 0n;
+  const quoteId = newId();
+  const expiresAt = new Date(Date.now() + QUOTE_REFRESH_MS).toISOString();
   await sql`
     INSERT INTO quotes (id, user_id, payload, expires_at)
-    VALUES (${quoteId}::uuid, ${user.id}::uuid, ${sql.json(payload as never)}, ${new Date(expiresAt)})
+    VALUES (${quoteId}::uuid, ${user.id}::uuid, ${sql.json({ rows: picked.map((r) => ({ assetId: r.assetId, amountUsd6: r.amountUsd6 })), totalUsd6: total.toString() } as never)}, ${new Date(expiresAt)})
   `;
   return {
     quoteId,
     expiresAt,
-    rows: reviewRows.map(({ jupiterQuote: _j, ...rest }) => rest),
+    rows,
     totalUsd6: toUsd6(total),
-    fees: totalFees,
-    destination: user.solAddress ?? user.evmAddress ?? '',
-    approval: { kind: 'typed_data' as const, typedData },
+    fees: buildFees([{ label: 'Jupiter route', usd6: totalFee }], total > 0n ? total : 1n, maxFeeBps, false),
+    funding: { solanaUsdc6: toUsd6(onSolana), arcUsdc6: toUsd6(onArc), bridgeUsd6: toUsd6(bridge) },
+    destination: user.solAddress ?? '',
   };
+}
+
+function parseAmountMap(obj: Record<string, string> | undefined): Map<string, bigint> {
+  const out = new Map<string, bigint>();
+  for (const [k, v] of Object.entries(obj ?? {})) {
+    const n = (BigInt(v) / CENT_USD6) * CENT_USD6; // whole cents
+    if (n === 0n) continue;
+    if (n < MIN_BUY_USD6) throw new ApiError('VALIDATION', { issues: [{ path: ['amounts', k], message: 'min_0.10' }] });
+    out.set(k, n);
+  }
+  return out;
 }
 
 jarsBuysRoutes.get('/buys/review', async (c) => {
   try {
     const user = await requireUser(c);
     const include = c.req.query('include') === 'all' ? 'all' : 'ready';
-    const amounts = parseAmounts(c.req.query('amounts'));
-    return c.json(await buildBuyReview(user, include, amounts));
+    let raw: Record<string, string> | undefined;
+    try { raw = JSON.parse(c.req.query('amounts') ?? '{}'); } catch { raw = undefined; }
+    return c.json(await buildBuyReview(user, include, parseAmountMap(raw)));
   } catch (e) {
     return jsonError(c, e);
   }
@@ -265,161 +226,82 @@ jarsBuysRoutes.post('/buys/review', async (c) => {
     requireCsrf(c);
     const user = await requireUser(c);
     const body = z
-      .object({
-        include: z.enum(['all', 'ready']).optional(),
-        amounts: z.record(z.string().regex(/^\d+$/)).optional(),
-      })
+      .object({ include: z.enum(['all', 'ready']).optional(), amounts: z.record(z.string().regex(/^\d+$/)).optional() })
       .parse(await c.req.json().catch(() => ({})));
-    const amounts = new Map<string, bigint>();
-    for (const [k, v] of Object.entries(body.amounts ?? {})) {
-      const n = roundCent(BigInt(v));
-      if (n > 0n) amounts.set(k, n);
-    }
-    return c.json(await buildBuyReview(user, body.include === 'all' ? 'all' : 'ready', amounts));
+    return c.json(await buildBuyReview(user, body.include === 'all' ? 'all' : 'ready', parseAmountMap(body.amounts)));
   } catch (e) {
     return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
   }
 });
 
+/** Starts a buy. Returns the Arc action to sign when USDC must first move from Arc to Solana. */
 jarsBuysRoutes.post('/buys', async (c) => {
   try {
     requireCsrf(c);
     const user = await requireUser(c);
     const key = assertIdempotencyKey(c);
-    const body = z
-      .object({
-        quoteId: z.string().uuid(),
-        approval: z.unknown(),
-        signature: z.string().min(1),
-      })
-      .parse(await c.req.json());
+    const body = z.object({ quoteId: z.string().uuid() }).parse(await c.req.json());
     const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
     const out = await withIdempotency(user.id, key, hash, async () => {
       const sql = getSql();
-      const q = await sql<{ payload: unknown; expires_at: Date }[]>`
-        SELECT payload, expires_at FROM quotes
-        WHERE id = ${body.quoteId}::uuid AND user_id = ${user.id}::uuid
+      const q = await sql<{ payload: { rows: { assetId: string; amountUsd6: string }[]; totalUsd6: string }; expires_at: Date }[]>`
+        SELECT payload, expires_at FROM quotes WHERE id = ${body.quoteId}::uuid AND user_id = ${user.id}::uuid
       `;
       if (!q[0]) throw new ApiError('NOT_FOUND');
       if (q[0].expires_at.getTime() < Date.now()) throw new ApiError('QUOTE_EXPIRED');
-      // Real EIP-712 + ERC-1271 verify lands with O6 / S20. Accept any non-empty sig for now when
-      // MOCK or when Solana venue path will run (signature proves user OK'd the review UI).
-      if (!body.signature) throw new ApiError('BAD_SIGNATURE');
-      if (!mockChain() && !envFlag('KEEPER_ENABLED', false) && !relayConfigured()) {
-        // Still allow buy when we can mock-complete; otherwise need keeper or relay.
-        throw new ApiError('KEEPER_DISABLED');
-      }
-
-      type Row = {
-        assetId: string;
-        amountUsd6: string;
-        selectable?: boolean;
-        mint?: string;
-        decimals?: number;
-        outAmountRaw?: string;
-      };
-      const payload = q[0].payload as { totalUsd6: string; rows: Row[] };
-      const buyRows = payload.rows.filter((r) => r.selectable !== false && BigInt(r.amountUsd6) > 0n);
-      if (!buyRows.length) throw new ApiError('NO_READY_JARS');
-
-      const approvalId = newId();
-      const approvalHash = randomBytes(32);
-      const deadline = new Date(Date.now() + APPROVAL_TTL_MS);
-      const maxFee = (BigInt(payload.totalUsd6) / 20n).toString();
-      await sql`
-        INSERT INTO buy_approvals (id, user_id, hash, typed_data, signature, deadline, status, max_fee_usd6, created_at)
-        VALUES (
-          ${approvalId}::uuid, ${user.id}::uuid, ${approvalHash},
-          ${sql.json(body.approval as never)}, ${Buffer.from(body.signature)},
-          ${deadline}, 'signed', ${maxFee}::bigint, now()
-        )
-      `;
+      const rows = q[0].payload.rows.filter((r) => BigInt(r.amountUsd6) > 0n);
+      if (!rows.length) throw new ApiError('NOTHING_TO_BUY');
+      const total = rows.reduce((s, r) => s + BigInt(r.amountUsd6), 0n);
       const batchId = newId();
-      const total = buyRows.reduce((s, r) => s + BigInt(r.amountUsd6), 0n);
-      await sql`
-        INSERT INTO buy_batches (id, trigger, user_id, status, total_usd6, fees_usd6, fees_covered, slow, started_at)
-        VALUES (${batchId}::uuid, 'approval', ${user.id}::uuid, 'swapping', ${total.toString()}::bigint, 0, false, false, now())
-      `;
-      let idx = 0;
-      for (const row of buyRows) {
-        await sql`
-          INSERT INTO buy_entries (
-            id, batch_id, user_id, asset_id, status, amount_usd6, approval_id, item_index, venue
-          ) VALUES (
-            ${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${row.assetId}, 'quoted',
-            ${row.amountUsd6}::bigint, ${approvalId}::uuid, ${idx++}, 'jupiter'
-          )
-        `;
+
+      if (mockChain()) {
+        await sql`INSERT INTO buy_batches (id, trigger, user_id, domain, status, total_usd6, started_at) VALUES (${batchId}::uuid, 'user', ${user.id}::uuid, 5, 'done', ${total.toString()}::bigint, now())`;
+        for (const r of rows) {
+          const mint = verifiedMint(r.assetId, 'solana');
+          const quote = mint ? await jupiterBuyQuote(mint.mint, BigInt(r.amountUsd6)) : null;
+          const qty = mint && quote ? rawToQty(BigInt(quote.outAmount), mint.decimals) : '0';
+          await sql`INSERT INTO buy_entries (id, batch_id, user_id, asset_id, status, amount_usd6, spent_usd6, item_index, venue, qty)
+            VALUES (${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${r.assetId}, 'bought', ${r.amountUsd6}::bigint, ${r.amountUsd6}::bigint, 0, 'jupiter', ${qty}::numeric)`;
+          await debitJars(user.id, r.assetId, BigInt(r.amountUsd6));
+          await logEvent(user.id, 'buy_done', { amountUsd6: r.amountUsd6, assetId: r.assetId, qty, token: mint?.symbol }, `/holdings/${r.assetId}`);
+        }
+        return { batchId, batchIds: [batchId] };
       }
 
-      let bought = 0;
-      for (const row of buyRows) {
-        const amount = BigInt(row.amountUsd6);
-        const mint = verifiedMint(row.assetId, 'solana');
-        let venueTx = 'mock';
-        let qty = '0';
-        let priceUsd6 = 0n;
-        let status: 'bought' | 'paused' = 'bought';
-
-        if (!mockChain() && relayConfigured() && mint && user.solAddress) {
-          try {
-            const swap = await executeBuySwap({
-              userSolAddress: user.solAddress,
-              mint: mint.mint,
-              amountUsd6: amount,
-              decimals: mint.decimals,
-            });
-            venueTx = swap.venueTx;
-            qty = rawToQty(BigInt(swap.outAmountRaw), mint.decimals);
-            priceUsd6 = priceUsd6FromBuyQuote(amount, BigInt(swap.outAmountRaw), mint.decimals);
-          } catch {
-            status = 'paused';
-          }
-        } else if (mockChain() && mint) {
-          const quote = await jupiterBuyQuote(mint.mint, amount);
-          if (quote) {
-            qty = rawToQty(BigInt(quote.outAmount), mint.decimals);
-            priceUsd6 = priceUsd6FromBuyQuote(amount, BigInt(quote.outAmount), mint.decimals);
-          }
-        } else if (!mint) {
-          status = 'paused';
-        }
-
-        if (status === 'bought') {
-          bought++;
-          await sql`
-            UPDATE buy_entries SET
-              status = 'bought',
-              spent_usd6 = ${amount.toString()}::bigint,
-              quote_price_usd6 = ${priceUsd6.toString()}::bigint,
-              fill_price_usd6 = ${priceUsd6.toString()}::bigint,
-              max_price_usd6 = ${priceUsd6 > 0n ? ((priceUsd6 * 10_100n) / 10_000n).toString() : '0'}::bigint,
-              qty = ${qty}::numeric,
-              venue_tx = ${venueTx}
-            WHERE batch_id = ${batchId}::uuid AND asset_id = ${row.assetId}
-          `;
-          // shortcut: empty this asset's jars on buy (partial override still clears jar for MVP testing); lot-FIFO later.
-          await sql`
-            UPDATE allocations a SET bought_usd6 = a.saved_usd6
-            FROM purchases p
-            WHERE a.purchase_id = p.id AND p.user_id = ${user.id}::uuid
-              AND p.status = 'saved' AND a.asset_id = ${row.assetId} AND a.selected = true
-          `;
-        } else {
-          await sql`
-            UPDATE buy_entries SET status = 'paused'
-            WHERE batch_id = ${batchId}::uuid AND asset_id = ${row.assetId}
-          `;
-        }
+      if (!user.solAddress) throw new ApiError('NO_SOLANA_RECIPIENT', { reason: 'no_solana_wallet' });
+      if (!relayConfigured()) throw new ApiError('KEEPER_DISABLED', { reason: 'relay_not_configured' });
+      const onSolana = await solUsdc(user);
+      const bridge = total > onSolana ? total - onSolana : 0n;
+      let calls: Awaited<ReturnType<typeof arcBridgeCalls>> = [];
+      if (bridge > 0n) {
+        if (!user.evmAddress) throw new ApiError('INSUFFICIENT_FREE', { reason: 'no_arc_wallet' });
+        calls = await arcBridgeCalls(user.evmAddress, user.solAddress, bridge);
       }
-
-      const batchStatus =
-        bought === buyRows.length ? 'done' : bought > 0 ? 'done_partial' : 'failed';
       await sql`
-        UPDATE buy_batches SET status = ${batchStatus}, finished_at = now()
-        WHERE id = ${batchId}::uuid
+        INSERT INTO buy_batches (id, trigger, user_id, domain, status, total_usd6, bridge_usd6, started_at)
+        VALUES (${batchId}::uuid, 'user', ${user.id}::uuid, 5, ${bridge > 0n ? 'bridging' : 'swap_ready'}, ${total.toString()}::bigint, ${bridge.toString()}::bigint, now())
       `;
-      return { batchIds: [batchId] };
+      let i = 0;
+      for (const r of rows) {
+        await sql`INSERT INTO buy_entries (id, batch_id, user_id, asset_id, status, amount_usd6, item_index, venue)
+          VALUES (${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${r.assetId}, 'quoted', ${r.amountUsd6}::bigint, ${i++}, 'jupiter')`;
+      }
+      return {
+        batchId,
+        batchIds: [batchId],
+        ...(calls.length
+          ? {
+              action: {
+                kind: 'evm_calls' as const,
+                chain: 'arc' as const,
+                calls: calls.map(({ to, data, value }) => ({ to, data, value })),
+                labels: calls.map((x) => x.label),
+                summary: `Move ${toUsd6(bridge)} USDC from Arc to your Solana wallet`,
+                expect: { assets: [], amountsUsd6: [bridge.toString()] },
+              },
+            }
+          : {}),
+      };
     });
     return c.json(out);
   } catch (e) {
@@ -427,11 +309,114 @@ jarsBuysRoutes.post('/buys', async (c) => {
   }
 });
 
-jarsBuysRoutes.post('/buys/approvals/:hash/cancel', async (c) => {
+type Batch = { id: string; user_id: string; status: string; bridge_usd6: bigint; arc_tx: string | null; mint_tx: string | null; total_usd6: bigint; error: string | null; started_at: Date | null };
+
+async function loadBatch(user: User, id: string): Promise<Batch> {
+  const [b] = await getSql()<Batch[]>`SELECT * FROM buy_batches WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid`;
+  if (!b) throw new ApiError('NOT_FOUND');
+  return b;
+}
+
+/** The user's Arc tx is in: verify its Withdrawn event before moving on. */
+jarsBuysRoutes.post('/buys/:batchId/arc-submitted', async (c) => {
   try {
     requireCsrf(c);
+    const user = await requireUser(c);
+    const { txHash } = z.object({ txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/) }).parse(await c.req.json());
+    const b = await loadBatch(user, c.req.param('batchId'));
+    if (b.status !== 'bridging') return c.json({ status: b.status });
+    await verifyArcBurn(txHash, user.evmAddress!, BigInt(b.bridge_usd6));
+    await getSql()`UPDATE buy_batches SET arc_tx = ${txHash}, status = 'attesting', error = NULL, updated_at = now() WHERE id = ${b.id}::uuid AND status = 'bridging'`;
+    void advanceBatch(b.id);
+    return c.json({ status: 'attesting' });
+  } catch (e) {
+    return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
+  }
+});
+
+type Entry = { id: string; asset_id: string; status: string; amount_usd6: bigint; spent_usd6: bigint | null; fill_price_usd6: bigint | null; qty: string | null; venue_tx: string | null; error: string | null; swap_msg_hash: string | null };
+
+async function loadEntry(batchId: string, assetId: string): Promise<Entry> {
+  const [e] = await getSql()<Entry[]>`SELECT * FROM buy_entries WHERE batch_id = ${batchId}::uuid AND asset_id = ${assetId}`;
+  if (!e) throw new ApiError('NOT_FOUND');
+  return e;
+}
+
+/** Build the Jupiter swap for one asset: relay pays gas and has signed; the user signs next. */
+jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId', async (c) => {
+  try {
+    requireCsrf(c);
+    const user = await requireUser(c);
+    const b = await loadBatch(user, c.req.param('batchId'));
+    if (b.status !== 'swap_ready' && b.status !== 'swapping') throw new ApiError('DEPOSIT_NOT_READY', { status: b.status });
+    const e = await loadEntry(b.id, c.req.param('assetId'));
+    if (e.status === 'bought') throw new ApiError('VALIDATION', { reason: 'already_bought' });
+    const mint = verifiedMint(e.asset_id, 'solana');
+    if (!mint) throw new ApiError('NOTHING_TO_BUY', { reason: 'no_venue' });
+    const amount = BigInt(e.amount_usd6);
+    const have = await tokenBalanceRaw(user.solAddress!, SOL_USDC);
+    if (have < amount) throw new ApiError('INSUFFICIENT_FREE', { availableUsd6: have.toString(), where: 'solana' });
+    const built = await buildUserSwap({ owner: user.solAddress!, inputMint: SOL_USDC, outputMint: mint.mint, amountRaw: amount });
+    await getSql()`UPDATE buy_entries SET status = 'waiting', swap_msg_hash = ${built.msgHash}, error = NULL,
+      quote_price_usd6 = ${priceUsd6FromBuyQuote(amount, BigInt(built.quote.outAmount), mint.decimals).toString()}::bigint
+      WHERE id = ${e.id}::uuid`;
+    await getSql()`UPDATE buy_batches SET status = 'swapping', updated_at = now() WHERE id = ${b.id}::uuid`;
+    return c.json({
+      action: { kind: 'sol_tx' as const, txBase64: built.txBase64, feePayer: built.feePayer, summary: `Buy ${toUsd6(amount)} of ${mint.symbol}` },
+      estQty: rawToQty(BigInt(built.quote.outAmount), mint.decimals),
+      token: mint.symbol,
+    });
+  } catch (err) {
+    return jsonError(c, err);
+  }
+});
+
+/** The user signed: send it, then book the real fill from the tx's token balances. */
+jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId/submit', async (c) => {
+  const sql = getSql();
+  let entryId: string | null = null;
+  try {
+    requireCsrf(c);
+    const user = await requireUser(c);
+    const { signedTx } = z.object({ signedTx: z.string().min(1) }).parse(await c.req.json());
+    const b = await loadBatch(user, c.req.param('batchId'));
+    const e = await loadEntry(b.id, c.req.param('assetId'));
+    if (e.status !== 'waiting' || !e.swap_msg_hash) throw new ApiError('VALIDATION', { reason: 'not_waiting' });
+    entryId = e.id;
+    const mint = verifiedMint(e.asset_id, 'solana')!;
+    const sig = await submitSigned(signedTx, e.swap_msg_hash);
+    await sql`UPDATE buy_entries SET status = 'sent', venue_tx = ${sig} WHERE id = ${e.id}::uuid`;
+    const [outRaw, usdcDelta] = await Promise.all([
+      tokenDeltaInTx(sig, user.solAddress!, mint.mint),
+      tokenDeltaInTx(sig, user.solAddress!, SOL_USDC),
+    ]);
+    const spent = usdcDelta < 0n ? -usdcDelta : BigInt(e.amount_usd6);
+    const qty = rawToQty(outRaw, mint.decimals);
+    await sql`UPDATE buy_entries SET status = 'bought', spent_usd6 = ${spent.toString()}::bigint, qty = ${qty}::numeric,
+      qty_raw = ${outRaw.toString()}, fill_price_usd6 = ${priceUsd6FromBuyQuote(spent, outRaw, mint.decimals).toString()}::bigint
+      WHERE id = ${e.id}::uuid`;
+    await debitJars(user.id, e.asset_id, spent);
+    await logEvent(user.id, 'buy_done', { amountUsd6: spent.toString(), assetId: e.asset_id, qty, token: mint.symbol, tx: sig }, `/holdings/${e.asset_id}`);
+    const left = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM buy_entries WHERE batch_id = ${b.id}::uuid AND status <> 'bought'`;
+    if (left[0]!.n === 0) await sql`UPDATE buy_batches SET status = 'done', finished_at = now(), updated_at = now() WHERE id = ${b.id}::uuid`;
+    return c.json({ status: 'bought', venueTx: sig, explorerUrl: EXPLORER.solTx(sig), qty, spentUsd6: toUsd6(spent) });
+  } catch (err) {
+    if (entryId) {
+      const msg = err instanceof ApiError ? `${err.code}${err.details ? ` ${JSON.stringify(err.details)}` : ''}` : (err as Error).message;
+      await sql`UPDATE buy_entries SET status = 'paused', error = ${msg.slice(0, 300)} WHERE id = ${entryId}::uuid AND status <> 'bought'`.catch(() => {});
+    }
+    return jsonError(c, err instanceof z.ZodError ? new ApiError('VALIDATION', { issues: err.issues }) : err);
+  }
+});
+
+/** Lets the PWA wait for each Arc call to land before sending the next (approve before deposit). */
+jarsBuysRoutes.get('/chain/arc/tx/:hash', async (c) => {
+  try {
     await requireUser(c);
-    return c.json({ action: mockEvmAction('Cancel buy approval') });
+    const hash = c.req.param('hash');
+    if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new ApiError('VALIDATION');
+    const r = await arcPublic().getTransactionReceipt({ hash: hash as `0x${string}` }).catch(() => null);
+    return c.json({ status: !r ? 'pending' : r.status === 'success' ? 'success' : 'reverted', explorerUrl: EXPLORER.arcTx(hash) });
   } catch (e) {
     return jsonError(c, e);
   }
@@ -440,78 +425,38 @@ jarsBuysRoutes.post('/buys/approvals/:hash/cancel', async (c) => {
 jarsBuysRoutes.get('/buys/:batchId', async (c) => {
   try {
     const user = await requireUser(c);
-    const sql = getSql();
-    const batches = await sql<
-      {
-        id: string;
-        status: string;
-        started_at: Date | null;
-        arc_tx: string | null;
-        slow: boolean;
-        total_usd6: bigint;
-        fees_usd6: bigint;
-        fees_covered: boolean;
-      }[]
-    >`
-      SELECT * FROM buy_batches WHERE id = ${c.req.param('batchId')}::uuid AND user_id = ${user.id}::uuid
-    `;
-    const b = batches[0];
-    if (!b) throw new ApiError('NOT_FOUND');
-    const entries = await sql<
-      {
-        asset_id: string;
-        status: string;
-        quote_price_usd6: bigint | null;
-        max_price_usd6: bigint | null;
-        fill_price_usd6: bigint | null;
-        qty: string | null;
-        amount_usd6: bigint;
-        spent_usd6: bigint | null;
-        venue_tx: string | null;
-      }[]
-    >`
-      SELECT * FROM buy_entries WHERE batch_id = ${b.id}::uuid
-    `;
-    const boughtUsd6 = entries
-      .filter((e) => e.status === 'bought')
-      .reduce((s, e) => s + (e.spent_usd6 ?? e.amount_usd6), 0n);
-    const leftInJars = entries
-      .filter((e) => e.status !== 'bought')
-      .reduce((s, e) => s + e.amount_usd6, 0n);
-    const done = /^done/.test(b.status) || b.status === 'failed';
+    const b = await loadBatch(user, c.req.param('batchId'));
+    if (b.status === 'attesting' || b.status === 'minting') void advanceBatch(b.id);
+    const entries = await getSql()<Entry[]>`SELECT * FROM buy_entries WHERE batch_id = ${b.id}::uuid ORDER BY item_index`;
+    const bought = entries.filter((e) => e.status === 'bought').reduce((s, e) => s + BigInt(e.spent_usd6 ?? e.amount_usd6), 0n);
     return c.json({
       batchId: b.id,
       status: b.status,
-      startedAt: b.started_at?.toISOString() ?? new Date().toISOString(),
-      arcTx: b.arc_tx ?? undefined,
-      ...(b.arc_tx ? { links: { arc: `https://explorer.arc.network/tx/${b.arc_tx}` } } : {}),
-      slow: b.slow,
-      entries: entries.map((e) => ({
-        assetId: e.asset_id,
-        name: assetDisplayName(e.asset_id),
-        status: e.status,
-        quotePriceUsd6: toUsd6(e.quote_price_usd6 ?? 0n),
-        maxPriceUsd6: toUsd6(e.max_price_usd6 ?? 0n),
-        ...(e.fill_price_usd6 != null ? { fillPriceUsd6: toUsd6(e.fill_price_usd6) } : {}),
-        ...(e.qty ? { qty: e.qty } : {}),
-        amountUsd6: toUsd6(e.amount_usd6),
-        ...(e.spent_usd6 != null ? { spentUsd6: toUsd6(e.spent_usd6) } : {}),
-        ...(e.venue_tx ? { venueTx: e.venue_tx, explorerUrl: solscan(e.venue_tx) } : {}),
-      })),
-      ...(done
-        ? {
-            totals: {
-              boughtUsd6: toUsd6(boughtUsd6),
-              leftInJarsUsd6: toUsd6(leftInJars),
-              feesUsd6: toUsd6(b.fees_usd6),
-              feesPctBps: 0,
-              feesCovered: b.fees_covered,
-              slippageBps: 0,
-              returnedUsd6: '0',
-            },
-          }
-        : {}),
-      destination: user.solAddress ?? user.evmAddress ?? '',
+      startedAt: (b.started_at ?? new Date()).toISOString(),
+      totalUsd6: toUsd6(b.total_usd6),
+      bridgeUsd6: toUsd6(b.bridge_usd6),
+      ...(b.error ? { error: b.error } : {}),
+      links: {
+        ...(b.arc_tx ? { arc: EXPLORER.arcTx(b.arc_tx) } : {}),
+        ...(b.mint_tx ? { mint: EXPLORER.solTx(b.mint_tx) } : {}),
+      },
+      entries: entries.map((e) => {
+        const mint = verifiedMint(e.asset_id, 'solana');
+        return {
+          assetId: e.asset_id,
+          name: assetDisplayName(e.asset_id),
+          ...(mint ? { token: mint.symbol } : {}),
+          status: e.status,
+          amountUsd6: toUsd6(e.amount_usd6),
+          ...(e.spent_usd6 != null ? { spentUsd6: toUsd6(e.spent_usd6) } : {}),
+          ...(e.fill_price_usd6 != null ? { fillPriceUsd6: toUsd6(e.fill_price_usd6) } : {}),
+          ...(e.qty ? { qty: String(e.qty).replace(/\.?0+$/, '') } : {}),
+          ...(e.error ? { error: e.error } : {}),
+          ...(e.venue_tx ? { venueTx: e.venue_tx, explorerUrl: EXPLORER.solTx(e.venue_tx) } : {}),
+        };
+      }),
+      boughtUsd6: toUsd6(bought),
+      destination: user.solAddress ?? '',
     });
   } catch (e) {
     return jsonError(c, e);

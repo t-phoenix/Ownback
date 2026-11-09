@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { getSql } from '../db/client.js';
 import { ApiError } from '../shared/errors.js';
-import { parseUsd6, toUsd6 } from '../shared/money.js';
+import { formatUsd, parseUsd6, toUsd6 } from '../shared/money.js';
 import { scaleAllocations, splitInvest } from '../lib/split.js';
 import { precheckConfirm, remainingThisMonth } from '../lib/limits.js';
 import {
@@ -16,7 +16,8 @@ import {
 } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { mockChain } from '../lib/env.js';
-import { readPurchase, type ReadInput } from '../lib/og/read.js';
+import { analysePurchase, freshSteps, readPurchase, type ReadInput, type Rules } from '../lib/og/read.js';
+import { PurchaseDetails } from '../lib/og/schemas.js';
 import { getCatalogCompany } from '../lib/registry/catalog.js';
 import { getAsset, verifiedMint } from '../shared/assets.js';
 import { freeByChain } from '../lib/wallet-sync.js';
@@ -61,13 +62,8 @@ function purchaseJson(
   limit?: { usedUsd6: string; capUsd6: string; leftUsd6: string },
 ) {
   const status = p.status as string;
-  const steps = [
-    { key: 'read' as const, state: status === 'reading' ? ('running' as const) : ('done' as const), label: 'Read receipt' },
-    { key: 'convert' as const, state: status === 'reading' ? ('todo' as const) : ('done' as const), label: 'Convert to USD' },
-    { key: 'maker' as const, state: status === 'reading' ? ('todo' as const) : ('done' as const), label: 'Find maker' },
-    { key: 'behind' as const, state: status === 'reading' ? ('todo' as const) : ('done' as const), label: 'Behind the product' },
-    { key: 'buyable' as const, state: status === 'reading' ? ('todo' as const) : ('done' as const), label: 'Buyable shares' },
-  ];
+  // Real steps from the worker; legacy rows (before 0006) derive them from the status.
+  const steps = (p.steps as ReturnType<typeof freshSteps> | null) ?? freshSteps(status !== 'reading').map((s) => ({ ...s, state: status === 'reading' ? s.state : ('done' as const) }));
   return {
     id: p.id,
     status,
@@ -91,6 +87,8 @@ function purchaseJson(
           },
         }
       : {}),
+    ...(p.details ? { details: p.details } : {}),
+    ...(p.analysis ? { analysis: p.analysis } : {}),
     ...(p.invest_usd6 != null ? { investUsd6: toUsd6(p.invest_usd6 as bigint) } : {}),
     ...(p.rate_bps != null ? { rateBps: p.rate_bps as number } : {}),
     ...(p.split ? { split: p.split } : {}),
@@ -128,7 +126,7 @@ purchaseRoutes.post('/purchases', async (c) => {
     const key = assertIdempotencyKey(c);
     const ct = c.req.header('content-type') ?? '';
     let source: 'photo' | 'voice' | 'typed' = 'typed';
-    let text: { product: string; amount: string; currency: string; maker?: string } | null = null;
+    let text: { product: string; amount: string; currency: string; maker?: string; model?: string; shop?: string; date?: string } | null = null;
 
     let media: File | null = null;
     if (ct.includes('multipart/form-data')) {
@@ -145,9 +143,12 @@ purchaseRoutes.post('/purchases', async (c) => {
         .object({
           text: z.object({
             product: z.string().min(1),
-            amount: z.string(),
+            amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
             currency: z.string().length(3),
-            maker: z.string().optional(),
+            maker: z.string().max(80).optional(),
+            model: z.string().max(80).optional(),
+            shop: z.string().max(120).optional(),
+            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
           }),
         })
         .parse(await c.req.json());
@@ -166,17 +167,18 @@ purchaseRoutes.post('/purchases', async (c) => {
       const r = rules[0]!;
 
       await sql`
-        INSERT INTO purchases (id, user_id, source, status, created_at, updated_at)
-        VALUES (${id}::uuid, ${user.id}::uuid, ${source}, 'reading', now(), now())
+        INSERT INTO purchases (id, user_id, source, status, steps, created_at, updated_at)
+        VALUES (${id}::uuid, ${user.id}::uuid, ${source}, 'reading', ${sql.json(freshSteps())}::jsonb, now(), now())
       `;
-      // Read on 0G inside the request (works on serverless; the client polls GET /purchases/:id either way).
       const input: ReadInput =
         source === 'photo'
           ? { kind: 'image', dataUrl: `data:${media!.type};base64,${mediaBytes!.toString('base64')}` }
           : source === 'voice'
             ? { kind: 'audio', file: new Blob([mediaBytes!], { type: media!.type }), filename: media!.name || 'note.webm' }
             : { kind: 'typed', ...text! };
-      await readPurchase(id, user.id, r, input);
+      // D30: answer now, read + jury after the response. The client polls GET /purchases/:id for real steps.
+      // shortcut: in-process setImmediate dies with the process; the reaper in /jobs/rest-pending fails rows stuck > 5 min. Upgrade to a queue if hosts freeze after the response.
+      setImmediate(() => void readPurchase(id, user.id, r, input).catch((e) => console.error('read', id, e)));
       return { purchaseId: id };
     });
     return c.json(out);
@@ -210,7 +212,7 @@ purchaseRoutes.put('/purchases/:id/split', async (c) => {
       .refine((s) => s.maker + s.behind + s.materials === 100)
       .parse(await c.req.json());
     const { p, allocs } = await loadPurchase(user.id, c.req.param('id'));
-    if (p.status === 'reading' || p.status === 'read_failed' || p.amount_usd6 == null || p.rate_bps == null) {
+    if (p.status === 'reading' || p.status === 'read_failed' || p.status === 'needs_details' || p.amount_usd6 == null || p.rate_bps == null) {
       throw new ApiError('VALIDATION', { reason: 'purchase_not_ready_for_split' });
     }
     const sql = getSql();
@@ -244,13 +246,7 @@ purchaseRoutes.put('/purchases/:id/split', async (c) => {
       fallbackAsset: rules[0]!.fallback_asset,
       makerOnly: body.makerOnly,
     });
-    await sql`DELETE FROM allocations WHERE purchase_id = ${c.req.param('id')}::uuid`;
-    for (const row of split.rows) {
-      await sql`
-        INSERT INTO allocations (id, purchase_id, asset_id, role, amount_usd6, selected)
-        VALUES (${newId()}::uuid, ${c.req.param('id')}::uuid, ${row.assetId}, ${row.role}, ${row.amountUsd6.toString()}::bigint, true)
-      `;
-    }
+    await writeAllocations(c.req.param('id'), split.rows, whyByAsset(allocs, p.analysis));
     await sql`
       UPDATE purchases SET invest_usd6 = ${split.investUsd6.toString()}::bigint,
         split = ${sql.json({ maker: body.maker, behind: body.behind, materials: body.materials })}::jsonb,
@@ -271,17 +267,67 @@ purchaseRoutes.put('/purchases/:id/assets', async (c) => {
     const body = z.object({ deselect: z.array(z.string()) }).parse(await c.req.json());
     await loadPurchase(user.id, c.req.param('id'));
     const sql = getSql();
-    if (body.deselect.length) {
-      await sql`
-        UPDATE allocations SET selected = false
-        WHERE purchase_id = ${c.req.param('id')}::uuid AND asset_id = ANY(${body.deselect})
-      `;
-      await sql`
-        UPDATE allocations SET selected = true
-        WHERE purchase_id = ${c.req.param('id')}::uuid AND NOT (asset_id = ANY(${body.deselect}))
-      `;
-    }
+    // [] means "everything selected" (it used to do nothing, so the last unticked box stuck).
+    await sql`
+      UPDATE allocations SET selected = NOT (asset_id = ANY(${body.deselect}))
+      WHERE purchase_id = ${c.req.param('id')}::uuid
+    `;
     const loaded = await loadPurchase(user.id, c.req.param('id'));
+    return c.json(purchaseJson(loaded.p, loaded.allocs));
+  } catch (e) {
+    return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
+  }
+});
+
+/** why per asset: current allocations first, then the jury rows (so /split and /match never drop it). */
+function whyByAsset(allocs: { asset_id: string; why: string | null }[], analysis: unknown): Map<string, string> {
+  const m = new Map<string, string>();
+  const a = analysis as { parent?: { assetId?: string; why: string } | null; enablers?: { assetId?: string; why: string }[]; commodities?: { assetId?: string; why: string }[] } | null;
+  for (const r of [a?.parent, ...(a?.enablers ?? []), ...(a?.commodities ?? [])]) if (r?.assetId) m.set(r.assetId, r.why);
+  for (const x of allocs) if (x.why) m.set(x.asset_id, x.why);
+  return m;
+}
+
+async function writeAllocations(purchaseId: string, rows: { assetId: string; role: string; amountUsd6: bigint }[], why: Map<string, string>) {
+  const sql = getSql();
+  await sql`DELETE FROM allocations WHERE purchase_id = ${purchaseId}::uuid`;
+  for (const row of rows) {
+    await sql`
+      INSERT INTO allocations (id, purchase_id, asset_id, role, amount_usd6, selected, why)
+      VALUES (${newId()}::uuid, ${purchaseId}::uuid, ${row.assetId}, ${row.role}, ${row.amountUsd6.toString()}::bigint, true, ${why.get(row.assetId) ?? null})
+    `;
+  }
+}
+
+/** "Check the details" form (needs_details, or editing a read). Re-runs the jury; never re-reads the image. */
+purchaseRoutes.put('/purchases/:id/details', async (c) => {
+  try {
+    requireCsrf(c);
+    const user = await requireUser(c);
+    const body = PurchaseDetails.parse(await c.req.json());
+    const id = c.req.param('id');
+    const { p } = await loadPurchase(user.id, id);
+    if (!['needs_details', 'ready', 'needs_review', 'not_listed', 'read_failed'].includes(p.status as string)) {
+      throw new ApiError('VALIDATION', { reason: 'purchase_locked', status: p.status });
+    }
+    const sql = getSql();
+    const rules = await sql<Rules[]>`
+      SELECT rate_bps, fallback_asset, split_maker, split_behind, split_materials FROM rules WHERE user_id = ${user.id}::uuid
+    `;
+    const steps = freshSteps(true);
+    await sql`
+      UPDATE purchases SET status = 'reading', read_error = NULL, steps = ${sql.json(steps)}::jsonb,
+        details = ${sql.json({ ...body, missing: [] } as never)}::jsonb, shop = ${body.merchant ?? null}, updated_at = now()
+      WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid
+    `;
+    // The user typed these, so the read confidence is 1.
+    setImmediate(() =>
+      void analysePurchase(id, user.id, rules[0]!, body, 1).catch(async (e) => {
+        console.error('analyse', id, e);
+        await sql`UPDATE purchases SET status = 'read_failed', read_error = 'og_unavailable', updated_at = now() WHERE id = ${id}::uuid`;
+      }),
+    );
+    const loaded = await loadPurchase(user.id, id);
     return c.json(purchaseJson(loaded.p, loaded.allocs));
   } catch (e) {
     return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
@@ -314,7 +360,8 @@ purchaseRoutes.put('/purchases/:id/match', async (c) => {
     const body = z
       .union([z.object({ companyId: z.string() }), z.object({ privateBrand: z.literal(true) })])
       .parse(await c.req.json());
-    const { p } = await loadPurchase(user.id, c.req.param('id'));
+    const { p, allocs } = await loadPurchase(user.id, c.req.param('id'));
+    if (p.amount_usd6 == null) throw new ApiError('VALIDATION', { reason: 'purchase_not_ready_for_match' });
     const sql = getSql();
     const rules = await sql<{ rate_bps: number; fallback_asset: string; split_maker: number; split_behind: number; split_materials: number }[]>`
       SELECT rate_bps, fallback_asset, split_maker, split_behind, split_materials FROM rules WHERE user_id = ${user.id}::uuid
@@ -333,13 +380,9 @@ purchaseRoutes.put('/purchases/:id/match', async (c) => {
       materials: [],
       fallbackAsset: r.fallback_asset,
     });
-    await sql`DELETE FROM allocations WHERE purchase_id = ${c.req.param('id')}::uuid`;
-    for (const row of split.rows) {
-      await sql`
-        INSERT INTO allocations (id, purchase_id, asset_id, role, amount_usd6, selected)
-        VALUES (${newId()}::uuid, ${c.req.param('id')}::uuid, ${row.assetId}, ${row.role}, ${row.amountUsd6.toString()}::bigint, true)
-      `;
-    }
+    const why = whyByAsset(allocs, p.analysis);
+    if ('companyId' in body && !why.has(body.companyId)) why.set(body.companyId, 'You picked this company as the maker.');
+    await writeAllocations(c.req.param('id'), split.rows, why);
     await sql`
       UPDATE purchases SET status = 'ready', invest_usd6 = ${split.investUsd6.toString()}::bigint, updated_at = now()
       WHERE id = ${c.req.param('id')}::uuid
@@ -441,7 +484,7 @@ purchaseRoutes.post('/purchases/:id/confirm', async (c) => {
       const amounts = payRows.map((a) => toUsd6(a.amountUsd6));
       return {
         action: mockEvmAction(
-          `Move $${Number(check.amountUsd6 / 1_000_000n)}.${(check.amountUsd6 % 1_000_000n).toString().padStart(6, '0').slice(0, 2)} into ${selected.length} jars on Arc`,
+          `Save ${formatUsd(toUsd6(check.amountUsd6))} into ${selected.length} jars`,
           assets,
           amounts,
         ),
@@ -461,20 +504,23 @@ purchaseRoutes.post('/purchases/:id/confirm/submitted', async (c) => {
       .object({ txHash: z.string().optional(), challengeIds: z.array(z.string()).optional() })
       .parse(await c.req.json().catch(() => ({})));
     const sql = getSql();
-    if (!mockChain() && !body.txHash && !body.challengeIds?.length) {
-      throw new ApiError('TX_NOT_FOUND');
-    }
-    // Real path: read Allocated events before status=saved (AI_BUILD trust rule).
+    // D29: jars are reservations against the user's own balance; money moves only when a buy is signed.
     await sql`
       UPDATE allocations SET saved_usd6 = amount_usd6
       WHERE purchase_id = ${c.req.param('id')}::uuid AND selected = true
     `;
     await sql`
-      UPDATE purchases SET status = 'saved', confirm_tx = ${body.txHash ?? 'mock'}, updated_at = now()
+      UPDATE purchases SET status = 'saved', confirm_tx = ${body.txHash ?? null}, updated_at = now()
       WHERE id = ${c.req.param('id')}::uuid AND user_id = ${user.id}::uuid
     `;
     const loaded = await loadPurchase(user.id, c.req.param('id'));
-    const lim = remainingThisMonth(0n, 50_000_000n);
+    const [lr] = await sql<{ cap: bigint; used: bigint }[]>`
+      SELECT r.monthly_cap_usd6 AS cap, COALESCE((SELECT SUM(invest_usd6 - rest_usd6) FROM purchases
+        WHERE user_id = ${user.id}::uuid AND status = 'saved'
+          AND date_trunc('month', created_at AT TIME ZONE 'UTC') = date_trunc('month', now() AT TIME ZONE 'UTC')), 0) AS used
+      FROM rules r WHERE r.user_id = ${user.id}::uuid
+    `;
+    const lim = remainingThisMonth(BigInt(lr?.used ?? 0), BigInt(lr?.cap ?? 50_000_000n));
     return c.json(
       purchaseJson(loaded.p, loaded.allocs, {
         usedUsd6: toUsd6(lim.usedUsd6),

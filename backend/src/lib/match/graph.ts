@@ -6,7 +6,7 @@ import { getAsset } from '../../shared/assets.js';
 
 export type GraphLink = { assetId: string; why: string };
 
-type ProductRow = {
+export type ProductRow = {
   keys: string[];
   category: string;
   makerHint: string | null;
@@ -57,4 +57,8 @@ export function materialsForCategory(category: string): GraphLink[] {
 /** Drop links whose assetId isn't in the registry (A9 — never invent). */
 export function filterKnown(links: GraphLink[]): GraphLink[] {
   return links.filter((l) => knownAsset(l.assetId));
+}
+
+export function listProductGraph(): ProductRow[] {
+  return load().products;
 }
