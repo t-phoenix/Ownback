@@ -12,7 +12,8 @@
     "smoke:workflow": "tsx --env-file=.env scripts/workflow-harness.ts",
     "db:migrate": "tsx --env-file=.env ../scripts/apply-migrations.mjs",
     "db:seed-analyses": "tsx --env-file=.env scripts/seed-product-analyses.ts",
-    "jury:live": "tsx --env-file=.env scripts/jury-live.ts"
+    "jury:live": "tsx --env-file=.env scripts/jury-live.ts",
+    "registry:icons": "tsx scripts/registry-icons.ts"
   },
   "engines": {
     "node": ">=20"

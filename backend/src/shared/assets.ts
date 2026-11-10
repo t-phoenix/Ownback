@@ -38,6 +38,12 @@ export function verifiedMint(assetId: string, chain: string) {
   return m;
 }
 
+/** `{ icon }` for an asset's verified Solana token logo, or `{}` (spread into API rows). Display only. */
+export function iconField(assetId: string): { icon?: string } {
+  const icon = verifiedMint(assetId, 'solana')?.icon;
+  return icon ? { icon } : {};
+}
+
 export function assertVerifiedMint(assetId: string, chain: string) {
   const m = verifiedMint(assetId, chain);
   if (!m) throw new Error(`no_verified_mint:${assetId}:${chain}`);

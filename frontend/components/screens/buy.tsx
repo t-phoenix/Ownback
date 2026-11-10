@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, Check, ChevronRight, ExternalLink, Loader2, RefreshCw, Share2, ShieldCheck, Zap } from "lucide-react";
 import { useApp } from "../app-context";
-import { Coin3D, ConfirmAction, GlassJar, Monogram, Ring, Sheet, haptic } from "../ui";
+import { Coin3D, ConfirmAction, GlassJar, Monogram, PriceTag, Ring, Sheet, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type BuyEntry, type BuyProgress, type Jar, type SignableAction } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
@@ -42,7 +42,8 @@ export function Jars() {
       onContextMenu={e => { e.preventDefault(); setSheet(x); }}
       aria-label={`${name} jar, ${fmtUsd6(x.amountUsd6)}. ${isReady ? "Ready, tap to buy" : "Filling"}. Long-press for options`}>
       <GlassJar pct={p} ready={isReady} size={74} />
-      <span className="jar-name"><Monogram name={name} tone={toneFor(x.assetId)} size={22} /> {name}</span>
+      <span className="jar-name"><Monogram name={name} icon={x.icon} tone={toneFor(x.assetId)} size={22} /> {name}</span>
+      <PriceTag token={x.token} usd6={x.price?.usd6PerUnit} />
       <span className="jar-amt">{fmtUsd6(x.amountUsd6)}</span>
       <span className={`jar-state ${isReady ? "pos" : ""}`}>{isReady ? "Ready · tap to buy" : x.state === "no_venue" ? "Buys when available" : `Filling · ${fmtUsd6(left > 0n ? left : 0n)} to go`}</span>
     </button>;
@@ -206,8 +207,8 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
       <div className="quotes">
         {rows.map(q => { const name = assetName(q.assetId, q.name); return <article className={`card quote ${q.selectable ? "" : "off"}`} key={q.assetId}>
           <header className="quote-top">
-            <Monogram name={name} tone={toneFor(q.assetId)} />
-            <div className="row-main"><div className="row-title">{name} {q.token && <span className="sub">{q.token}</span>}</div><div className="row-sub">{q.selectable ? "Jupiter on Solana · into your wallet" : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
+            <Monogram name={name} icon={q.icon} tone={toneFor(q.assetId)} />
+            <div className="row-main"><div className="row-title">{name} <PriceTag token={q.token} usd6={q.refPriceUsd6} /></div><div className="row-sub">{q.selectable ? "Jupiter on Solana · into your wallet" : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
             <strong className="num">{fmtUsd6(q.amountUsd6)}</strong>
           </header>
           {q.mint && <p className="fineprint mono">{q.issuer ?? "Token"} · mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
@@ -372,7 +373,7 @@ export function BuyDone({ batchId }: { batchId: string }) {
           : canSwap ? "Ready to sign"
           : "Waits for USDC on Solana";
         return <li className="row" key={e.assetId}>
-          <Monogram tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : busy ? <Loader2 size={16} className="spin" /> : name.slice(0, 2).toUpperCase()}</Monogram>
+          <Monogram name={name} icon={e.icon} tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : busy ? <Loader2 size={16} className="spin" /> : e.icon ? undefined : name.slice(0, 2).toUpperCase()}</Monogram>
           <span className="row-main">
             <span className="row-title">Buy {e.token ?? name}</span>
             <span className="row-sub">{sub}</span>

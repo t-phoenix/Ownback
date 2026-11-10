@@ -869,3 +869,16 @@ svg.spin { animation: spin .8s linear infinite; }
 .arc-plan { margin-top: 16px; }
 .arc-plan .mini-icon b { font-size: 14px; }
 .sheet > .sub { margin-bottom: 4px; }
+
+/* ───────────── Price tag: ONE token's live price — a ticker, never a balance ───────────── */
+.price-tag { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 8px 2px 7px; border-radius: 7px; border: 1px dashed var(--line-strong); background: transparent; color: var(--muted); font: 500 11.5px/1.5 var(--font-mono); letter-spacing: -.02em; white-space: nowrap; vertical-align: middle; font-variant-numeric: tabular-nums; }
+.price-tag::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); animation: live-dot 2.4s ease-in-out infinite; }
+.price-unit { opacity: .75; }
+.price-val { color: var(--ink-2); font-weight: 600; }
+@keyframes live-dot { 50% { opacity: .35; } }
+.row-title .price-tag { margin: 0 0 0 6px; }
+.hero-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.hero-tags .price-tag { margin: 0; }
+/* Token logos from the registry sit inside the same rounded tile as the letters. */
+.mono-tile.has-icon { background: #fff; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+.mono-tile img { width: 100%; height: 100%; display: block; object-fit: cover; }

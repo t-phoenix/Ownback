@@ -19,7 +19,7 @@ import { newId, shareId } from '../lib/ids.js';
 import { EXPLORER, isDepositChain } from '../shared/chains.js';
 import { portfolio, type Held } from '../lib/portfolio.js';
 import { qtyToRaw } from '../lib/qty.js';
-import { verifiedMint } from '../shared/assets.js';
+import { iconField, verifiedMint } from '../shared/assets.js';
 
 export const activityRoutes = new Hono();
 
@@ -213,7 +213,7 @@ export function balanceJson(p: Awaited<ReturnType<typeof portfolio>>, inJars: bi
 }
 
 export function heldRow(h: Held) {
-  return { assetId: h.assetId, name: h.name, subtitle: `${h.qty} ${h.token} · Solana`, qty: h.qty, token: h.token, chain: 'solana', valueUsd6: toUsd6(h.valueUsd6) };
+  return { assetId: h.assetId, name: h.name, ...iconField(h.assetId), subtitle: `${h.qty} ${h.token} · Solana`, qty: h.qty, token: h.token, chain: 'solana', valueUsd6: toUsd6(h.valueUsd6), ...(h.priceUsd6 > 0n ? { price: { usd6PerUnit: toUsd6(h.priceUsd6), at: new Date().toISOString(), source: 'jupiter' as const } } : {}) };
 }
 
 export async function jarsTotal(userId: string): Promise<bigint> {
@@ -268,6 +268,7 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
     return c.json({
       assetId,
       name: assetDisplayName(assetId),
+      ...iconField(assetId),
       subtitle: h ? `${h.qty} ${h.token} in your wallet` : '',
       ...(h ? { qty: h.qty } : {}),
       ...(mint ? { token: mint.symbol, chain: 'solana' } : {}),

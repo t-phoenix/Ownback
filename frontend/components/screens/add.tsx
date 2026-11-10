@@ -271,7 +271,7 @@ function JurySections({ a, allocs, done, onToggle }: { a: NonNullable<Purchase["
     const al = r.status === "buyable" && r.assetId ? byId.get(r.assetId) : undefined;
     const body = <>
       {al ? tick(al, r.name) : <span className="tick-gap" aria-hidden="true" />}
-      <Monogram name={r.name} tone={toneFor(r.assetId ?? r.name)} size={38} />
+      <Monogram name={r.name} icon={al?.icon} tone={toneFor(r.assetId ?? r.name)} size={38} />
       <span className="row-main">
         <span className="row-title">{r.name}{r.ticker && <span className="ticker"> {r.ticker}</span>}</span>
         <span className="jury-why">{r.why}</span>
@@ -288,7 +288,7 @@ function JurySections({ a, allocs, done, onToggle }: { a: NonNullable<Purchase["
     <section className="jury-section"><h3 className="micro">Top 3 commodities</h3><div className="card list">{a.commodities.length ? a.commodities.map(row) : <p className="sub pad">None that matter for this one.</p>}</div></section>
     {!!fallback.length && <section className="jury-section"><h3 className="micro">Your fallback</h3><div className="card list">{fallback.map(f => <label key={f.assetId} className="row split-row jury-row">
       {tick(f, assetName(f.assetId, f.name))}
-      <Monogram name={assetName(f.assetId, f.name)} tone={toneFor(f.assetId)} size={38} />
+      <Monogram name={assetName(f.assetId, f.name)} icon={f.icon} tone={toneFor(f.assetId)} size={38} />
       <span className="row-main"><span className="row-title">{assetName(f.assetId, f.name)}</span><span className="jury-why">Gets the share we can't buy on-chain yet.</span></span>
       <span className="row-end"><span className="row-value">{fmtUsd6(f.amountUsd6)}</span></span>
     </label>)}</div></section>}
@@ -381,7 +381,7 @@ export function Confirm({ id }: { id: string }) {
         {data.analysis ? <JurySections a={data.analysis} allocs={data.allocations} done={done} onToggle={toggle} /> : <div className="card list">
           {data.allocations.map(a => <label key={a.assetId} className="row split-row">
             <input type="checkbox" className="tick" checked={a.selected} disabled={done || data.allocations.length === 1} onChange={() => toggle(a.assetId)} />
-            <Monogram name={assetName(a.assetId, a.name)} tone={toneFor(a.assetId)} size={38} />
+            <Monogram name={assetName(a.assetId, a.name)} icon={a.icon} tone={toneFor(a.assetId)} size={38} />
             <span className="row-main"><span className="row-title">{assetName(a.assetId, a.name)}</span><span className="role">{roleLabel[a.role] ?? a.role}</span></span>
             <span className="row-end"><span className="row-value">{fmtUsd6(a.amountUsd6)}</span></span>
           </label>)}

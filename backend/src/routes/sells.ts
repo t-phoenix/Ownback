@@ -13,7 +13,7 @@ import { mockChain } from '../lib/env.js';
 import { jsonError, requireCsrf, requireUser } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { assetDisplayName } from '../lib/asset-name.js';
-import { verifiedMint } from '../shared/assets.js';
+import { iconField, verifiedMint } from '../shared/assets.js';
 import { jupiterPriceUsd6, jupiterSellQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
 import { buildUserSwap, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import { buildSolanaBurnToArc } from '../lib/cctp.js';
@@ -61,6 +61,7 @@ sellsRoutes.get('/sells/review', async (c) => {
     return c.json({
       assetId,
       name: assetDisplayName(assetId),
+      ...iconField(assetId),
       token: mint.symbol,
       mint: mint.mint,
       decimals: mint.decimals,

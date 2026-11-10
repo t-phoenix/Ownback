@@ -30,6 +30,7 @@ type AssetRef = { assetId: AssetId; name: string; ticker?: string; token?: strin
                   role: 'maker' | 'supplier' | 'material' | 'fallback'; why?: string; tokenized: boolean };
 
 type Price = { usd6PerUnit: Usd6 /* per 1 whole token */; at: string; source: 'jupiter' | 'uniswap' | 'appkit' | 'aerodrome' | 'pancakeswap' | 'pyth' };
+// Any row with an `assetId` may also carry `icon?: string`: the token's https logo from database/registry (`scripts/registry-icons.ts`). Display only; fall back to letters.
 type Eip712 = { domain: { name: 'OwnbackVault'; version: '1'; chainId: 5042; verifyingContract: string };
                 types: Record<string, { name: string; type: string }[]>; primaryType: 'BuyApproval'; message: Record<string, unknown> };
 type Withdrawal = { id; chain: DepositChain; amountUsd6: Usd6; feeUsd6: Usd6; status: 'sending' | 'sent' | 'failed'; arcTx?: string; mintTx?: string; createdAt: string };
@@ -108,7 +109,7 @@ When `onchainSynced` is false, the next money action the server builds puts `set
 type Balance = { totalUsd6; byType: { stocksCommodities; stablecoins; crypto }; byChain: Record<ChainKey, Usd6>;
                  pricesAt: string; stale: boolean;
                  usdc: { freeUsd6; inJarsUsd6; arrivingUsd6 } };      // D19
-type HoldingRow = { assetId; name; subtitle; qty?: string; token?: string; chain?: ChainKey; valueUsd6: Usd6 };
+type HoldingRow = { assetId; name; subtitle; qty?: string; token?: string; chain?: ChainKey; valueUsd6: Usd6; price?: Price /* one token (one share for xStocks), live */ };
 type HoldingDetail = HoldingRow & { spentThisYearUsd6; price: Price; avgPriceUsd6; paidTotalUsd6;
   buys: { batchId; at; qty; priceUsd6; amountUsd6; fromPurchases: string[] }[];
   proof: ProofTrail; issuerNote: string };
@@ -201,7 +202,7 @@ type PurchaseDetails = {
 
 | Method | Path | Request | Response | Errors |
 |---|---|---|---|---|
-| GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; price?: Price; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
+| GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; token?: string; price?: Price /* one token, verified mints only */; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
 | POST | `/api/jars/:assetId/cancel` | — | `{ action: SignableAction }` | — |
 | GET/POST | `/api/buys/review` | GET `?include=ready\|all&amounts={json}` or POST `{ include?, amounts?: { [assetId]: Usd6 } }` (whole cents, min $0.10; an amount for a verified asset without a jar is allowed) | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; jarAmountUsd6; suggestedUsd6; token?; mint?; decimals?; issuer?; chain; venue; price: Price; refPriceUsd6 /* Jupiter market price */; estQty; fees: Fees /* route cost = spend − value of output at market */; selectable; reason?: 'fees_high' \| 'no_venue'; arkiv? }[]; totalUsd6; fees; funding: { solanaUsdc6; arcUsdc6; bridgeUsd6 }; destination }` | `NO_READY_JARS`, `VALIDATION` |
 | POST | `/api/buys` | `{ quoteId }` + Idempotency-Key | `{ batchId; batchIds; action?: SignableAction /* evm_calls on Arc with labels[], only when bridgeUsd6 > 0 */ }` | `QUOTE_EXPIRED`, `NOTHING_TO_BUY`, `NO_SOLANA_RECIPIENT`, `INSUFFICIENT_FREE`, `KEEPER_DISABLED` |

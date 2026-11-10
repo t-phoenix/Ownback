@@ -122,7 +122,7 @@ export function Home() {
           <div className="brand-rail h-scroll">
             {jars.data.jars.map(j => <button key={j.assetId} className="brand-card" onClick={() => navigate("/jars")}>
               <div className="brand-top">
-                <Monogram name={assetName(j.assetId, j.name)} tone={toneFor(j.assetId)} size={40} />
+                <Monogram name={assetName(j.assetId, j.name)} icon={j.icon} tone={toneFor(j.assetId)} size={40} />
                 <span className={`state-chip ${j.state === "ready" ? "good" : "fill"}`}>{j.state === "ready" ? "Ready" : "Filling"}</span>
               </div>
               <strong className="brand-name">{assetName(j.assetId, j.name)}</strong>

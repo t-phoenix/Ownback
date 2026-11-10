@@ -19,7 +19,7 @@ import { mockChain } from '../lib/env.js';
 import { analysePurchase, freshSteps, readPurchase, type ReadInput, type Rules } from '../lib/og/read.js';
 import { PurchaseDetails } from '../lib/og/schemas.js';
 import { getCatalogCompany } from '../lib/registry/catalog.js';
-import { getAsset, verifiedMint } from '../shared/assets.js';
+import { getAsset, iconField, verifiedMint } from '../shared/assets.js';
 import { freeByChain } from '../lib/wallet-sync.js';
 import { CENT_USD6 } from '../shared/timing.js';
 
@@ -98,6 +98,7 @@ function purchaseJson(
       return {
         assetId: a.asset_id,
         name: getAsset(a.asset_id)?.name ?? cat?.name ?? a.asset_id,
+        ...iconField(a.asset_id),
         role: a.role,
         tokenized: buyable || Boolean(cat?.tokenized),
         verifiedBuyable: buyable,

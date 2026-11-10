@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowRight, Check, ChevronsRight } from "lucide-react";
 import type { Tone } from "../lib/assets";
-import { splitUsd } from "../lib/money";
+import { fmtUsd6, splitUsd } from "../lib/money";
 
 /* ───────────────────────── Feel ───────────────────────── */
 
@@ -29,9 +29,14 @@ export const useReducedMotion = () => useMedia("(prefers-reduced-motion: reduce)
 
 /* ───────────────────────── Identity ───────────────────────── */
 
-export function Monogram({ name, tone, size = 44, children }: { name?: string; tone: Tone; size?: number; children?: ReactNode }) {
-  return <span className={`mono-tile tone-${tone}`} style={{ "--size": `${size}px` } as CSSProperties} aria-hidden="true">
-    {children ?? (name ?? "").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase()}
+/** Letter tile for an asset or shop. With `icon` (https token logo from the registry) it shows the logo, falling back to letters. */
+export function Monogram({ name, tone, size = 44, icon, children }: { name?: string; tone: Tone; size?: number; icon?: string; children?: ReactNode }) {
+  const [broken, setBroken] = useState(false);
+  const logo = !children && !broken && icon?.startsWith("https://") ? icon : null;
+  return <span className={`mono-tile tone-${tone} ${logo ? "has-icon" : ""}`} style={{ "--size": `${size}px` } as CSSProperties} aria-hidden="true">
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    {logo ? <img src={logo} alt="" width={size} height={size} loading="lazy" decoding="async" referrerPolicy="no-referrer" draggable={false} onError={() => setBroken(true)} />
+      : children ?? (name ?? "").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase()}
   </span>;
 }
 
@@ -39,6 +44,17 @@ export function Monogram({ name, tone, size = 44, children }: { name?: string; t
 export function Money({ cents, className = "" }: { cents: bigint; className?: string }) {
   const [whole, frac] = splitUsd(cents);
   return <span className={`money ${className}`}><span>{whole}</span><span className="money-frac">{frac}</span></span>;
+}
+
+/**
+ * Live price of ONE token (one share for xStocks). Set as a quiet ticker tag — mono, outlined, with a
+ * live dot — so it never reads like a balance or an amount you hold.
+ */
+export function PriceTag({ token, usd6, className = "" }: { token?: string; usd6?: string; className?: string }) {
+  if (!token || !usd6 || usd6 === "0") return null;
+  return <span className={`price-tag ${className}`} title={`Live price of 1 ${token}`}>
+    <span className="price-unit">1 {token}</span><span className="price-val">{fmtUsd6(usd6)}</span>
+  </span>;
 }
 
 /** Counts up once on mount, in whole cents. */

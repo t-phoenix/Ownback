@@ -52,29 +52,30 @@ export type Me = { id: string; authKind: "privy" | "seed"; email?: string; displ
 export type Balance = { totalUsd6: Usd6; byType: { stocksCommodities: Usd6; stablecoins: Usd6; crypto: Usd6 }; stale: boolean; pricesAt: string; usdc: { freeUsd6: Usd6; inJarsUsd6: Usd6; arrivingUsd6: Usd6 } };
 export type ReceiptStatus = "bought" | "in_jar" | "needs_review" | "fallback";
 export type ReceiptRow = { id: string; shop: string; item: string; local: { amount: string; currency: string }; amountUsd6: Usd6; date: string; status: ReceiptStatus; investUsd6: Usd6 };
-export type HoldingRow = { assetId: string; name: string; subtitle: string; qty?: string; token?: string; chain?: string; valueUsd6: Usd6 };
+export type Price = { usd6PerUnit: Usd6; at: string; source: string };
+export type HoldingRow = { assetId: string; name: string; icon?: string; subtitle: string; qty?: string; token?: string; chain?: string; valueUsd6: Usd6; price?: Price };
 export type Home = { balance: Balance; stats: { receipts: number; spendingUsd6: Usd6; inJarsUsd6: Usd6 }; topHoldings: HoldingRow[]; recentReceipts: ReceiptRow[]; nextBuy: { at: string; readyJars: number } };
 export type Holdings = { balance: Balance; sections: { key: string; totalUsd6: Usd6; rows: HoldingRow[] }[] };
 export type HoldingDetail = HoldingRow & { spentThisYearUsd6: Usd6; avgPriceUsd6: Usd6; paidTotalUsd6: Usd6; buys: { batchId: string; at: string; qty: string; priceUsd6: Usd6; amountUsd6: Usd6 }[]; proof: { ogRequestId?: string; arcTx?: string; venueTx?: string; arkivKey?: string; links: Record<string, string> }; issuerNote: string };
 export type JarState = "filling" | "ready" | "approved" | "buying" | "returning" | "paused" | "fees_high" | "no_venue";
-export type Jar = { assetId: string; name: string; role: string; amountUsd6: Usd6; readyMinUsd6: Usd6; state: JarState; note?: string };
+export type Jar = { assetId: string; name: string; icon?: string; role: string; amountUsd6: Usd6; readyMinUsd6: Usd6; state: JarState; token?: string; price?: Price; note?: string };
 export type Jars = { jars: Jar[]; nextReminderAt: string; estFeesUsd6: Usd6 };
 export type Fees = { totalUsd6: Usd6; pctBps: number; covered?: boolean; withinCap?: boolean };
 export type SignableAction =
   | { kind: "evm_calls"; chain: string; calls: { to: string; data: string; value: "0" }[]; labels?: string[]; summary: string }
   | { kind: "sol_tx"; txBase64: string; feePayer: string; summary: string }
   | { kind: "typed_data"; typedData: unknown; summary: string };
-export type BuyRow = { assetId: string; name: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; token?: string; mint?: string; decimals?: number; issuer?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string } };
+export type BuyRow = { assetId: string; name: string; icon?: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; token?: string; mint?: string; decimals?: number; issuer?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string } };
 export type BuyReview = { quoteId: string; expiresAt: string; rows: BuyRow[]; totalUsd6: Usd6; fees: Fees; funding: { solanaUsdc6: Usd6; arcUsdc6: Usd6; bridgeUsd6: Usd6 }; destination: string };
 export type BuyStatus = "bridging" | "attesting" | "minting" | "swap_ready" | "swapping" | "done" | "done_partial" | "failed";
-export type BuyEntry = { assetId: string; name: string; token?: string; status: "quoted" | "waiting" | "sent" | "bought" | "paused"; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; error?: string; venueTx?: string; explorerUrl?: string };
+export type BuyEntry = { assetId: string; name: string; icon?: string; token?: string; status: "quoted" | "waiting" | "sent" | "bought" | "paused"; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; error?: string; venueTx?: string; explorerUrl?: string };
 export type BuyProgress = { batchId: string; status: BuyStatus; startedAt: string; totalUsd6: Usd6; bridgeUsd6: Usd6; error?: string; links: { arc?: string; mint?: string }; entries: BuyEntry[]; boughtUsd6: Usd6; destination: string };
 export type BuyStart = { batchId: string; action?: Extract<SignableAction, { kind: "evm_calls" }> };
 export type SolAction = Extract<SignableAction, { kind: "sol_tx" }>;
-export type SellReview = { assetId: string; name: string; token: string; mint: string; decimals: number; heldQty: string; qty: string; amountRaw: string; estUsdcUsd6: Usd6; priceUsd6: Usd6; fees: Fees; destination: string };
+export type SellReview = { assetId: string; name: string; icon?: string; token: string; mint: string; decimals: number; heldQty: string; qty: string; amountRaw: string; estUsdcUsd6: Usd6; priceUsd6: Usd6; fees: Fees; destination: string };
 export type SellProgress = { sellId: string; status: "signing" | "sent" | "done" | "failed"; assetId: string; qty: string; venueTx?: string; explorerUrl?: string; receivedUsd6?: Usd6; error?: string };
 export type MoveProgress = { moveId: string; status: string; amountUsd6: Usd6; links: { sol?: string; arc?: string }; error?: string };
-export type Allocation = { assetId: string; name: string; role: "maker" | "supplier" | "material" | "fallback"; tokenized: boolean; amountUsd6: Usd6; selected: boolean; why?: string };
+export type Allocation = { assetId: string; name: string; icon?: string; role: "maker" | "supplier" | "material" | "fallback"; tokenized: boolean; amountUsd6: Usd6; selected: boolean; why?: string };
 export type PurchaseStatus = "reading" | "read_failed" | "needs_details" | "ready" | "needs_review" | "not_listed" | "skipped" | "confirming" | "saved" | "deleted";
 export type ReadStep = { key: "read" | "convert" | "understand" | "jury" | "judge" | "resolve"; state: "todo" | "running" | "done" | "failed"; label: string };
 export type ReadError = "not_a_receipt" | "og_unavailable" | "timeout" | "no_total" | "no_product";

@@ -19,6 +19,8 @@ export type AssetMintRow = {
   venues: string[];
   verified: boolean;
   evidence: MintEvidence[];
+  /** Token logo (https), from Jupiter's token list; filled by scripts/registry-icons.ts. Display only. */
+  icon?: string;
 };
 
 export type CuratedAsset = {

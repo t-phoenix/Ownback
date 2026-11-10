@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Loader2, Share2 } from "lucide-react";
 import { useApp } from "../app-context";
 import { Logo } from "../logo";
-import { Creative, Money, Monogram, Sheet, Tilt } from "../ui";
+import { Creative, Money, Monogram, PriceTag, Sheet, Tilt } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type HoldingRow as Row, type MoveProgress } from "../../lib/api";
 import { signAction } from "../../lib/sign-action";
@@ -23,9 +23,9 @@ export function HoldingRow({ h, onSolUsdc }: { h: Row; onSolUsdc?: (h: Row) => v
   const name = isUsd ? h.name : assetName(h.assetId, h.name);
   const open = () => h.assetId === "usdc-sol" ? onSolUsdc?.(h) : navigate(isUsd ? "/funds" : `/holdings/${encodeURIComponent(h.assetId)}`);
   return <button className="row" onClick={open}>
-    <Monogram name={isUsd ? undefined : name} tone={isUsd ? "green" : toneFor(h.assetId)}>{isUsd ? "$" : undefined}</Monogram>
+    <Monogram name={isUsd ? undefined : name} icon={h.icon} tone={isUsd ? "green" : toneFor(h.assetId)}>{isUsd ? "$" : undefined}</Monogram>
     <span className="row-main"><span className="row-title">{name}</span><span className="row-sub">{h.qty && h.token ? `${h.qty} ${h.token}` : h.subtitle}</span></span>
-    <span className="row-end"><span className="row-value">{fmtUsd6(h.valueUsd6)}</span></span>
+    <span className="row-end"><span className="row-value">{fmtUsd6(h.valueUsd6)}</span><PriceTag token={h.token} usd6={h.price?.usd6PerUnit} /></span>
     <ChevronRight size={16} className="row-chev" />
   </button>;
 }
@@ -88,8 +88,9 @@ export function Holding({ id }: { id: string }) {
     <div className="two-col">
       <div>
         {d.loading ? <Skeleton h={100} /> : <section className="card holding-hero">
-          <Monogram name={name} tone={toneFor(id)} size={60} />
-          <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}</p></div>
+          <Monogram name={name} icon={d.data?.icon} tone={toneFor(id)} size={60} />
+          <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}</p>
+            <div className="hero-tags"><PriceTag token={d.data?.token} usd6={d.data?.price?.usd6PerUnit} />{d.data && BigInt(d.data.avgPriceUsd6 || "0") > 0n && <span className="sub">You paid {fmtUsd6(d.data.avgPriceUsd6)} avg</span>}</div></div>
         </section>}
         {canSell && <div className="dock" style={{ position: "relative", marginBottom: 16 }}>
           <button className="button secondary full" onClick={() => navigate(`/sell/review/${encodeURIComponent(id)}`)}>Sell for USDC</button>
