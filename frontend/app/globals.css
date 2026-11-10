@@ -598,8 +598,23 @@ html, body { overflow-x: clip; }
 .free-line { padding: 12px 14px; border-radius: var(--r-md); background: var(--paper-2); }
 .free-meter { height: 6px; border-radius: 99px; background: var(--line-strong); overflow: hidden; margin-bottom: 8px; }
 .free-meter span { display: block; height: 100%; background: var(--primary); transform-origin: left; transition: transform 300ms var(--ease); }
-.off-card { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px; }
-.off-chip { max-width: 100%; padding: 6px 11px; border-radius: 999px; background: var(--paper-2); font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.off-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 4px 8px; }
+.off-head .micro { margin: 0; }
+.off-head .sub { font-size: 12.5px; }
+.off-row + .off-row { border-top: 1px solid var(--line); }
+.off-row summary { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.off-row summary::-webkit-details-marker { display: none; }
+.off-row summary .row-main { min-width: 0; }
+.off-row summary .row-title { font-size: 15px; }
+.off-why { margin-top: 2px; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.off-tag { flex: none; padding: 2px 8px; border-radius: 99px; background: var(--paper-2); color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.off-chev { flex: none; color: var(--muted); transition: transform var(--t); }
+.off-row[open] .off-chev { transform: rotate(180deg); }
+.off-row[open] .off-why { display: none; }
+.off-more { padding: 0 16px 14px 60px; }
+.off-more p { margin: 0 0 8px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.off-row .mono-tile { opacity: .85; }
+@media (max-width: 420px) { .off-tag { display: none; } .off-more { padding-left: 16px; } }
 .confirm-side { margin-top: 32px; }
 .confirm-side .jury-section:first-child { margin-top: 0; }
 .confirm-side .button.quiet { margin-top: 6px; }

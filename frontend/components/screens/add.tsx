@@ -283,9 +283,26 @@ const WhyThese = memo(function WhyThese({ a, allocs }: { a: NonNullable<Purchase
           <span className="jury-meta"><span className="jury-badge on">{r.group}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
         </span>
       </div>)}</div></section>}
-    {!!off.length && <section className="jury-section"><h3 className="micro">Also behind it · not on-chain yet</h3><div className="card off-card">
-      {off.map((r, i) => <span key={`${r.name}-${i}`} className="off-chip" title={r.why}>{r.name}{r.ticker && <span className="ticker"> {r.ticker}</span>}</span>)}
-    </div></section>}
+    {!!off.length && <section className="jury-section">
+      <div className="off-head"><h3 className="micro">Also behind it · not on-chain yet</h3><span className="sub">Tap to read why</span></div>
+      <div className="card list off-list">{off.map((r, i) =>
+        <details key={`${r.name}-${i}`} className="off-row">
+          <summary>
+            <Monogram name={r.name} tone={toneFor(r.ticker ?? r.name)} size={32} />
+            <span className="row-main">
+              <span className="row-title clip">{r.name}{r.ticker && <span className="ticker"> {r.ticker}</span>}</span>
+              <span className="off-why">{r.why}</span>
+            </span>
+            <span className="off-tag">{r.group}</span>
+            <ChevronDown size={16} className="off-chev" aria-hidden="true" />
+          </summary>
+          <div className="off-more">
+            <p>{r.why}</p>
+            <span className="jury-meta"><span className="jury-badge">{r.status === "private" ? "Private company" : r.status === "tokenized_unverified" ? "Token not verified yet" : "Not on-chain yet"}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
+          </div>
+        </details>)}
+      </div>
+    </section>}
   </>;
 });
 
@@ -318,6 +335,7 @@ export function Confirm({ id }: { id: string }) {
   const [mix, setMix] = useState<Mix>("suggested");
   const [chip, setChip] = useState<string>("suggested");
   const [typing, setTyping] = useState<Record<string, string>>({});
+  const inFlight = useRef(false);
   // Reset local amounts whenever the server's rows change (new jury run, edited details).
   useEffect(() => { setAmt(suggested); setLocked(new Set()); setMix("suggested"); setChip("suggested"); setTyping({}); }, [suggested]);
 
@@ -339,7 +357,8 @@ export function Confirm({ id }: { id: string }) {
   const pickMix = (m: Mix) => { haptic(5); setMix(m); setLocked(new Set()); set(spread(ids, weights(m), total, new Set(), amt)); };
 
   const confirm = async () => {
-    setBusy(true); setErr(null);
+    if (inFlight.current) return; // a double tap must not send a second save
+    inFlight.current = true; setBusy(true); setErr(null);
     try {
       // Rows you'd unticked before are back in play: $0 now means "not this time" (D40).
       if (allocs.some(a => !a.selected)) await api.deselect(id, []);
@@ -349,8 +368,12 @@ export function Confirm({ id }: { id: string }) {
       await api.confirmSubmitted(id, signed.txHash);
       refreshAll(); navigate(`/add/${id}/saved`);
     } catch (e) {
+      // A step can fail after the save already landed (slow proxy, a retried tap, a stale API).
+      // The server is the truth: if it says saved, it's saved, and there's nothing to show as an error.
+      const now = await api.purchase(id).catch(() => null);
+      if (now?.status === "saved") { refreshAll(); navigate(`/add/${id}/saved`); return; }
       setErr(errorCopy(e instanceof ApiError ? e.code : undefined));
-      setBusy(false);
+      setBusy(false); inFlight.current = false;
     }
   };
   if (p.error) return <div className="page flow"><FlowHead title="Confirm purchase" back="/add" /><ErrorState error={p.error} onRetry={p.reload} /></div>;
