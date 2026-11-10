@@ -37,11 +37,37 @@ export async function heldRaw(user: User, assetId: string): Promise<bigint> {
   return raw > 0n ? raw : 0n;
 }
 
-function pickAmount(held: bigint, qty: string | undefined, decimals: number): bigint {
-  if (!qty) return held;
-  const asked = qtyToRaw(qty, decimals);
+type SellSize = { qty?: string; usd6?: string; pct?: string };
+
+/** Raw amount to sell from qty, a dollar amount (at `priceUsd6`, floored, capped at held) or a percent. Pure; exported for tests. */
+export function pickAmount(held: bigint, size: SellSize | string | undefined, decimals: number, priceUsd6: bigint | null = null): bigint {
+  const s: SellSize = typeof size === 'string' ? { qty: size } : size ?? {};
+  if (s.pct) {
+    const p = Number(s.pct);
+    if (![25, 50, 75, 100].includes(p)) throw new ApiError('VALIDATION', { issues: [{ path: ['pct'], message: 'invalid' }] });
+    const raw = (held * BigInt(p)) / 100n;
+    if (raw <= 0n) throw new ApiError('VALIDATION', { issues: [{ path: ['pct'], message: 'too_small' }] });
+    return raw;
+  }
+  if (s.usd6) {
+    if (!/^\d+$/.test(s.usd6) || !priceUsd6 || priceUsd6 <= 0n) throw new ApiError('VALIDATION', { issues: [{ path: ['usd6'], message: 'invalid' }] });
+    const raw = (BigInt(s.usd6) * 10n ** BigInt(decimals)) / priceUsd6;
+    if (raw <= 0n) throw new ApiError('VALIDATION', { issues: [{ path: ['usd6'], message: 'too_small' }] });
+    return raw > held ? held : raw;
+  }
+  if (!s.qty) return held;
+  const asked = qtyToRaw(s.qty, decimals);
   if (asked == null || asked <= 0n || asked > held) throw new ApiError('VALIDATION', { issues: [{ path: ['qty'], message: 'invalid' }] });
   return asked;
+}
+
+/** Average cost per whole token from the user's bought entries (Usd6), or 0 when unknown. */
+async function avgCostUsd6(userId: string, assetId: string, decimals: number): Promise<bigint> {
+  const rows = await getSql()<{ spent: string | null; qty: string | null }[]>`
+    SELECT spent_usd6::text AS spent, qty::text AS qty FROM buy_entries WHERE user_id = ${userId}::uuid AND asset_id = ${assetId} AND status = 'bought'`;
+  let paid = 0n; let raw = 0n;
+  for (const r of rows) { paid += BigInt(r.spent ?? '0'); raw += r.qty ? qtyToRaw(r.qty, decimals) ?? 0n : 0n; }
+  return raw > 0n ? (paid * 10n ** BigInt(decimals)) / raw : 0n;
 }
 
 sellsRoutes.get('/sells/review', async (c) => {
@@ -52,11 +78,13 @@ sellsRoutes.get('/sells/review', async (c) => {
     if (!mint) throw new ApiError('FEATURE_OFF');
     const held = await heldRaw(user, assetId);
     if (held <= 0n) throw new ApiError('NOT_FOUND', { reason: 'nothing_held' });
-    const amountRaw = pickAmount(held, c.req.query('qty'), mint.decimals);
-    const [quote, oracle] = await Promise.all([jupiterSellQuote(mint.mint, amountRaw), jupiterPriceUsd6(mint.mint)]);
+    const sized = c.req.query('usd6') ? await jupiterPriceUsd6(mint.mint) : null;
+    const amountRaw = pickAmount(held, { qty: c.req.query('qty'), usd6: c.req.query('usd6'), pct: c.req.query('pct') }, mint.decimals, sized);
+    const [quote, oracle, avg] = await Promise.all([jupiterSellQuote(mint.mint, amountRaw), sized ?? jupiterPriceUsd6(mint.mint), avgCostUsd6(user.id, assetId, mint.decimals)]);
     if (!quote) throw new ApiError('UPSTREAM', { reason: 'no_route' });
     const outUsd6 = BigInt(quote.outAmount); // USDC raw === Usd6
     const fee = oracle ? routeFeeUsd6(valueUsd6(amountRaw, mint.decimals, oracle), outUsd6) : 0n;
+    const cost = valueUsd6(amountRaw, mint.decimals, avg);
     const [r] = await getSql()<{ max_fee_bps: number }[]>`SELECT max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid`;
     return c.json({
       assetId,
@@ -71,6 +99,7 @@ sellsRoutes.get('/sells/review', async (c) => {
       estUsdcUsd6: toUsd6(outUsd6),
       priceUsd6: toUsd6(oracle ?? 0n),
       fees: buildFees([{ label: 'Jupiter route', usd6: fee }], outUsd6 > 0n ? outUsd6 : 1n, r?.max_fee_bps ?? 500, false),
+      ...(avg > 0n ? { costBasisUsd6: toUsd6(cost), pnlUsd6: (outUsd6 - cost).toString() } : {}),
       destination: user.solAddress ?? '',
     });
   } catch (e) {
@@ -83,7 +112,7 @@ sellsRoutes.post('/sells', async (c) => {
   try {
     requireCsrf(c);
     const user = await requireUser(c);
-    const body = z.object({ assetId: z.string().min(1), qty: z.string().optional() }).parse(await c.req.json());
+    const body = z.object({ assetId: z.string().min(1), qty: z.string().optional(), source: z.enum(['holding', 'market']).default('holding') }).parse(await c.req.json());
     const mint = verifiedMint(body.assetId, 'solana');
     if (!mint) throw new ApiError('FEATURE_OFF');
     const held = await heldRaw(user, body.assetId);
@@ -92,17 +121,18 @@ sellsRoutes.post('/sells', async (c) => {
     const qty = rawToQty(amountRaw, mint.decimals);
     const sellId = newId();
     const sql = getSql();
+    const cost = valueUsd6(amountRaw, mint.decimals, await avgCostUsd6(user.id, body.assetId, mint.decimals));
     if (mockChain()) {
       const q = await jupiterSellQuote(mint.mint, amountRaw);
-      await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, received_usd6, created_at, finished_at)
-        VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'done', ${amountRaw.toString()}, ${qty}, ${q?.outAmount ?? '0'}::bigint, now(), now())`;
+      await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, received_usd6, source, cost_basis_usd6, created_at, finished_at)
+        VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'done', ${amountRaw.toString()}, ${qty}, ${q?.outAmount ?? '0'}::bigint, ${body.source}, ${cost.toString()}::bigint, now(), now())`;
       await logEvent(user.id, 'sell_done', { amountUsd6: q?.outAmount ?? '0', assetId: body.assetId }, `/holdings/${body.assetId}`);
       return c.json({ sellId });
     }
     if (!user.solAddress) throw new ApiError('NO_SOLANA_RECIPIENT', { reason: 'no_solana_wallet' });
     const built = await buildUserSwap({ owner: user.solAddress, inputMint: mint.mint, outputMint: SOL_USDC, amountRaw });
-    await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, swap_msg_hash, created_at)
-      VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'signing', ${amountRaw.toString()}, ${qty}, ${built.msgHash}, now())`;
+    await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, swap_msg_hash, source, cost_basis_usd6, created_at)
+      VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'signing', ${amountRaw.toString()}, ${qty}, ${built.msgHash}, ${body.source}, ${cost.toString()}::bigint, now())`;
     return c.json({
       sellId,
       estUsdcUsd6: toUsd6(BigInt(built.quote.outAmount)),

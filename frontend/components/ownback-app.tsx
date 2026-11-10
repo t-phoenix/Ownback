@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Bell, Home as HomeIcon, PiggyBank, Plus, ReceiptText, RefreshCw, Settings as SettingsIcon, Upload, WalletCards } from "lucide-react";
+import { Bell, ChartCandlestick, Home as HomeIcon, PiggyBank, Plus, ReceiptText, RefreshCw, Settings as SettingsIcon, Upload, WalletCards } from "lucide-react";
 import { Logo } from "./logo";
 import { App, type Navigate } from "./app-context";
 import { haptic } from "./ui";
 import { useSession } from "./session-context";
 import { refreshAll } from "../lib/use-api";
+import { marketsOn } from "../lib/flags";
 
 /** Privy stays out of the SSR/preload graph so next dev does not hold the whole WalletConnect tree at boot. */
 const SessionProvider = dynamic(
@@ -23,15 +24,25 @@ import { Settings, Funds } from "./screens/settings";
 import { SignIn, Rules } from "./screens/onboarding";
 import { ScreenBoundary } from "./states";
 
+/* Markets loads its own chunk (chart library included) only when opened. */
+const Markets = dynamic(() => import("./screens/markets").then(m => m.Markets), { ssr: false, loading: () => <div className="page" aria-busy="true" /> });
+const MarketAsset = dynamic(() => import("./screens/markets").then(m => m.MarketAsset), { ssr: false, loading: () => <div className="page" aria-busy="true" /> });
+
+/* D34 · Phone: 4 tabs + centred Add. Markets, Activity and Settings live in screen headers on phone. */
 const tabs = [
   { path: "/", label: "Home", Icon: HomeIcon, key: "H" },
   { path: "/holdings", label: "Holdings", Icon: WalletCards, key: "O" },
   { path: "/add", label: "Add", Icon: Plus, key: "A", add: true },
   { path: "/receipts", label: "Receipts", Icon: ReceiptText, key: "R" },
   { path: "/jars", label: "Jars", Icon: PiggyBank, key: "J" },
-  { path: "/settings", label: "Settings", Icon: SettingsIcon, key: "S" },
 ];
 const tabPaths = tabs.map(t => t.path);
+/* D34 · Laptop sidebar: Markets after Jars, before Settings. */
+const sideItems = [
+  ...tabs.filter(t => !t.add),
+  ...(marketsOn ? [{ path: "/markets", label: "Markets", Icon: ChartCandlestick, key: "M" }] : []),
+  { path: "/settings", label: "Settings", Icon: SettingsIcon, key: "S" },
+];
 
 export function OwnbackApp({ initialPath = "/" }: { initialPath?: string }) {
   return <SessionProvider><Shell initialPath={initialPath} /></SessionProvider>;
@@ -90,7 +101,7 @@ function Shell({ initialPath }: { initialPath: string }) {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (e.metaKey || e.ctrlKey || e.altKey || t.closest("input, textarea, select, [contenteditable]")) return;
-      const map: Record<string, string> = { h: "/", o: "/holdings", a: "/add", r: "/receipts", s: "/settings", j: "/jars", n: "/activity" };
+      const map: Record<string, string> = { h: "/", o: "/holdings", a: "/add", r: "/receipts", s: "/settings", j: "/jars", n: "/activity", ...(marketsOn ? { m: "/markets" } : {}) };
       const to = map[e.key.toLowerCase()];
       if (to) { e.preventDefault(); navigate(to); }
     };
@@ -161,9 +172,11 @@ function Shell({ initialPath }: { initialPath: string }) {
   else if (seg[0] === "add" && seg[1] && seg[2] === "saved") screen = <Saved id={seg[1]} />;
   else if (seg[0] === "add" && seg[1]) screen = <Confirm id={seg[1]} />;
   else if (route === "/jars") screen = <Jars />;
+  else if (marketsOn && route === "/markets") screen = <Markets />;
+  else if (marketsOn && seg[0] === "markets" && seg[1]) { const q = new URLSearchParams(query ?? ""); const t = q.get("trade"); screen = <MarketAsset id={decodeURIComponent(seg[1])} trade={t === "buy" || t === "sell" ? t : undefined} />; }
   else if (route === "/buy/review") { const q = new URLSearchParams(query ?? ""); screen = <BuyReview all={q.has("all")} assetId={q.get("asset") ?? undefined} amountUsd6={q.get("amount") ?? undefined} />; }
   else if (seg[0] === "buy" && seg[1]) screen = <BuyDone batchId={seg[1]} />;
-  else if (seg[0] === "sell" && seg[1] === "review" && seg[2]) screen = <SellReview assetId={decodeURIComponent(seg[2])} />;
+  else if (seg[0] === "sell" && seg[1] === "review" && seg[2]) screen = marketsOn ? <MarketAsset id={decodeURIComponent(seg[2])} trade="sell" /> : <SellReview assetId={decodeURIComponent(seg[2])} />;
   else if (seg[0] === "sell" && seg[1]) screen = <SellDone sellId={seg[1]} />;
   else if (seg[0] === "holdings" && seg[1]) screen = <Holding id={decodeURIComponent(seg[1])} />;
   else if (route === "/holdings") screen = <Holdings />;
@@ -207,7 +220,7 @@ function Sidebar({ path, navigate }: { path: string; navigate: Navigate }) {
     <button className="sidebar-logo" onClick={() => navigate("/")} aria-label="Ownback home"><Logo /></button>
     <button className="button primary full sidebar-add" onClick={() => navigate("/add")}><Plus size={18} strokeWidth={2.4} /> Add a purchase <kbd>A</kbd></button>
     <nav className="side-nav">
-      {tabs.filter(t => !t.add).map(({ path: p, label, Icon, key }) => {
+      {sideItems.map(({ path: p, label, Icon, key }) => {
         const active = p === "/" ? path === "/" : path.startsWith(p);
         return <button key={p} className={`side-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => navigate(p)}>
           <Icon size={19} strokeWidth={active ? 2.2 : 1.75} /><span>{label}</span><kbd>{key}</kbd>

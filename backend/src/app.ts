@@ -9,6 +9,7 @@ import { sellsRoutes } from './routes/sells.js';
 import { activityRoutes } from './routes/activity.js';
 import { jobRoutes } from './routes/jobs.js';
 import { assetRoutes } from './routes/assets.js';
+import { marketRoutes } from './routes/markets.js';
 import { mockChain } from './lib/env.js';
 
 export function createApp() {
@@ -36,6 +37,7 @@ export function createApp() {
   app.route('/', activityRoutes);
   app.route('/', jobRoutes);
   app.route('/', assetRoutes);
+  app.route('/', marketRoutes);
 
   return app;
 }

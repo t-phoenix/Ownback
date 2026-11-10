@@ -8,6 +8,7 @@ These docs apply to every part of Ownback. Each part also has its own folder ([c
 | 02 | [System overview](02-system-overview.md) | The parts, how they talk, the six main flows end to end | Ready |
 | 03 | [Decisions and open questions](03-decisions-and-open-questions.md) | The user's answers to Q1–Q8, settled decisions | **Ready** (Q3+Q8 closed 6 Nov evening) |
 | 11 | [AI-readiness audit](11-ai-readiness-audit.md) | Conflicts and gaps found on 6 Nov evening, how each was fixed, what's still external | Ready |
+| 12 | [Markets](12-markets.md) · [build prompt](12-markets-build-prompt.md) | Direct buy/sell of xStocks with price charts, the faster price layer, wireframes in [markets-wireframes.html](../markets-wireframes.html) | Spec, not built |
 | — | [AI build instructions](AI_BUILD.md) | Rules for coding agents (auto-loaded via the root CLAUDE.md / AGENTS.md) | Ready |
 | 04 | [State machines](04-state-machines.md) | Every state and transition the frontend and backend must agree on | Ready, becomes `packages/shared/states.ts` |
 | 05 | [Gasless and fees](05-gasless-and-fees.md) | Fee simulation, the user's fee cap, who signs and who pays on every chain | Ready, pending spikes S4, S14, S17 |

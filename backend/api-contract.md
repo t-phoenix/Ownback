@@ -268,6 +268,20 @@ Verified mints only. Pipeline: [database/asset-discovery.md](../database/asset-d
 | POST | `/api/assets/candidates/:id/promote` | cron; open when `MOCK_CHAIN=1` | Three-source gate → curated JSON + Arkiv write |
 | POST | `/api/jobs/registry/scrape-xstocks` | cron | Issuer scrape → candidates (issuer evidence only) |
 
+### Markets (D34–D38 · [docs/12-markets.md §7](../docs/12-markets.md))
+
+Behind `MARKETS_ENABLED` (`FEATURE_OFF` when off). Session required. Verified Solana mints only. No new error codes; reasons go in `details.reason`.
+
+| Method | Path | Body / query | Result | Errors |
+|---|---|---|---|---|
+| GET | `/api/markets` | `?sort=popular\|gainers\|losers\|az` | `{ pricesAt, usMarket, items: { assetId; name; ticker; token; icon?; class; chain; priceUsd6 \| null; priceAt \| null; change24hBps \| null; liquidityUsd6 \| null; spark: Usd6[]; held; positionUsd6? }[] }`. Whole list; the PWA filters locally. `Cache-Control: private, max-age=15, stale-while-revalidate=120` | `FEATURE_OFF` |
+| GET | `/api/markets/prices` | `?ids=a,b` (≤ 50) | `{ at, prices: { [assetId]: { priceUsd6, priceAt, change24hBps } } }` (30/min/user) | `RATE_LIMITED` |
+| GET | `/api/markets/:assetId` | — | Detail: price, 24h change, liquidity, 24h volume, `usMarket`, `position` (qty, value, avg cost, signed `pnlUsd6`, `pnlBps`), `tradable { buy, sell, reason? }`, `funds { solanaUsdcUsd6, arcUsdcUsd6, maxBuyUsd6 }` (Arc minus the $0.10 gas buffer), `recent` (last 5 buys/sells with `source`) | `NOT_FOUND` (`not_listed`) |
+| GET | `/api/markets/:assetId/candles` | `?range=1D\|1W\|1M\|3M\|1Y\|ALL` | `{ range, interval, source, stale, candles: { t; o; h; l; c }[], reason? }`. Display only | `NOT_FOUND` |
+| POST | `/api/markets/buy/review` (CSRF) | `{ assetId, amountUsd6 }` (whole cents, ≥ $0.10) | Same shape as `/buys/review` + `row`. The quote is tagged `source: 'market'`; `POST /buys` with it sets `trigger = 'market'` and never debits jars (D35) | `VALIDATION`, `NOT_FOUND`, `RATE_LIMITED` (20/min) |
+
+Sells (D31, extended): `GET /api/sells/review` also takes `usd6=` (dollars at the live price, floored, capped at held) or `pct=25|50|75|100`, and returns `costBasisUsd6` / signed `pnlUsd6` when the average cost is known. `POST /api/sells` takes `source: 'holding' | 'market'`. `GET /api/buys/:batchId` returns `trigger`.
+
 ### Public and jobs
 
 | Method | Path | Auth | Does |

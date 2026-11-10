@@ -3,7 +3,7 @@
  * shortcut: fixture-only, replace with live seed when demo user has real data
  */
 import type {
-  Balance, BuyProgress, BuyReview, GmailState, Home, Holdings, Jars, Me, Purchase, Receipts, Rules,
+  Balance, BuyProgress, BuyReview, Candles, ChartRange, GmailState, Home, Holdings, Jars, MarketBuyReview, MarketDetail, MarketItem, Markets, Me, Purchase, Receipts, Rules, SellReview,
 } from "./api";
 
 const u = (dollars: number) => String(Math.round(dollars * 1_000_000));
@@ -165,5 +165,74 @@ export const rules: Rules = {
   fallbackAsset: "idx:sp500", split: { maker: 70, behind: 20, materials: 10 }, buyDay: "sun", onchainSynced: true,
 };
 
-export const SCREENS = ["signin", "home", "confirm", "jars", "buy-review", "buy-done", "holdings", "receipts", "settings", "type-it"] as const;
+export const SCREENS = ["signin", "home", "confirm", "jars", "buy-review", "buy-done", "holdings", "receipts", "settings", "type-it", "markets", "market-asset", "markets-wide", "market-asset-wide"] as const;
 export type ShotScreen = (typeof SCREENS)[number];
+
+/* ───── Markets (docs/12-markets.md). Example prices only; never shown as live quotes. ───── */
+const logo = (t: string) => `https://xstocks-metadata.backed.fi/logos/tokens/${t}.png`;
+/** Deterministic wobble so screenshots don't change between runs. */
+function walk(start: number, n: number, seed: number, drift = 0.0004): number[] {
+  let x = seed, v = start; const out: number[] = [];
+  for (let i = 0; i < n; i++) { x = (x * 9301 + 49297) % 233280; v *= 1 + drift + ((x / 233280) - 0.5) * 0.01; out.push(v); }
+  return out;
+}
+const sparkOf = (p: number, seed: number, up: boolean) => walk(p * (up ? 0.985 : 1.015), 24, seed, up ? 0.0007 : -0.0007).map(u);
+const mk = (assetId: string, name: string, token: string, price: number, bps: number, liq: number, cls: MarketItem["class"] = "stock", pos?: number): MarketItem => ({
+  assetId, name, ticker: token.replace(/x$/, ""), token, icon: logo(token), class: cls, chain: "solana",
+  priceUsd6: u(price), priceAt: new Date().toISOString(), change24hBps: bps, liquidityUsd6: u(liq),
+  spark: sparkOf(price, token.length * 97 + liq % 1000, bps >= 0), held: pos != null, ...(pos != null ? { positionUsd6: u(pos) } : {}),
+});
+export const markets: Markets = {
+  pricesAt: new Date().toISOString(),
+  usMarket: "closed",
+  items: [
+    mk("co:apple", "Apple", "AAPLx", 231.4, 138, 1_051_524, "stock", 61.04),
+    mk("co:tesla", "Tesla", "TSLAx", 402.77, 291, 3_400_000),
+    mk("co:nvidia", "NVIDIA", "NVDAx", 184.12, -82, 2_750_000, "stock", 12.48),
+    mk("idx:sp500", "S&P 500 ETF", "SPYx", 668.05, 31, 1_100_000, "index"),
+    mk("co:microsoft", "Microsoft", "MSFTx", 512.3, -24, 880_000),
+    mk("co:amazon", "Amazon", "AMZNx", 228.6, 112, 760_000),
+    mk("co:meta", "Meta Platforms", "METAx", 742.1, -156, 540_000),
+    mk("mat:gold", "Gold", "GLDx", 384.2, 10, 410_000, "commodity"),
+    mk("co:alphabet", "Alphabet", "GOOGLx", 251.75, 47, 390_000),
+    mk("co:coinbase", "Coinbase", "COINx", 318.9, -311, 270_000),
+    mk("idx:nasdaq100", "Nasdaq 100 ETF", "QQQx", 602.4, 54, 250_000, "index"),
+    mk("co:netflix", "Netflix", "NFLXx", 1188.2, 0, 120_000),
+  ],
+};
+export const marketDetail: MarketDetail = {
+  assetId: "co:apple", name: "Apple", ticker: "AAPL", token: "AAPLx", icon: logo("AAPLx"), class: "stock", chain: "solana",
+  mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", decimals: 8, issuer: "xStocks",
+  links: { mint: "https://solscan.io/token/XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", issuer: "https://xstocks.com/products" },
+  priceUsd6: u(231.4), priceAt: new Date().toISOString(), change24hBps: 138, liquidityUsd6: u(1_051_524), volume24hUsd6: u(636_088), usMarket: "closed",
+  position: { qty: "0.2638", valueUsd6: u(61.04), avgCostUsd6: u(219.8), pnlUsd6: u(3.06), pnlBps: 528 },
+  tradable: { buy: true, sell: true },
+  funds: { solanaUsdcUsd6: u(12), arcUsdcUsd6: u(50), maxBuyUsd6: u(61.9) },
+  recent: [
+    { kind: "buy", source: "market", at: "2026-11-09T09:12:00Z", qty: "0.1078", amountUsd6: u(25), link: `/buy/${SHOT_IDS.batch}` },
+    { kind: "buy", source: "jar", at: "2026-11-08T04:30:00Z", qty: "0.156", amountUsd6: u(33.43), link: `/buy/${SHOT_IDS.batch}` },
+  ],
+};
+const STEP: Record<ChartRange, [number, number]> = { "1D": [300, 288], "1W": [3600, 168], "1M": [14400, 180], "3M": [86400, 91], "1Y": [86400, 365], ALL: [86400, 500] };
+export function candles(range: ChartRange): Candles {
+  const [step, n] = STEP[range];
+  const closes = walk(231.4 * (range === "1D" ? 0.986 : range === "1W" ? 0.95 : 0.8), n, n * 7 + step % 97, range === "1D" ? 0.00005 : 0.0006);
+  const scale = 231.4 / closes[closes.length - 1];
+  const now = Math.floor(Date.now() / 1000 / step) * step;
+  return {
+    range, interval: range === "1D" ? "5m" : range === "1W" ? "1h" : range === "1M" ? "4h" : "1d", source: "ownback", stale: false,
+    candles: closes.map((c, i) => { const cc = c * scale, o = (i ? closes[i - 1] : c) * scale; return { t: now - (n - 1 - i) * step, o: u(o), h: u(Math.max(o, cc) * 1.002), l: u(Math.min(o, cc) * 0.998), c: u(cc) }; }),
+  };
+}
+export const marketBuyReview = (amountUsd6: string): MarketBuyReview => {
+  const amt = Number(amountUsd6) / 1e6;
+  const row = { ...buyReview.rows[0], amountUsd6, estQty: (amt / 231.88).toFixed(4), price: { usd6PerUnit: u(231.88) }, refPriceUsd6: u(231.4), fees: { totalUsd6: u(amt * 0.0024), pctBps: 24, withinCap: true }, selectable: true };
+  const bridge = Math.max(0, amt - 12);
+  return { ...buyReview, quoteId: "00000000-0000-0000-0000-000000000001", expiresAt: new Date(Date.now() + 30_000).toISOString(), rows: [row], row, totalUsd6: amountUsd6, fees: row.fees, funding: { solanaUsdc6: u(12), arcUsdc6: u(50), bridgeUsd6: u(bridge) } };
+};
+export const sellReview = (pct = 50): SellReview => {
+  const qty = (0.2638 * pct / 100).toFixed(4);
+  const out = Number(qty) * 231.4 * 0.9978;
+  return { assetId: "co:apple", name: "Apple", icon: logo("AAPLx"), token: "AAPLx", mint: marketDetail.mint, decimals: 8, heldQty: "0.2638", qty, amountRaw: "0",
+    estUsdcUsd6: u(out), priceUsd6: u(231.4), fees: { totalUsd6: u(out * 0.0022), pctBps: 22 }, destination: "", costBasisUsd6: u(Number(qty) * 219.8), pnlUsd6: u(out - Number(qty) * 219.8) };
+};

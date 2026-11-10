@@ -124,7 +124,8 @@ async function solUsdc(user: User): Promise<bigint> {
   return tokenBalanceRaw(user.solAddress, SOL_USDC).catch(() => 0n);
 }
 
-async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map<string, bigint>) {
+/** `source: 'market'` (D35): a direct buy from Markets. Same quotes and checks; the quote is tagged so /buys never debits jars. */
+export async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map<string, bigint>, source: 'jar' | 'market' = 'jar') {
   const sql = getSql();
   const rules = await sql<{ ready_min_usd6: bigint | string; max_fee_bps: number | string }[]>`
     SELECT ready_min_usd6, max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid
@@ -198,7 +199,7 @@ async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map
   const expiresAt = new Date(Date.now() + QUOTE_REFRESH_MS).toISOString();
   await sql`
     INSERT INTO quotes (id, user_id, payload, expires_at)
-    VALUES (${quoteId}::uuid, ${user.id}::uuid, ${sql.json({ rows: picked.map((r) => ({ assetId: r.assetId, amountUsd6: r.amountUsd6 })), totalUsd6: total.toString() } as never)}, ${new Date(expiresAt)})
+    VALUES (${quoteId}::uuid, ${user.id}::uuid, ${sql.json({ rows: picked.map((r) => ({ assetId: r.assetId, amountUsd6: r.amountUsd6 })), totalUsd6: total.toString(), source } as never)}, ${new Date(expiresAt)})
   `;
   return {
     quoteId,
@@ -257,7 +258,7 @@ jarsBuysRoutes.post('/buys', async (c) => {
     const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
     const out = await withIdempotency(user.id, key, hash, async () => {
       const sql = getSql();
-      const q = await sql<{ payload: { rows: { assetId: string; amountUsd6: string }[]; totalUsd6: string }; expires_at: Date }[]>`
+      const q = await sql<{ payload: { rows: { assetId: string; amountUsd6: string }[]; totalUsd6: string; source?: 'jar' | 'market' }; expires_at: Date }[]>`
         SELECT payload, expires_at FROM quotes WHERE id = ${body.quoteId}::uuid AND user_id = ${user.id}::uuid
       `;
       if (!q[0]) throw new ApiError('NOT_FOUND');
@@ -266,16 +267,17 @@ jarsBuysRoutes.post('/buys', async (c) => {
       if (!rows.length) throw new ApiError('NOTHING_TO_BUY');
       const total = rows.reduce((s, r) => s + BigInt(r.amountUsd6), 0n);
       const batchId = newId();
+      const trigger = q[0].payload.source === 'market' ? 'market' : 'user';
 
       if (mockChain()) {
-        await sql`INSERT INTO buy_batches (id, trigger, user_id, domain, status, total_usd6, started_at) VALUES (${batchId}::uuid, 'user', ${user.id}::uuid, 5, 'done', ${total.toString()}::bigint, now())`;
+        await sql`INSERT INTO buy_batches (id, trigger, user_id, domain, status, total_usd6, started_at) VALUES (${batchId}::uuid, ${trigger}, ${user.id}::uuid, 5, 'done', ${total.toString()}::bigint, now())`;
         for (const r of rows) {
           const mint = verifiedMint(r.assetId, 'solana');
           const quote = mint ? await jupiterBuyQuote(mint.mint, BigInt(r.amountUsd6)) : null;
           const qty = mint && quote ? rawToQty(BigInt(quote.outAmount), mint.decimals) : '0';
           await sql`INSERT INTO buy_entries (id, batch_id, user_id, asset_id, status, amount_usd6, spent_usd6, item_index, venue, qty)
             VALUES (${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${r.assetId}, 'bought', ${r.amountUsd6}::bigint, ${r.amountUsd6}::bigint, 0, 'jupiter', ${qty}::numeric)`;
-          await debitJars(user.id, r.assetId, BigInt(r.amountUsd6));
+          if (trigger !== 'market') await debitJars(user.id, r.assetId, BigInt(r.amountUsd6));
           await logEvent(user.id, 'buy_done', { amountUsd6: r.amountUsd6, assetId: r.assetId, qty, token: mint?.symbol }, `/holdings/${r.assetId}`);
         }
         return { batchId, batchIds: [batchId] };
@@ -292,7 +294,7 @@ jarsBuysRoutes.post('/buys', async (c) => {
       }
       await sql`
         INSERT INTO buy_batches (id, trigger, user_id, domain, status, total_usd6, bridge_usd6, started_at)
-        VALUES (${batchId}::uuid, 'user', ${user.id}::uuid, 5, ${bridge > 0n ? 'bridging' : 'swap_ready'}, ${total.toString()}::bigint, ${bridge.toString()}::bigint, now())
+        VALUES (${batchId}::uuid, ${trigger}, ${user.id}::uuid, 5, ${bridge > 0n ? 'bridging' : 'swap_ready'}, ${total.toString()}::bigint, ${bridge.toString()}::bigint, now())
       `;
       let i = 0;
       for (const r of rows) {
@@ -322,7 +324,7 @@ jarsBuysRoutes.post('/buys', async (c) => {
   }
 });
 
-type Batch = { id: string; user_id: string; status: string; bridge_usd6: bigint; arc_tx: string | null; mint_tx: string | null; total_usd6: bigint; error: string | null; started_at: Date | null };
+type Batch = { id: string; user_id: string; trigger: string; status: string; bridge_usd6: bigint; arc_tx: string | null; mint_tx: string | null; total_usd6: bigint; error: string | null; started_at: Date | null };
 
 async function loadBatch(user: User, id: string): Promise<Batch> {
   const [b] = await getSql()<Batch[]>`SELECT * FROM buy_batches WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid`;
@@ -417,7 +419,7 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId/submit', async (c) => {
     await sql`UPDATE buy_entries SET status = 'bought', spent_usd6 = ${spent.toString()}::bigint, qty = ${qty}::numeric,
       qty_raw = ${outRaw.toString()}, fill_price_usd6 = ${priceUsd6FromBuyQuote(spent, outRaw, mint.decimals).toString()}::bigint, error = NULL
       WHERE id = ${e.id}::uuid`;
-    await debitJars(user.id, e.asset_id, spent);
+    if (b.trigger !== 'market') await debitJars(user.id, e.asset_id, spent); // D35: market buys never touch jars
     await logEvent(user.id, 'buy_done', { amountUsd6: spent.toString(), assetId: e.asset_id, qty, token: mint.symbol, tx: sig }, `/holdings/${e.asset_id}`);
     const left = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM buy_entries WHERE batch_id = ${b.id}::uuid AND status <> 'bought'`;
     if (left[0]!.n === 0) {
@@ -505,6 +507,7 @@ jarsBuysRoutes.get('/buys/:batchId', async (c) => {
     return c.json({
       batchId: b.id,
       status: b.status,
+      trigger: b.trigger,
       startedAt: (b.started_at ?? new Date()).toISOString(),
       totalUsd6: toUsd6(b.total_usd6 ?? 0),
       bridgeUsd6: toUsd6(b.bridge_usd6 ?? 0),

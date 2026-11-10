@@ -13,6 +13,8 @@ import { activityTitle } from "../../lib/copy";
 import { assetName, toneFor } from "../../lib/assets";
 import { centsOf, fmtUsd6, pct } from "../../lib/money";
 import { ReceiptRow } from "./receipts";
+import { HeaderActions, markActivitySeen } from "../header-actions";
+import { MarketsCard } from "../markets-card";
 
 /** Time-of-day greeting, resolved on the client so server and browser time zones never disagree. */
 function useGreeting() {
@@ -67,7 +69,7 @@ export function Home() {
   return <div className="page page-home">
     <header className="topbar only-mobile">
       <Logo />
-      <button className="icon-btn" aria-label="Activity" onClick={() => navigate("/activity")}><Bell size={20} /></button>
+      <HeaderActions items={["markets", "activity", "settings"]} />
     </header>
 
     <div className="home-grid">
@@ -166,6 +168,8 @@ export function Home() {
           <p className="fineprint center">Nothing buys without your OK.</p>
         </section>
 
+        <MarketsCard />
+
         <section className="block side-block" aria-labelledby="recent">
           <div className="block-head"><h2 id="recent" className="h-section">Recent receipts</h2><button className="link" onClick={() => navigate("/receipts")}>All <ChevronRight size={15} /></button></div>
           {home.loading ? <SkeletonList rows={2} /> : home.data?.recentReceipts.length
@@ -187,6 +191,7 @@ const activityIcon: Record<string, React.ReactNode> = {
 export function Activity() {
   const { navigate } = useApp();
   const a = useApi("activity", api.activity);
+  useEffect(() => { if (a.data) markActivitySeen(); }, [a.data]);
   return <div className="page flow">
     <FlowHead title="Activity" back="/" />
     <ErrorState error={a.error} onRetry={a.reload} />

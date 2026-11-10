@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Home as HomeIcon, PiggyBank, Plus, ReceiptText, Settings as SettingsIcon, WalletCards } from "lucide-react";
+import { Home as HomeIcon, PiggyBank, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { App } from "./app-context";
 import { MockSessionProvider } from "./session-context";
 import { Home } from "./screens/home";
@@ -11,6 +11,7 @@ import { Receipts } from "./screens/receipts";
 import { Settings } from "./screens/settings";
 import { Jars, BuyReview, BuyDone } from "./screens/buy";
 import { SignIn } from "./screens/onboarding";
+import { Markets, MarketAsset } from "./screens/markets";
 import { installShotApi } from "../lib/install-shot-api";
 import { me, SHOT_IDS, type ShotScreen } from "../lib/shot-fixtures";
 
@@ -20,7 +21,6 @@ const tabs = [
   { path: "/add", label: "Add", Icon: Plus, add: true },
   { path: "/receipts", label: "Receipts", Icon: ReceiptText },
   { path: "/jars", label: "Jars", Icon: PiggyBank },
-  { path: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
 const meta: Record<ShotScreen, { path: string; tab?: string; bare?: boolean }> = {
@@ -32,8 +32,12 @@ const meta: Record<ShotScreen, { path: string; tab?: string; bare?: boolean }> =
   "buy-done": { path: `/buy/${SHOT_IDS.batch}` },
   holdings: { path: "/holdings", tab: "/holdings" },
   receipts: { path: "/receipts", tab: "/receipts" },
-  settings: { path: "/settings", tab: "/settings" },
+  settings: { path: "/settings" },
   "type-it": { path: "/add/type" },
+  markets: { path: "/markets" },
+  "market-asset": { path: "/markets/co:apple" },
+  "markets-wide": { path: "/markets" },
+  "market-asset-wide": { path: "/markets/co:apple" },
 };
 
 installShotApi();
@@ -61,6 +65,8 @@ export function ShotsApp({ screen }: { screen: ShotScreen }) {
   else if (screen === "receipts") body = <Receipts />;
   else if (screen === "settings") body = <Settings />;
   else if (screen === "type-it") body = <TypeIt />;
+  else if (screen === "markets" || screen === "markets-wide") body = <Markets />;
+  else if (screen === "market-asset" || screen === "market-asset-wide") body = <MarketAsset id="co:apple" />;
   else body = <BuyDone batchId={SHOT_IDS.batch} />;
 
   const showTabs = !!cfg.tab;
@@ -68,7 +74,7 @@ export function ShotsApp({ screen }: { screen: ShotScreen }) {
   return <MockSessionProvider me={cfg.bare ? null : me}>
     <App.Provider value={ctx}>
       <div className="shots-stage" data-shot-ready={ready ? "1" : "0"}>
-        <div className="shots-phone" data-shot={screen}>
+        <div className={screen.endsWith("-wide") ? "shots-wide" : "shots-phone"} data-shot={screen}>
           <div className="shots-notch" aria-hidden="true" />
           <div className={`shell ${cfg.bare ? "bare" : ""} ${showTabs ? "has-tabs" : ""}`}>
             <main className="stage"><div className="screen">{body}</div></main>
@@ -101,5 +107,9 @@ function labelFor(s: ShotScreen) {
     receipts: "8 · Receipts — everything you added",
     settings: "9 · Settings — your rules",
     "type-it": "10 · Type it — add a purchase by hand",
+    markets: "11 · Markets — buy and sell directly",
+    "market-asset": "12 · Asset — chart, position, trade",
+    "markets-wide": "13 · Markets on laptop — table and preview",
+    "market-asset-wide": "14 · Asset on laptop — trade panel inline",
   } as const)[s];
 }

@@ -178,6 +178,11 @@ Index `(user_id, created_at desc)`.
 | idempotency_keys | (user_id, key) PK, request_hash, response jsonb, created_at (24 h) |
 | chain_cursors | (chain, stream) PK, last_block bigint / last_signature text |
 | keeper_lock | id int PK (single row), held_by text, held_at |
+| price_ticks | (asset_id, at) PK, usd6 bigint. Markets hot set every 5 min, kept 8 days (D37) |
+| candle_cache | (mint, range) PK, source, payload jsonb, fetched_at. Display only |
+| market_pools | mint PK, pool_address, dex, liquidity_usd6, volume24h_usd6, checked_at (GeckoTerminal top pool, daily) |
+
+Migration `0007_markets.sql` also allows `buy_batches.trigger = 'market'` (D35) and adds `sells.source` (`holding` \| `market`) and `sells.cost_basis_usd6`.
 
 ## Mirror rules
 

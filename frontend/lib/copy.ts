@@ -88,3 +88,30 @@ const ARC_STEP_WHY: Record<string, string> = {
   "Send USDC to your Solana wallet (CCTP)": "Circle burns it on Arc and mints the same USDC in your Solana wallet.",
 };
 export const arcStepWhy = (label: string) => ARC_STEP_WHY[label] ?? "A step of this buy on Arc.";
+
+/** Markets (docs/12-markets.md §8 · frontend/copy-and-errors.md § Markets). */
+export const marketCopy = {
+  priceUnavailable: "Price unavailable",
+  noRoute: "Not tradable right now. There's no route for this amount. Try a smaller amount.",
+  notTradable: "Not tradable right now",
+  relayOff: "Trading is paused for a moment. Your money hasn't moved.",
+  notListed: "We don't list this asset.",
+  noHistory: "Not enough trading history yet",
+  chartDown: "Longer history is unavailable right now",
+  chartDownSub: "1D and 1W still work. Your trades aren't affected.",
+  sectionFailed: "This part didn't load",
+  minBuy: "The smallest buy is $0.10.",
+  enterAmount: "Enter a dollar amount like 25 or 0.50.",
+  priceMoved: "The price moved while you were signing. Here's a new quote.",
+  cancelled: "Cancelled. Nothing was sent.",
+  sellNote: "USDC stays in your Solana wallet for your next trade. You can move it to Arc any time.",
+  offline: "You're offline. Prices may be old.",
+  thin: "Thin market",
+  thinHint: "Thin market. Very little trades in this pool, so this price can be far from the real share price. Your quote shows the real cost before you buy.",
+  closedHint: "xStocks trade 24/7 on-chain, so this price can drift from the last US close.",
+  legal: "xStocks are tokens issued by Backed that track a share price. They aren't shares and don't carry voting rights. Not available to US persons. Not investment advice.",
+  noMatch: (q: string) => `No asset called "${q}". Try the ticker, like AAPL, or the company name.`,
+  haveFree: (usd: string) => `You have ${usd} free.`,
+  feesOver: (pct: string) => `Fees are ${pct}, over your fee limit.`,
+  haveQty: (qty: string, token: string) => `You have ${qty} ${token}.`,
+};

@@ -2,7 +2,7 @@
 
 There is one row per wireframe board, all 36. Wireframes match [docs/03](../docs/03-decisions-and-open-questions.md) as of 6 Nov evening (ready minimum, fees everywhere, Q3 deposits, signed buys only). When building a screen, open it in [ownback-wireframes.html](../ownback-wireframes.html#Home) next to this table (each screen has an anchor, e.g. `#Confirm`). State boards (in *italics*) aren't routes; they list the states the named route must render.
 
-Tab bar (on Home, Holdings, + Add, Receipts, Settings): **Home `/` · Holdings `/holdings` · + Add `/add` · Receipts `/receipts` · Settings `/settings`**.
+Phone tab bar (D34): **Home `/` · Holdings `/holdings` · + Add `/add` · Receipts `/receipts` · Jars `/jars`**. Phone headers: Home → Markets · Activity · Settings; Holdings → Jars · Markets · Activity; Receipts and Jars → Activity. Laptop sidebar: Home · Holdings · Receipts · Jars · **Markets** (M) · Settings · Activity.
 
 ## A · Onboarding
 
@@ -59,6 +59,16 @@ Tab bar (on Home, Holdings, + Add, Receipts, Settings): **Home `/` · Holdings `
 | Buying | `/buy/[batchId]` | poll `GET /api/buys/:batchId` every 2 s | Leave any time; when done → same route shows Done | BuyStates 4–7 |
 | Buy done | `/buy/[batchId]` when `done*` | same | Rows → `/holdings/[assetId]`; "Share what I own" → `/holdings/[first]#share` | `done_partial` shows "still filling" + returned rows |
 | *Buying: every state* | on the routes above | — | — | 8 states |
+
+## D2 · Markets (D34–D38 · [docs/12-markets.md](../docs/12-markets.md) · [markets-wireframes.html](../markets-wireframes.html))
+
+| Board | Route | Data | Links / actions | States |
+|---|---|---|---|---|
+| Markets list | `/markets` (phone: pushed, back to Home) | `GET /api/markets`; visible rows poll `GET /api/markets/prices` every 15 s | Search (`/`), chips All · Yours · Starred · Stocks · Index funds · Commodities, sort; row → `/markets/[assetId]`. Laptop: table + preview panel (Buy/Sell/Open). Browse shows assets with a live price; search finds all | Skeleton, stale price (muted + age), no match, offline, error |
+| Asset | `/markets/[assetId]` (`?trade=buy\|sell` opens the panel) | `GET /api/markets/:id`, price poll 10 s, `GET /api/markets/:id/candles?range=` | Chart ranges 1D–All, line/candles; position → `/holdings/[assetId]`; trades → `/buy/[id]`, `/sell/[id]`; Buy/Sell sheet (phone) or inline panel (laptop) | Not listed, not tradable (no route / relay off), chart unavailable, not enough history, section error |
+| Buy / Sell | panel on the asset page | `POST /api/markets/buy/review` (re-quote 15 s), `POST /api/buys`, D33 Arc sheet; `GET /api/sells/review?usd6\|pct\|qty`, `POST /api/sells` (`source: market`) | Done → `/buy/[batchId]` / `/sell/[sellId]` (market wording, "Back to {asset}") | Inline errors: min $0.10, over free, fees over limit, no route, cancelled, price moved |
+
+`/sell/review/[assetId]` opens the asset page with the Sell panel when Markets is on. Holding detail: "Buy more" / "Sell" → `/markets/[assetId]?trade=…`.
 
 ## E · Receipts
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { HeaderActions } from "../header-actions";
 import { useMemo, useState } from "react";
 import { ReceiptText, Search, X } from "lucide-react";
 import { useApp } from "../app-context";
@@ -44,7 +45,7 @@ export function Receipts() {
   const groups = (data.data?.groups ?? []).map(g => ({ ...g, rows: g.rows.filter(r => `${r.item} ${r.shop}`.toLowerCase().includes(q.toLowerCase())) })).filter(g => g.rows.length);
 
   return <div className="page">
-    <header className="page-head"><div><p className="kicker">Everything you've added</p><h1 className="h-page">Receipts</h1></div></header>
+    <header className="page-head"><div><p className="kicker">Everything you've added</p><h1 className="h-page">Receipts</h1></div><HeaderActions items={["activity"]} /></header>
     <label className="search">
       <Search size={18} />
       <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search shops and items" aria-label="Search receipts" />

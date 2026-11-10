@@ -14,6 +14,8 @@ import { useApi, refreshAll } from "../../lib/use-api";
 import { assetName, toneFor } from "../../lib/assets";
 import { centsOf, fmtUsd6, pct } from "../../lib/money";
 import { FlowHead } from "./home";
+import { HeaderActions } from "../header-actions";
+import { marketsOn } from "../../lib/flags";
 
 const sectionTitle: Record<string, string> = { stocksCommodities: "What you own", stablecoins: "Your dollars", makers: "Makers", behind: "Behind the product", commodities: "Materials", index: "Index", crypto: "Crypto" };
 
@@ -40,7 +42,7 @@ export function Holdings() {
   return <div className="page">
     <header className="page-head">
       <div><p className="kicker">Your portfolio</p><h1 className="h-page">Holdings</h1></div>
-      <button className="link" onClick={() => navigate("/settings")}>Wallet <ChevronRight size={15} /></button>
+      <div className="head-end"><button className="link" onClick={() => navigate("/settings")}>Wallet <ChevronRight size={15} /></button><HeaderActions items={["jars", "markets", "activity"]} /></div>
     </header>
     <ErrorState error={h.error} onRetry={h.reload} />
 
@@ -54,9 +56,18 @@ export function Holdings() {
         <span className="tone-bg-green" style={{ flexGrow: Number(total - owned) || 1 }} />
       </div>
       {b?.stale && <p className="sub">Prices may be out of date.</p>}
+      <button className="row jars-link" onClick={() => navigate("/jars")}>
+        <span className="row-main"><span className="row-title">In jars {fmtUsd6(b?.usdc.inJarsUsd6)}</span><span className="row-sub">Saved for your next buys</span></span>
+        <span className="link">Go to Jars <ChevronRight size={15} /></span>
+      </button>
     </section>}
 
-    {h.data && !sections.some(s => s.rows.length) && <Empty title="Nothing owned yet" body="When a jar fills and you approve the buy, the shares land in your own wallet and show up here." />}
+    {h.data && !sections.some(s => s.rows.length) && <Empty title="You don't own anything yet" body="Add a purchase to fill a jar, or buy directly. Shares land in your own wallet and show up here.">
+      <div className="btn-row center-row">
+        {marketsOn && <button className="button primary" onClick={() => navigate("/markets")}>Browse Markets</button>}
+        <button className={`button ${marketsOn ? "secondary" : "primary"}`} onClick={() => navigate("/jars")}>Go to Jars</button>
+      </div>
+    </Empty>}
 
     <div className="two-col">
       {sections.filter(s => s.rows.length).map(s => <section key={s.key} className="block">
@@ -92,10 +103,10 @@ export function Holding({ id }: { id: string }) {
           <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}</p>
             <div className="hero-tags"><PriceTag token={d.data?.token} usd6={d.data?.price?.usd6PerUnit} />{d.data && BigInt(d.data.avgPriceUsd6 || "0") > 0n && <span className="sub">You paid {fmtUsd6(d.data.avgPriceUsd6)} avg</span>}</div></div>
         </section>}
-        {canSell && <div className="dock" style={{ position: "relative", marginBottom: 16 }}>
-          <button className="button secondary full" onClick={() => navigate(`/sell/review/${encodeURIComponent(id)}`)}>Sell for USDC</button>
+        {d.data?.token && <div className="dock-row" style={{ marginBottom: 16 }}>
+          {canSell && <button className="button secondary" onClick={() => navigate(marketsOn ? `/markets/${encodeURIComponent(id)}?trade=sell` : `/sell/review/${encodeURIComponent(id)}`)}>Sell</button>}
+          <button className="button primary" onClick={() => navigate(marketsOn ? `/markets/${encodeURIComponent(id)}?trade=buy` : `/buy/review?asset=${encodeURIComponent(id)}`)}>Buy more {d.data.token}</button>
         </div>}
-        {d.data?.token && <button className="button quiet full" style={{ marginBottom: 16 }} onClick={() => navigate(`/buy/review?asset=${encodeURIComponent(id)}`)}>Buy more {d.data.token}</button>}
 
         {d.data && BigInt(d.data.spentThisYearUsd6 || "0") > 0n && <section className="card versus" aria-label="Spent versus owned">
           <p className="versus-copy">You spent <b>{fmtUsd6(d.data.spentThisYearUsd6)}</b> on {name} this year. You now own <b className="pos">{fmtUsd6(d.data.valueUsd6)}</b> of {name}.</p>

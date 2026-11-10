@@ -124,6 +124,33 @@ The UI never shows the code itself.
 | Paused | "We paused {asset}: its token address changed. Your {amount} stays in the jar." |
 | Done | "Buy done" · "Bought {n} assets · fees {fee} · {date}" · "Paid vs quote within {bps}%" · "Each row opens the asset with its price history and proof." |
 
+## Markets
+
+Strings live in `frontend/lib/copy.ts` → `marketCopy`. Up/down always carries ▲/▼ as well as colour.
+
+| State | Copy |
+|---|---|
+| Market status | "US market open" · "US pre-market" · "US after-hours" · "US market closed" · laptop adds "· prices move 24/7 on-chain" |
+| Closed hint | "xStocks trade 24/7 on-chain, so this price can drift from the last US close." |
+| Stale price | "Price from {n} min ago" · list row "{token} · {n} min ago" |
+| No price | "Price unavailable" · list row "No live price" |
+| Thin market (D39) | list row "{token} · Thin market" · preview and asset page: "Thin market. Very little trades in this pool, so this price can be far from the real share price. Your quote shows the real cost before you buy." |
+| Browse count | "{n} with a live price · search to find all {total}" |
+| No match | "No asset called "{q}". Try the ticker, like AAPL, or the company name." |
+| Chart | "Not enough trading history yet" · "Longer history is unavailable right now" / "1D and 1W still work. Your trades aren't affected." · "Showing the last saved chart." |
+| Section error | "This part didn't load" + "Retry" |
+| Not tradable | "Not tradable right now. There's no route for this amount. Try a smaller amount." |
+| Relay off | "Trading is paused for a moment. Your money hasn't moved." |
+| Not listed | "We don't list this asset." / "Only tokens we've verified on-chain are listed." |
+| Buy errors | "The smallest buy is $0.10." · "Enter a dollar amount like 25 or 0.50." · "You have {free} free. Add funds" · "Fees are {pct}, over your fee limit. Change fee limit" |
+| Buy preview | "≈ {qty} {token}" · "Price {price} per {token}" · "Fees {fee} · {pct}" · "Pays from {sol} Solana + {arc} from Arc" / "Your Solana USDC" · "Lands in Your Solana wallet" · "New price in {s} s" |
+| Price moved | "The price moved while you were signing. Here's a new quote." |
+| Cancelled | "Cancelled. Nothing was sent." |
+| Sell | "{qty} of your {held} {token}" · "You get ≈ {usdc} USDC" · "Return on this part ▲ {pnl}" · "USDC stays in your Solana wallet for your next trade. You can move it to Arc any time." |
+| Done (market) | "Bought" / "Bought {qty} {token}" · "View in Holdings" · "Back to {asset}" · failed after bridge: "Your {amount} is safe as USDC in your Solana wallet. Retry the swap, or keep it for your next trade." |
+| Holdings | "In jars {amount}" / "Saved for your next buys" / "Go to Jars" · empty: "You don't own anything yet" + "Browse Markets" · "Go to Jars" |
+| Legal footer | "xStocks are tokens issued by Backed that track a share price. They aren't shares and don't carry voting rights. Not available to US persons. Not investment advice." |
+
 ## Activity titles (`events.kind`)
 
 | Kind | Title · body |

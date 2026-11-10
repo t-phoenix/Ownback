@@ -12,6 +12,8 @@ import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6, pct } from "../../lib/money";
 import { FlowHead } from "./home";
+import { HeaderActions } from "../header-actions";
+import { marketsOn } from "../../lib/flags";
 
 /** Safe BigInt for Usd6 fields — never throw in render (ScreenBoundary → "couldn't load this"). */
 const bi = (v: string | number | bigint | null | undefined) => {
@@ -51,7 +53,7 @@ export function Jars() {
 
   return <div className="page">
     <header className="page-head"><div><p className="kicker">Set aside for each company</p><h1 className="h-page">Jars</h1></div>
-      <button className="link" onClick={() => navigate("/settings")}>Capacity {fmtUsd6(jars[0]?.readyMinUsd6 ?? "5000000")} <ChevronRight size={15} /></button></header>
+      <div className="head-end"><button className="link" onClick={() => navigate("/settings")}>Capacity {fmtUsd6(jars[0]?.readyMinUsd6 ?? "5000000")} <ChevronRight size={15} /></button><HeaderActions items={["activity"]} /></div></header>
     <p className="lede left">Each purchase fills a jar per company. A jar at your capacity is ready to buy, and you can buy any jar sooner. Nothing buys without your OK.</p>
     <ErrorState error={j.error} onRetry={j.reload} />
     {j.loading && <div className="jar-grid block">{[0, 1, 2].map(i => <Skeleton key={i} h={200} />)}</div>}
@@ -100,7 +102,7 @@ const codeOf = (e: unknown) => (e instanceof ApiError ? e.code : (e as { code?: 
 const detailsOf = (e: unknown) => (e instanceof ApiError ? (e.details as Record<string, string> | undefined) : undefined);
 
 /** The Arc steps of a buy: what each one does before approval, then a live status per call with explorer links. */
-function ArcPlan({ labels, steps }: { labels: string[]; steps: StepUpdate[] }) {
+export function ArcPlan({ labels, steps }: { labels: string[]; steps: StepUpdate[] }) {
   return <ol className="card list arc-plan" aria-live="polite">
     {labels.map((label, i) => {
       const s = steps.find(x => x.index === i);
@@ -338,13 +340,16 @@ export function BuyDone({ batchId }: { batchId: string }) {
     : d.status === "minting" ? "Delivering USDC on Solana"
     : "Sign each swap to finish";
 
+  const market = d?.trigger === "market" ? d.entries[0] : undefined; // D35: a Markets buy is one asset, no jars
+  const marketBack = market ? `/markets/${encodeURIComponent(market.assetId)}` : null;
   return <div className="page flow narrow">
-    <FlowHead title={d?.status === "done" ? "Buy done" : "Buying"} back="/" />
+    <FlowHead title={d?.status === "done" ? (market ? "Bought" : "Buy done") : market ? `Buying ${market.token ?? assetName(market.assetId, market.name)}` : "Buying"} back={marketBack ?? "/"} />
     <ErrorState error={b.error} onRetry={b.reload} />
     <div className="center celebrate">
       <div className="burst" aria-hidden="true">{d?.status === "done" && Array.from({ length: 10 }, (_, i) => <i key={i} style={{ "--a": `${i * 36}deg` } as React.CSSProperties} />)}<Coin3D size={112} /></div>
       <p className="kicker">{kicker}</p>
-      <h1 className="h-hero">{bought.length} of {d?.entries.length ?? "…"}<br />bought</h1>
+      {market?.status === "bought" ? <h1 className="h-hero">Bought<br />{market.qty} {market.token}</h1>
+        : <h1 className="h-hero">{bought.length} of {d?.entries.length ?? "…"}<br />bought</h1>}
       {d && <p className="sub">{fmtUsd6(d.boughtUsd6)} of {fmtUsd6(d.totalUsd6)} · {elapsed(d.startedAt)}</p>}
     </div>
     {batchErr && <p className="error" role="alert"><AlertTriangle size={14} /> {d?.status === "attesting" || d?.status === "minting" ? "Still working: " : ""}{batchErr}</p>}
@@ -392,16 +397,18 @@ export function BuyDone({ batchId }: { batchId: string }) {
     </ol>}
     {!d && !b.error && <Skeleton h={180} mt={28} />}
     {d && d.status !== "done" && <p className="fineprint center">You can leave this screen; the transfer keeps going. Come back from Activity to sign the swaps.</p>}
+    {market && (d?.status === "failed" || market.status === "paused") && bi(d?.bridgeUsd6) > 0n && <p className="callout">Your {fmtUsd6(d!.bridgeUsd6)} is safe as USDC in your Solana wallet. Retry the swap, or keep it for your next trade.</p>}
     <div className="dock">
-      {needsNewBuy && <button className="button primary full lg" onClick={() => navigate("/buy/review")}>Start a new buy <ArrowRight size={18} /></button>}
+      {needsNewBuy && <button className="button primary full lg" onClick={() => navigate(marketBack ? `${marketBack}?trade=buy` : "/buy/review")}>Start a new buy <ArrowRight size={18} /></button>}
       {showRetry && !needsNewBuy && (
         <button className="button primary full lg" disabled={retrying || !!signing} onClick={retryPipeline}>
           {retrying ? <><Loader2 size={16} className="spin" /> Retrying…</> : <><RefreshCw size={16} /> Retry</>}
         </button>
       )}
-      <button className={`button ${showRetry || needsNewBuy ? "quiet" : "primary"} full lg`} onClick={() => navigate("/holdings")}>
-        See what you own {!(showRetry || needsNewBuy) && <ArrowRight size={18} />}
+      <button className={`button ${showRetry || needsNewBuy ? "quiet" : "primary"} full lg`} onClick={() => navigate(market ? `/holdings/${encodeURIComponent(market.assetId)}` : "/holdings")}>
+        {market ? "View in Holdings" : "See what you own"} {!(showRetry || needsNewBuy) && <ArrowRight size={18} />}
       </button>
+      {marketBack && <button className="button secondary full" onClick={() => navigate(marketBack)}>Back to {assetName(market!.assetId, market!.name)}</button>}
       {bought[0] && <button className="button quiet full" onClick={() => navigate(`/holdings/${encodeURIComponent(bought[0].assetId)}#share`)}><Share2 size={16} /> Share what I own</button>}
     </div>
   </div>;
@@ -479,6 +486,7 @@ export function SellDone({ sellId }: { sellId: string }) {
     </div>
     <div className="dock">
       <button className="button primary full lg" onClick={() => navigate("/holdings")}>Back to holdings</button>
+      {marketsOn && d?.assetId && <button className="button secondary full" onClick={() => navigate(`/markets/${encodeURIComponent(d.assetId)}`)}>Back to {assetName(d.assetId)}</button>}
     </div>
   </div>;
 }

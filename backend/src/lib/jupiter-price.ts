@@ -39,6 +39,8 @@ async function fetchBatch(mints: string[]): Promise<Map<string, bigint>> {
       const v = raw == null ? 0n : usdStringToUsd6(String(raw));
       if (v > 0n) { out.set(m, v); priceCache.set(m, { v, at: Date.now() }); noPrice.delete(m); }
       else noPrice.set(m, Date.now());
+      const row = body[m] as { priceChange24h?: number | string; liquidity?: number | string } | null | undefined;
+      if (row) metaCache.set(m, { changeBps: pctToBps(row.priceChange24h), liquidityUsd6: row.liquidity == null ? null : usdStringToUsd6(String(row.liquidity)) || null, at: Date.now() });
     }
   } catch { /* null for every mint below */ }
   return out;
@@ -77,6 +79,25 @@ export async function jupiterPriceUsd6(mint: string, opts: { display?: boolean }
   if (hit && opts.display && age < PRICE_STALE_MS) { void fetchPrice(mint); return hit.v; }
   if (!hit && opts.display && Date.now() - (noPrice.get(mint) ?? 0) < NO_PRICE_MS) return null;
   return fetchPrice(mint);
+}
+
+/** The cached price and when it was fetched, without any network call (Markets list paints from this). */
+export function jupiterPriceCached(mint: string): { v: bigint; at: number } | null {
+  return priceCache.get(mint) ?? null;
+}
+
+/** 24h change and pool liquidity that came with the last batched price (display only; Markets). */
+export type PriceMeta = { changeBps: number | null; liquidityUsd6: bigint | null; at: number };
+const metaCache = new Map<string, PriceMeta>();
+export function jupiterPriceMeta(mint: string): PriceMeta | null {
+  return metaCache.get(mint) ?? null;
+}
+
+/** Jupiter's percent (a JSON number like 2.0424) → whole basis points. Display only. */
+export function pctToBps(p: number | string | null | undefined): number | null {
+  if (p == null || p === '') return null;
+  const n = Number(p);
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
 }
 
 /** Many prices in one round trip (display). */
