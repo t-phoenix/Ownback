@@ -146,7 +146,7 @@ export function Coin3D({ size = 120, still = false }: { size?: number; still?: b
 }
 
 /**
- * The jar: Ownback's second mark. Gold fills a glass jar whose lid takes the brand's colour and
+ * The jar: Ownback's second mark. USDC blue (D41) fills a glass jar whose lid takes the brand's colour and
  * whose label is the brand's logo. Motion is transform-only; the wave runs only when a jar is
  * ready or hovered (`live`), so a grid of jars costs nothing while it sits still.
  */
@@ -159,7 +159,7 @@ export function GlassJar({ pct, ready, size = 96, icon, name, tone, live }: { pc
     <svg className="glass-jar" viewBox="0 0 100 130" width={size} height={size * 1.3}>
       <defs>
         <clipPath id={`${id}c`}><path d={JAR} /></clipPath>
-        <linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#F4CC5C" /><stop offset=".55" stopColor="#E0A93A" /><stop offset="1" stopColor="#A9761A" /></linearGradient>
+        <linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#8CCDF5" /><stop offset=".55" stopColor="#4A97DE" /><stop offset="1" stopColor="#2775CA" /></linearGradient>
       </defs>
       <path className="jar-glass" d={JAR} />
       <g clipPath={`url(#${id}c)`}>

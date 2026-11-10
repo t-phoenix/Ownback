@@ -17,7 +17,7 @@ import { errorCopy, marketCopy as copy } from "../../lib/copy";
 import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6 } from "../../lib/money";
-import { ago, change, estQty, fmtBps, fmtCompact, fmtPrice, filterMarkets, isStale, isThin, loadStarred, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy, type Sort } from "../../lib/markets";
+import { ago, change, estQty, fmtBps, fmtCompact, fmtPrice, filterMarkets, isStale, isThin, loadStarred, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy } from "../../lib/markets";
 import { FlowHead } from "./home";
 import { ArcPlan, dollarsToUsd6, usd6ToDollarsInput } from "./buy";
 import type { Hover } from "../markets/price-chart-impl";
@@ -85,7 +85,6 @@ function prefetchAsset(id: string) {
 }
 
 const CHIPS: [string, string][] = [["all", "All"], ["yours", "Yours"], ["starred", "Starred"], ["stock", "Stocks"], ["index", "Index funds"], ["commodity", "Commodities"]];
-const SORTS: [Sort, string][] = [["popular", "Popular"], ["gainers", "Top gainers"], ["losers", "Top losers"], ["az", "A–Z"]];
 
 // ─────────────────────────────── List ───────────────────────────────
 
@@ -96,7 +95,6 @@ export function Markets() {
   const m = useApi("markets", api.markets);
   const [q, setQ] = useState("");
   const [chip, setChip] = useState("all");
-  const [sort, setSort] = useState<Sort>("popular");
   const [starred, setStarred] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<string | null>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -108,7 +106,7 @@ export function Markets() {
   }, []);
 
   const items = useMemo(() => (m.data?.items ?? []).map(i => live[i.assetId] ? { ...i, ...live[i.assetId] } : i), [m.data, live]);
-  const shown = useMemo(() => sortMarkets(filterMarkets(items, q, chip, starred), sort), [items, q, chip, starred, sort]);
+  const shown = useMemo(() => sortMarkets(filterMarkets(items, q, chip, starred), "popular"), [items, q, chip, starred]);
   const held = items.filter(i => i.held);
   const star = (id: string) => { const s = new Set(starred); if (s.has(id)) s.delete(id); else s.add(id); setStarred(s); saveStarred(s); haptic(5); };
   const selected = shown.find(i => i.assetId === sel) ?? shown[0];
@@ -122,9 +120,6 @@ export function Markets() {
     <div className="mk-chips h-scroll" role="tablist" aria-label="Filter">
       {CHIPS.filter(([k]) => k !== "yours" || held.length).map(([k, label]) => <button key={k} role="tab" aria-selected={chip === k} className={`chip sm ${chip === k ? "on" : ""}`} onClick={() => setChip(k)}>{label}{k === "yours" ? ` · ${held.length}` : ""}</button>)}
     </div>
-    <label className="mk-sort"><span className="sr-only">Sort</span>
-      <select id="mk-sort" value={sort} onChange={e => setSort(e.target.value as Sort)}>{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-    </label>
   </div>;
 
   const empty = m.data && !shown.length ? <Empty title={q ? copy.noMatch(q) : chip === "starred" ? "Nothing starred yet" : "Nothing here"} body={chip === "starred" ? "Tap the star on an asset to keep it here." : undefined} /> : null;
@@ -153,16 +148,16 @@ export function Markets() {
           if (e.key === "Enter" && selected) navigate(open(selected.assetId));
         }}>
         <table className="mk-table">
-          <thead><tr><th>Asset</th><th className="r">Price</th><th className="r">24h</th><th className="r">24h trend</th><th className="r">Liquidity</th><th className="r">Your position</th><th><span className="sr-only">Star</span></th></tr></thead>
+          <thead><tr><th className="mk-star-col"><span className="sr-only">Star</span></th><th>Asset</th><th className="r">Price</th><th className="r">24h</th><th className="r">24h trend</th><th className="r">Liquidity</th><th className="r">Your position</th></tr></thead>
           <tbody>{shown.map(i => { const name = assetName(i.assetId, i.name); const stale = isStale(i.priceAt); return <tr key={i.assetId} data-id={i.assetId} ref={observe} className={selected?.assetId === i.assetId ? "sel" : ""}
             onClick={() => { setSel(i.assetId); prefetchAsset(i.assetId); }} onDoubleClick={() => navigate(open(i.assetId))} onMouseEnter={() => prefetchAsset(i.assetId)}>
+            <td className="mk-star-col"><button className={`mk-star ${starred.has(i.assetId) ? "on" : ""}`} aria-label={starred.has(i.assetId) ? `Unstar ${name}` : `Star ${name}`} aria-pressed={starred.has(i.assetId)} onClick={e => { e.stopPropagation(); star(i.assetId); }}><Star size={16} /></button></td>
             <td><span className="mk-an"><Monogram name={name} icon={i.icon} tone={toneFor(i.assetId)} size={30} /><span><b>{name}</b> <span className="muted">{i.token}{i.priceUsd6 == null ? " · No live price" : isThin(i) ? <> · <span className="mk-thin">{copy.thin}</span></> : ""}</span></span></span></td>
             <td className={`r num ${stale || isThin(i) ? "muted" : ""}`}>{fmtPrice(i.priceUsd6)}</td>
             <td className="r"><Pill bps={i.change24hBps} /></td>
             <td className="r"><Spark values={i.spark} up={i.change24hBps == null ? null : i.change24hBps >= 0} /></td>
             <td className="r num">{fmtCompact(i.liquidityUsd6)}</td>
             <td className="r num">{i.positionUsd6 ? fmtUsd6(i.positionUsd6) : <span className="muted">—</span>}</td>
-            <td><button className={`mk-star ${starred.has(i.assetId) ? "on" : ""}`} aria-label={starred.has(i.assetId) ? `Unstar ${name}` : `Star ${name}`} aria-pressed={starred.has(i.assetId)} onClick={e => { e.stopPropagation(); star(i.assetId); }}><Star size={16} /></button></td>
           </tr>; })}</tbody>
         </table>
         {empty}
@@ -323,9 +318,10 @@ export function MarketAsset({ id, trade }: { id: string; trade?: "buy" | "sell" 
       <button className={`icon-btn sm mk-star ${starred ? "on" : ""}`} aria-label={starred ? "Unstar" : "Star"} aria-pressed={starred} onClick={toggleStar}><Star size={18} /></button>
     </header>
     <ErrorState error={md ? null : d.error} onRetry={d.reload} />
+    {wide && <SectionBoundary>{priceBlock}</SectionBoundary>}
     <div className={wide ? "mk-asset-grid" : ""}>
       <div className="mk-col">
-        <SectionBoundary>{priceBlock}</SectionBoundary>
+        {!wide && <SectionBoundary>{priceBlock}</SectionBoundary>}
         <SectionBoundary>{chart}</SectionBoundary>
         {!wide && <SectionBoundary>{position}</SectionBoundary>}
         <SectionBoundary>{stats}</SectionBoundary>

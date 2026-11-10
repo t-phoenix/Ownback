@@ -90,13 +90,13 @@ Top to bottom:
 1. **Title row:** "Markets" + a small market-status chip: `US market open` / `US market closed · prices move 24/7 on-chain` (§6.5).
 2. **Search** (sticky under the header on phone): matches name, ticker (AAPL), token (AAPLx), alias. Client-side over the cached list; no request per keystroke.
 3. **Filter chips:** All · Yours · Starred · Stocks · ETFs · Commodities. "Yours" is first when the user holds anything. Starred is stored in `localStorage` (per device; try/catch).
-4. **Sort control:** Popular (default; by 24h volume) · Top gainers · Top losers · A–Z.
+4. **No sort control (user, 10 Nov):** the list is always Popular (by pool liquidity). The API still accepts `sort` for other callers.
 5. **"Your assets" strip** (only if the user holds any): horizontal cards (logo, token, value, 24h change). Tap → asset page.
 6. **Asset rows** (virtualised; 834 verified rows today): token icon (or monogram tile) · name + token (`Apple · AAPLx`) · 24h sparkline (48×20, no axes) · price · 24h change pill. The whole row is one button → `/markets/[assetId]`. Hover or entering the viewport prefetches the asset detail (§9).
 
 **States:** first load skeleton (8 rows; no spinner) · cached paint + quiet refresh · price stale (> 2 min): price in `--muted` with "2 min ago" · search no match ("No asset called 'xyz'. Try the ticker, like AAPL.") · offline (cached list + banner) · error with retry (only if there is no cache at all).
 
-**Laptop (≥ 900 px), wireframe E0:** sidebar on the left (Markets active). Main area: title row with US-market chip, search (`/`), filter chips and sort. Below, a **table** (virtualised rows, sticky header): Asset (icon, name, token) · Price · 24h · 7d sparkline · 24h volume · Your position (value, or "—") · star. Column headers sort. A **preview panel** (320 px, sticky right) shows the selected row: price, 1D mini chart, 24h high/low, your position, and **Buy** / **Sell** / "Open full page →". Clicking a row selects it; double-click or Enter opens `/markets/[assetId]`. Arrow keys move the selection.
+**Laptop (≥ 900 px), wireframe E0:** sidebar on the left (Markets active). Main area: title row with US-market chip, search (`/`) and filter chips. Below, a **table** (virtualised rows, sticky header): star · Asset (icon, name, token) · Price · 24h · 7d sparkline · 24h volume · Your position (value, or "—"). The star comes first, before the logo. A **preview panel** (320 px, sticky right) shows the selected row: price, 1D mini chart, 24h high/low, your position, and **Buy** / **Sell** / "Open full page →". Clicking a row selects it; double-click or Enter opens `/markets/[assetId]`. Arrow keys move the selection.
 
 ### 4.2 · Asset page · `/markets/[assetId]`
 
