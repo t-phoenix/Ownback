@@ -514,7 +514,7 @@ This release ships `jupiter.ts` only, wrapping the existing `jupiter-price.ts` /
 
 App-wide speed is not a phase here (D38).
 
-Flags: `MARKETS_ENABLED` / `NEXT_PUBLIC_MARKETS` off in prod until phase 4 passes the mainnet smoke.
+Flags: `MARKETS_ENABLED` / `NEXT_PUBLIC_MARKETS` off in prod until phase 4 passes the mainnet smoke. For that smoke, set only `MARKETS_ENABLED=1` on the API and open the production app with `?markets=1`: it shows Markets in that browser only (kept in localStorage `ob:markets`; `?markets=0` hides it). Everyone else sees no Markets UI until `NEXT_PUBLIC_MARKETS=1`.
 
 **Later (not this release):** price alerts (push), limit orders (Jupiter Trigger API), recurring buys, watchlist sync, more venues (§12), underlying-stock overlay on the chart (Pyth Pro) to show the on-chain premium/discount.
 
