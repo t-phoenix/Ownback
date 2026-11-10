@@ -76,16 +76,19 @@ sellsRoutes.get('/sells/review', async (c) => {
     const assetId = c.req.query('assetId') ?? '';
     const mint = verifiedMint(assetId, 'solana');
     if (!mint) throw new ApiError('FEATURE_OFF');
-    const held = await heldRaw(user, assetId);
+    // Speed: everything that doesn't need the sell size starts at once; only the swap quote waits for it.
+    const priceP = jupiterPriceUsd6(mint.mint);
+    const avgP = avgCostUsd6(user.id, assetId, mint.decimals);
+    const rulesP = getSql()<{ max_fee_bps: number }[]>`SELECT max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid`;
+    for (const p of [priceP, avgP, rulesP]) p.catch(() => {}); // awaited below
+    const [held, sized] = await Promise.all([heldRaw(user, assetId), c.req.query('usd6') ? priceP : null]);
     if (held <= 0n) throw new ApiError('NOT_FOUND', { reason: 'nothing_held' });
-    const sized = c.req.query('usd6') ? await jupiterPriceUsd6(mint.mint) : null;
     const amountRaw = pickAmount(held, { qty: c.req.query('qty'), usd6: c.req.query('usd6'), pct: c.req.query('pct') }, mint.decimals, sized);
-    const [quote, oracle, avg] = await Promise.all([jupiterSellQuote(mint.mint, amountRaw), sized ?? jupiterPriceUsd6(mint.mint), avgCostUsd6(user.id, assetId, mint.decimals)]);
+    const [quote, oracle, avg, [r]] = await Promise.all([jupiterSellQuote(mint.mint, amountRaw), priceP, avgP, rulesP]);
     if (!quote) throw new ApiError('UPSTREAM', { reason: 'no_route' });
     const outUsd6 = BigInt(quote.outAmount); // USDC raw === Usd6
     const fee = oracle ? routeFeeUsd6(valueUsd6(amountRaw, mint.decimals, oracle), outUsd6) : 0n;
     const cost = valueUsd6(amountRaw, mint.decimals, avg);
-    const [r] = await getSql()<{ max_fee_bps: number }[]>`SELECT max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid`;
     return c.json({
       assetId,
       name: assetDisplayName(assetId),

@@ -127,19 +127,27 @@ async function solUsdc(user: User): Promise<bigint> {
 /** `source: 'market'` (D35): a direct buy from Markets. Same quotes and checks; the quote is tagged so /buys never debits jars. */
 export async function buildBuyReview(user: User, include: 'all' | 'ready', amounts: Map<string, bigint>, source: 'jar' | 'market' = 'jar') {
   const sql = getSql();
-  const rules = await sql<{ ready_min_usd6: bigint | string; max_fee_bps: number | string }[]>`
-    SELECT ready_min_usd6, max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid
-  `;
+  // Speed: wallet balances (slowest reads) start now and run alongside the DB reads and quotes.
+  const funding = Promise.all([
+    solUsdc(user),
+    !mockChain() && user.evmAddress ? arcUsdcBalance(user.evmAddress).catch(() => 0n) : Promise.resolve(0n),
+  ]);
+  funding.catch(() => {}); // awaited below; never an unhandled rejection if we throw first
+  const [rules, jarRows] = await Promise.all([
+    sql<{ ready_min_usd6: bigint | string; max_fee_bps: number | string }[]>`
+      SELECT ready_min_usd6, max_fee_bps FROM rules WHERE user_id = ${user.id}::uuid
+    `,
+    sql<{ asset_id: string; amt: bigint | string }[]>`
+      SELECT a.asset_id, COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amt
+      FROM allocations a JOIN purchases p ON p.id = a.purchase_id
+      WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved' AND a.selected = true
+      GROUP BY a.asset_id
+      HAVING COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) > 0
+    `,
+  ]);
   if (!rules[0]) throw new ApiError('VALIDATION', { reason: 'no_rules' });
   const readyMin = BigInt(rules[0].ready_min_usd6);
   const maxFeeBps = Number(rules[0].max_fee_bps);
-  const jarRows = await sql<{ asset_id: string; amt: bigint | string }[]>`
-    SELECT a.asset_id, COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) AS amt
-    FROM allocations a JOIN purchases p ON p.id = a.purchase_id
-    WHERE p.user_id = ${user.id}::uuid AND p.status = 'saved' AND a.selected = true
-    GROUP BY a.asset_id
-    HAVING COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) > 0
-  `;
   const jars = new Map(jarRows.map((r) => [r.asset_id, BigInt(r.amt)]));
   // Typed amounts scope the review to those assets only (one jar tap → one row). Empty amounts = all ready / all jars.
   const ids =
@@ -190,10 +198,7 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
   const picked = rows.filter((r) => r.selectable);
   const total = picked.reduce((a, r) => a + BigInt(r.amountUsd6), 0n);
   const totalFee = picked.reduce((a, r) => a + BigInt(r.fees.totalUsd6), 0n);
-  const [onSolana, onArc] = await Promise.all([
-    solUsdc(user),
-    !mockChain() && user.evmAddress ? arcUsdcBalance(user.evmAddress).catch(() => 0n) : Promise.resolve(0n),
-  ]);
+  const [onSolana, onArc] = await funding;
   const bridge = total > onSolana ? total - onSolana : 0n;
   const quoteId = newId();
   const expiresAt = new Date(Date.now() + QUOTE_REFRESH_MS).toISOString();

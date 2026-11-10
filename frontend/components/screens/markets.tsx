@@ -17,7 +17,7 @@ import { errorCopy, marketCopy as copy } from "../../lib/copy";
 import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6 } from "../../lib/money";
-import { ago, change, fmtBps, fmtCompact, fmtPrice, filterMarkets, isStale, isThin, loadStarred, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy, type Sort } from "../../lib/markets";
+import { ago, change, estQty, fmtBps, fmtCompact, fmtPrice, filterMarkets, isStale, isThin, loadStarred, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy, type Sort } from "../../lib/markets";
 import { FlowHead } from "./home";
 import { ArcPlan, dollarsToUsd6, usd6ToDollarsInput } from "./buy";
 import type { Hover } from "../markets/price-chart-impl";
@@ -357,12 +357,12 @@ function TradePanel({ d, mode, setMode, livePrice }: { d: MarketDetail; mode: "b
       <button role="tab" aria-selected={mode === "buy"} className={mode === "buy" ? "on" : ""} onClick={() => setMode("buy")}>Buy</button>
       <button role="tab" aria-selected={mode === "sell"} className={mode === "sell" ? "on" : ""} disabled={!canSell} onClick={() => setMode("sell")}>Sell</button>
     </div>
-    {mode === "sell" && canSell ? <SellForm d={d} livePrice={livePrice} /> : <BuyForm d={d} />}
+    {mode === "sell" && canSell ? <SellForm d={d} livePrice={livePrice} /> : <BuyForm d={d} livePrice={livePrice} />}
   </div>;
 }
 
 /** Re-runs `fn` when `key` changes (after `ms` quiet) and every `everyS` seconds while `enabled`. Returns seconds to next refresh. */
-function useDebouncedQuote(key: string, enabled: boolean, fn: () => void, ms = 500, everyS = QUOTE_EVERY_S) {
+function useDebouncedQuote(key: string, enabled: boolean, fn: () => void, ms = 250, everyS = QUOTE_EVERY_S) {
   const f = useRef(fn); f.current = fn;
   const [left, setLeft] = useState(everyS);
   useEffect(() => {
@@ -378,7 +378,7 @@ function useDebouncedQuote(key: string, enabled: boolean, fn: () => void, ms = 5
   return left;
 }
 
-function BuyForm({ d }: { d: MarketDetail }) {
+function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }) {
   const { navigate } = useApp();
   const [amt, setAmt] = useState("10.00");
   const [review, setReview] = useState<MarketBuyReview | null>(null);
@@ -397,15 +397,18 @@ function BuyForm({ d }: { d: MarketDetail }) {
   const valid = !!usd6 && !local;
   const idle = phase === "idle";
 
+  const seq = useRef(0);
   const quote = useCallback(async () => {
     if (!usd6) return;
+    const n = ++seq.current; // only the newest answer may land
     setQuoting(true);
-    try { const r = await api.marketBuyReview(d.assetId, usd6); setReview(r); setErr(null); }
+    try { const r = await api.marketBuyReview(d.assetId, usd6); if (n === seq.current) { setReview(r); setErr(null); } }
     catch (e) {
+      if (n !== seq.current) return;
       const code = codeOf(e); const det = e instanceof ApiError ? (e.details as Record<string, string> | undefined) : undefined;
       setReview(null);
       setErr(code === "UPSTREAM" ? copy.noRoute : code === "INSUFFICIENT_FREE" && det?.availableUsd6 ? copy.haveFree(fmtUsd6(det.availableUsd6)) : code === "RATE_LIMITED" ? errorCopy(code) : errorCopy(code));
-    } finally { setQuoting(false); }
+    } finally { if (n === seq.current) setQuoting(false); }
   }, [d.assetId, usd6]);
   const left = useDebouncedQuote(`${usd6}`, valid && idle && d.tradable.buy, quote);
 
@@ -450,7 +453,8 @@ function BuyForm({ d }: { d: MarketDetail }) {
     <label className="mk-amount" htmlFor="mk-buy-amt"><span className="sr-only">Amount in US dollars</span>
       <span className="mk-cur">$</span><input id="mk-buy-amt" inputMode="decimal" autoComplete="off" value={amt} disabled={!idle} onChange={e => { setAmt(e.target.value.replace(/[^\d.]/g, "")); setNote(null); }} />
     </label>
-    <p className="mk-est num">{row && fresh && row.selectable ? `≈ ${row.estQty} ${row.token ?? d.token}` : quoting ? "Getting a price…" : " "}</p>
+    <p className={`mk-est num ${row && fresh ? "" : "muted"}`}>{row && fresh && row.selectable ? `≈ ${row.estQty} ${row.token ?? d.token}`
+      : valid && estQty(usd6, livePrice) ? `≈ ${estQty(usd6, livePrice)} ${d.token}` : quoting ? "Getting a price…" : " "}</p>
     <div className="mk-chips-row">{BUY_CHIPS.map(v => <button key={v} className={`chip sm ${amt === `${v}.00` ? "on" : ""}`} disabled={!idle} onClick={() => setAmt(`${v}.00`)}>${v}</button>)}
       <button className={`chip sm ${usd6 === d.funds.maxBuyUsd6 ? "on" : ""}`} disabled={!idle || max < MIN_BUY_USD6} onClick={() => setAmt(usd6ToDollarsInput(d.funds.maxBuyUsd6))}>Max</button></div>
     {local && <p className="error left" role="alert">{local}</p>}
@@ -496,12 +500,14 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
     : by === "usd" ? (dollarsToUsd6(input) ? { usd6: dollarsToUsd6(input)! } : null)
     : /^\d+(\.\d+)?$/.test(input.trim()) ? { qty: input.trim() } : null;
   const key = JSON.stringify(size);
+  const seq = useRef(0);
   const quote = useCallback(async () => {
     if (!size) return;
+    const n = ++seq.current; // only the newest answer may land
     setQuoting(true);
-    try { setReview(await api.sellsReview(d.assetId, size)); setErr(null); }
-    catch (e) { setReview(null); const code = codeOf(e); setErr(code === "VALIDATION" && d.position ? copy.haveQty(d.position.qty, d.token) : code === "UPSTREAM" ? copy.noRoute : errorCopy(code)); }
-    finally { setQuoting(false); }
+    try { const r = await api.sellsReview(d.assetId, size); if (n === seq.current) { setReview(r); setErr(null); } }
+    catch (e) { if (n !== seq.current) return; setReview(null); const code = codeOf(e); setErr(code === "VALIDATION" && d.position ? copy.haveQty(d.position.qty, d.token) : code === "UPSTREAM" ? copy.noRoute : errorCopy(code)); }
+    finally { if (n === seq.current) setQuoting(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d.assetId, key]);
   const left = useDebouncedQuote(key, !!size && phase === "idle", quote);

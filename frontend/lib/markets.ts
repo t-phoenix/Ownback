@@ -15,6 +15,16 @@ export function fmtPrice(usd6: Usd6 | null | undefined): string {
   return `$0.${s.slice(0, digits)}`;
 }
 
+/** Instant "≈ qty" for a dollar amount at the live price, before the real quote lands. Bigint, ≤ 6 decimals. */
+export function estQty(usd6: Usd6 | null | undefined, priceUsd6: Usd6 | null | undefined): string | null {
+  const a = big(usd6), p = big(priceUsd6);
+  if (a == null || p == null || a <= 0n || p <= 0n) return null;
+  const q = (a * 1_000_000n) / p; // 6-decimal fixed point
+  if (q === 0n) return null;
+  const s = q.toString().padStart(7, "0");
+  return `${s.slice(0, -6)}.${s.slice(-6)}`.replace(/\.?0+$/, "");
+}
+
 /** 138 → "1.38%" (no sign; the ▲/▼ glyph carries it). */
 export function fmtBps(bps: number): string {
   const a = Math.abs(bps);
