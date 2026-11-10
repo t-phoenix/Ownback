@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatUsd, investAmount, parseUsd6, toUsd6 } from '../src/shared/money.js';
 import { splitInvest, scaleAllocations } from '../src/lib/split.js';
 import { feeWithinCap, maxFeeUsd6, feePctBps, buildFees } from '../src/lib/fees.js';
-import { jarState, precheckConfirm, remainingThisMonth } from '../src/lib/limits.js';
+import { applyAmounts, jarState, remainingThisMonth } from '../src/lib/limits.js';
 import { ApiError, mapVaultError } from '../src/shared/errors.js';
 
 describe('money', () => {
@@ -84,9 +84,15 @@ describe('fees Q2', () => {
 });
 
 describe('limits + ready min', () => {
-  it('no monthly cap: only free balance limits a save', () => {
-    expect(precheckConfirm({ investUsd6: 47_750_000n, freeUsd6: 100_000_000n }).amountUsd6).toBe(47_750_000n);
-    expect(() => precheckConfirm({ investUsd6: 47_750_000n, freeUsd6: 1_000_000n })).toThrow(ApiError);
+  it('D40: user amounts per row, no balance cap', () => {
+    const rows = [{ assetId: 'a', amountUsd6: 477_500_000n }, { assetId: 'b', amountUsd6: 53_050_000n }];
+    expect(applyAmounts(rows).totalUsd6).toBe(530_550_000n);
+    const r = applyAmounts(rows, [{ assetId: 'a', amountUsd6: 100_000_000n }, { assetId: 'b', amountUsd6: 0n }]);
+    expect(r.totalUsd6).toBe(100_000_000n);
+    expect(r.rows[1]!.amountUsd6).toBe(0n);
+    expect(() => applyAmounts(rows, [{ assetId: 'a', amountUsd6: 1n }])).toThrow(ApiError);
+    expect(() => applyAmounts(rows, [{ assetId: 'z', amountUsd6: 10_000n }])).toThrow(ApiError);
+    expect(() => applyAmounts(rows, [{ assetId: 'a', amountUsd6: 0n }, { assetId: 'b', amountUsd6: 0n }])).toThrow(ApiError);
   });
 
   it('jar ready threshold is not a max', () => {

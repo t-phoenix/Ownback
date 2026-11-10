@@ -33,7 +33,6 @@ The UI never shows the code itself.
 | readError `og_unavailable` | Couldn't read | "The private AI on 0G didn't answer. Nothing was saved. Try again in a moment." | Try again · Type it instead |
 | readError `timeout` | Couldn't read | "Reading took too long. Nothing was saved. Try again." | Try again · Type it instead |
 | `NOTHING_TO_BUY` | Confirm | → Brand not listed screen | — |
-| `INSUFFICIENT_FREE` | Confirm | "You have {free} free. Add {short} or save {free} now and the rest later." | Add funds · Save {free} |
 | `LIMIT_REACHED` | Confirm | → Limit reached screen | — |
 | `TX_REVERTED` / `CHALLENGE_FAILED` | Confirm, Withdraw, Cancel jar | "Nothing was moved. Try again." | Try again |
 | `TX_NOT_FOUND` | after signing | (no message) keep showing "Saving… usually 2 s" and retry | — |
@@ -92,7 +91,9 @@ The UI never shows the code itself.
 | Reading steps (D30, from the server) | "Read the receipt" · "Convert to dollars" · "Understand the product" · "Ask 3 private AI jurors" · "Merge their answers" · "Check which ones you can buy" · sub "Three private AI models on 0G look at it. Usually under a minute." · footer "Read by a private AI model on 0G. The photo is deleted after reading. Request ID {id}" |
 | Check the details | title "Check the details" · needs_details "We couldn't read everything. Fix or fill in what's highlighted, then we'll find the companies." · edit "Change anything that's wrong. We'll look for the companies again." · missing field hint "We couldn't read this" · "Add an item" · button "Find the companies" · "Keep the current match" · Confirm link "Wrong details? Edit them" |
 | Confirm sections (D30) | "Parent company" · "Top 5 companies that help build it" · "Top 3 commodities" · "Your fallback" ("Gets the share we can't buy on-chain yet.") · row badge "Buy on Solana · {symbol}" / "Not on-chain yet" / "Private company" · "{n}/{of} agree" · disclosure "How we chose these" |
-| Confirm button | "Confirm {invest} across {n}" · "Only {maker}" · "Wrong product? Fix it" |
+| Confirm button | "Put {total} in {n} jars" (n = rows above $0) · "Wrong product? Fix it" |
+| Confirm amounts (D40) | heading "Your jars" · total sub "{pct}% of it" · chips "1%" "2%" "Suggested" "Round {x}" "Free {free}" · mix "Suggested" "Even" "Maker only" · lock hint "Typed amounts lock. The total moves the rest." · balance "You can buy all of this today." / "{free} is ready to buy. Add {short} when you want the rest." · folded rows "Also behind it · not on-chain yet" |
+| Jars shortfall (D40) | "{free} free. Add {short} to buy all ready jars" · button "Add funds" |
 | Confirm approval (Privy / seed) | "Move {invest} into {n} jars on Arc" |
 | Confirm fee (Q2) | "Network fee $0.00 · we cover it" (or "< $0.01") |
 | Saving | "Saving… usually 2 s" |

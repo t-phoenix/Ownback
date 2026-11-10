@@ -28,6 +28,10 @@ export function Jars() {
   const jars = j.data?.jars ?? [];
   const ready = jars.filter(x => x.state === "ready"), other = jars.filter(x => x.state !== "ready");
   const readyTotal = ready.reduce((s, x) => s + bi(x.amountUsd6), 0n);
+  // D40: saves aren't capped by the balance, so the shortfall shows here, before a buy.
+  const home = useApi("home", api.home);
+  const wallet = home.data ? bi(home.data.balance.usdc.freeUsd6) : null;
+  const short = wallet != null && readyTotal > wallet ? readyTotal - wallet : 0n;
   const holdStart = (x: Jar) => { press.current = setTimeout(() => { haptic(14); setSheet(x); }, 450); };
   const holdEnd = () => clearTimeout(press.current);
 
@@ -43,10 +47,10 @@ export function Jars() {
       onPointerDown={() => holdStart(x)} onPointerUp={holdEnd} onPointerLeave={holdEnd}
       onContextMenu={e => { e.preventDefault(); setSheet(x); }}
       aria-label={`${name} jar, ${fmtUsd6(x.amountUsd6)}. ${isReady ? "Ready, tap to buy" : "Filling"}. Long-press for options`}>
-      <GlassJar pct={p} ready={isReady} size={74} />
-      <span className="jar-name"><Monogram name={name} icon={x.icon} tone={toneFor(x.assetId)} size={22} /> {name}</span>
+      <GlassJar pct={p} ready={isReady} size={84} icon={x.icon} name={name} tone={toneFor(x.assetId)} />
+      <span className="jar-name">{name}</span>
       <PriceTag token={x.token} usd6={x.price?.usd6PerUnit} />
-      <span className="jar-amt">{fmtUsd6(x.amountUsd6)}</span>
+      <span className={`jar-amt ${fmtUsd6(x.amountUsd6).length > 9 ? "long" : ""}`}>{fmtUsd6(x.amountUsd6)}</span>
       <span className={`jar-state ${isReady ? "pos" : ""}`}>{isReady ? "Ready · tap to buy" : x.state === "no_venue" ? "Buys when available" : `Filling · ${fmtUsd6(left > 0n ? left : 0n)} to go`}</span>
     </button>;
   };
@@ -61,6 +65,7 @@ export function Jars() {
       <button className="button primary" onClick={() => navigate("/add")}>Add a purchase</button>
     </Empty>}
 
+    {short > 0n && <div className="insight jar-short"><span>{fmtUsd6(wallet)} free. Add {fmtUsd6(short)} to buy all ready jars.</span><button className="button sm secondary" onClick={() => navigate("/funds")}>Add funds</button></div>}
     {!!ready.length && <section className="block">
       <div className="block-head"><h2 className="h-section"><Zap size={16} /> {ready.length} ready to buy</h2><strong className="num">{fmtUsd6(readyTotal)}</strong></div>
       <div className="jar-grid">{ready.map(card)}</div>
@@ -76,7 +81,7 @@ export function Jars() {
 
     <Sheet open={!!sheet} onClose={() => setSheet(null)} title={sheet ? `${assetName(sheet.assetId, sheet.name)} jar` : ""}>
       {sheet && <>
-        <div className="sheet-jar"><GlassJar pct={pct(bi(sheet.amountUsd6), bi(sheet.readyMinUsd6))} ready={sheet.state === "ready"} size={64} /><div><strong className="num big">{fmtUsd6(sheet.amountUsd6)}</strong><p className="sub">{sheet.state === "ready" ? "Ready · tap to buy" : "Filling · fills from your next purchases"}</p></div></div>
+        <div className="sheet-jar"><GlassJar pct={pct(bi(sheet.amountUsd6), bi(sheet.readyMinUsd6))} ready={sheet.state === "ready"} size={64} icon={sheet.icon} name={assetName(sheet.assetId, sheet.name)} tone={toneFor(sheet.assetId)} /><div><strong className="num big">{fmtUsd6(sheet.amountUsd6)}</strong><p className="sub">{sheet.state === "ready" ? "Ready · tap to buy" : "Filling · fills from your next purchases"}</p></div></div>
         <button className="button primary full" onClick={() => { setSheet(null); navigate(reviewOne(sheet)); }}>{sheet.state === "ready" ? "Review and buy" : "Buy now anyway"}</button>
       </>}
     </Sheet>

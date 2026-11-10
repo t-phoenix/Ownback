@@ -145,7 +145,7 @@ type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStat
 | GET | `/api/makers/search?q=` | — | `{ items: { companyId; name; ticker; listed; tokenized; token?; chain? }[] }` (Fix the match) | — |
 | PUT | `/api/purchases/:id/match` | `{ companyId } \| { privateBrand: true }` | `Purchase` | — |
 | PUT | `/api/purchases/:id/fallback` | `{ choice: 'fallback' \| 'skip' }` | `Purchase` | — |
-| POST | `/api/purchases/:id/confirm` | `{ amountUsd6?: Usd6 /* partial: "Save $5.00 now". The server scales every selected allocation to this total with largest-remainder rounding in whole cents, and stores the rest as rest_usd6 */ }` + Idempotency-Key | `{ action: SignableAction }` | `INSUFFICIENT_FREE` (details `{ freeUsd6, shortUsd6 }`), `LIMIT_REACHED` (details `{ usedUsd6, capUsd6, leftUsd6 }`), `NOTHING_TO_BUY` |
+| POST | `/api/purchases/:id/confirm` | `{ amounts?: { assetId: AssetId; amountUsd6: Usd6 }[] /* D40: the user's amount per selected row, whole cents, ≥ 0, sum > 0; rows not listed keep theirs. invest_usd6 becomes the sum */ }` + Idempotency-Key | `{ action: SignableAction }` | `VALIDATION` (not whole cents, unknown or unselected asset), `NOTHING_TO_BUY` (total is 0). No `INSUFFICIENT_FREE`: a save is a reservation (D40) |
 | POST | `/api/purchases/:id/confirm/submitted` | `{ txHash? , challengeIds? }` | `Purchase` (`saved` once events are read; else `confirming`) | `TX_REVERTED` (details `{ reason }`), `TX_NOT_FOUND` |
 | POST | `/api/purchases/:id/report` | `{ note?: string }` | `204` | — |
 

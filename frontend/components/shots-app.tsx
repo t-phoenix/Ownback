@@ -38,6 +38,8 @@ const meta: Record<ShotScreen, { path: string; tab?: string; bare?: boolean }> =
   "market-asset": { path: "/markets/co:apple" },
   "markets-wide": { path: "/markets" },
   "market-asset-wide": { path: "/markets/co:apple" },
+  "confirm-wide": { path: `/add/${SHOT_IDS.purchase}` },
+  "jars-wide": { path: "/jars", tab: "/jars" },
 };
 
 installShotApi();
@@ -58,8 +60,8 @@ export function ShotsApp({ screen }: { screen: ShotScreen }) {
   let body: React.ReactNode;
   if (screen === "signin") body = <SignIn />;
   else if (screen === "home") body = <Home />;
-  else if (screen === "confirm") body = <Confirm id={SHOT_IDS.purchase} />;
-  else if (screen === "jars") body = <Jars />;
+  else if (screen === "confirm" || screen === "confirm-wide") body = <Confirm id={SHOT_IDS.purchase} />;
+  else if (screen === "jars" || screen === "jars-wide") body = <Jars />;
   else if (screen === "buy-review") body = <BuyReview />;
   else if (screen === "holdings") body = <Holdings />;
   else if (screen === "receipts") body = <Receipts />;
@@ -111,5 +113,7 @@ function labelFor(s: ShotScreen) {
     "market-asset": "12 · Asset — chart, position, trade",
     "markets-wide": "13 · Markets on laptop — table and preview",
     "market-asset-wide": "14 · Asset on laptop — trade panel inline",
+    "confirm-wide": "15 · Confirm on laptop — set your amounts",
+    "jars-wide": "16 · Jars on laptop — brand jars",
   } as const)[s];
 }

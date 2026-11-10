@@ -159,7 +159,7 @@ export function Home() {
           </div>
           {jars.loading ? <Skeleton h={90} /> : jars.data?.jars.length ? <div className="jar-row">
             {jars.data.jars.slice(0, 4).map(j => { const p = pct(BigInt(j.amountUsd6), BigInt(j.readyMinUsd6)); return <div key={j.assetId} className="jar-mini">
-              <GlassJar pct={p} ready={j.state === "ready"} size={52} />
+              <GlassJar pct={p} ready={j.state === "ready"} size={52} icon={j.icon} name={assetName(j.assetId, j.name)} tone={toneFor(j.assetId)} />
               <span className="jar-mini-name">{assetName(j.assetId, j.name)}</span>
               <span className="jar-mini-amt">{fmtUsd6(j.amountUsd6)}</span>
             </div>; })}

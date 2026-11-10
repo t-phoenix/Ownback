@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Camera, Check, ChevronDown, FileText, Mail, Mic, Plus, ShieldCheck, Sparkles, Square, Trash2, X } from "lucide-react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { ArrowRight, Camera, Check, ChevronDown, FileText, Lock, LockOpen, Mail, Mic, Plus, ShieldCheck, Sparkles, Square, Trash2, X } from "lucide-react";
 import { useApp } from "../app-context";
-import { ConfirmAction, Creative, GlassJar, Monogram, Tilt, haptic, useCoarse } from "../ui";
+import { ConfirmAction, Creative, GlassJar, Money, Monogram, Tilt, haptic, useCoarse } from "../ui";
 import { ErrorState, Skeleton } from "../states";
 import { api, ApiError, type Allocation, type DetailField, type JuryRow, type Purchase, type PurchaseDetails, type ReadStep } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
@@ -11,7 +11,8 @@ import { errorCopy, readErrorCopy, readErrorText, readTips } from "../../lib/cop
 import { lastRead, setLastRead, setPending, takePending, type PendingRead } from "../../lib/pending";
 import { signAction } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
-import { fmtLocal, fmtUsd6 } from "../../lib/money";
+import { centsOf, fmtLocal, fmtUsd, fmtUsd6, pct1 } from "../../lib/money";
+import { parseDollars, roundNice, spread, stepFor, sumOf, type Cents } from "../../lib/amounts";
 import { FlowHead } from "./home";
 
 /** Start a read from anywhere (Add, desktop drop, paste). */
@@ -259,44 +260,38 @@ export function ReadError() {
   </div>;
 }
 
-const badge = (r: JuryRow) => r.status === "buyable" && r.symbol ? `Buy on Solana · ${r.symbol}` : r.status === "private" ? "Private company" : "Not on-chain yet";
-
-/** D30 Confirm: parent, top 5 enablers, top 3 commodities. Only buyable rows (they hold an allocation) get a checkbox. */
-function JurySections({ a, allocs, done, onToggle }: { a: NonNullable<Purchase["analysis"]>; allocs: Allocation[]; done: boolean; onToggle: (assetId: string) => void }) {
-  const byId = new Map(allocs.map(x => [x.assetId, x]));
-  const selectedCount = allocs.filter(x => x.selected).length;
-  const tick = (al: Allocation, label: string) =>
-    <input type="checkbox" className="tick" checked={al.selected} disabled={done || (al.selected && selectedCount === 1)} onChange={() => onToggle(al.assetId)} aria-label={`Include ${label}`} />;
-  const row = (r: JuryRow, i: number) => {
-    const al = r.status === "buyable" && r.assetId ? byId.get(r.assetId) : undefined;
-    const body = <>
-      {al ? tick(al, r.name) : <span className="tick-gap" aria-hidden="true" />}
-      <Monogram name={r.name} icon={al?.icon} tone={toneFor(r.assetId ?? r.name)} size={38} />
-      <span className="row-main">
-        <span className="row-title">{r.name}{r.ticker && <span className="ticker"> {r.ticker}</span>}</span>
-        <span className="jury-why">{r.why}</span>
-        <span className="jury-meta"><span className={`jury-badge ${al ? "on" : ""}`}>{badge(r)}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
-      </span>
-      {al && <span className="row-end"><span className="row-value">{fmtUsd6(al.amountUsd6)}</span></span>}
-    </>;
-    return al ? <label key={`${r.name}-${i}`} className="row split-row jury-row">{body}</label> : <div key={`${r.name}-${i}`} className="row jury-row off">{body}</div>;
-  };
-  const fallback = allocs.filter(x => x.role === "fallback");
-  return <>
-    <section className="jury-section"><h3 className="micro">Parent company</h3><div className="card list">{a.parent ? row(a.parent, 0) : <p className="sub pad">No clear parent company.</p>}</div></section>
-    <section className="jury-section"><h3 className="micro">Top 5 companies that help build it</h3><div className="card list">{a.enablers.length ? a.enablers.map(row) : <p className="sub pad">None found.</p>}</div></section>
-    <section className="jury-section"><h3 className="micro">Top 3 commodities</h3><div className="card list">{a.commodities.length ? a.commodities.map(row) : <p className="sub pad">None that matter for this one.</p>}</div></section>
-    {!!fallback.length && <section className="jury-section"><h3 className="micro">Your fallback</h3><div className="card list">{fallback.map(f => <label key={f.assetId} className="row split-row jury-row">
-      {tick(f, assetName(f.assetId, f.name))}
-      <Monogram name={assetName(f.assetId, f.name)} icon={f.icon} tone={toneFor(f.assetId)} size={38} />
-      <span className="row-main"><span className="row-title">{assetName(f.assetId, f.name)}</span><span className="jury-why">Gets the share we can't buy on-chain yet.</span></span>
-      <span className="row-end"><span className="row-value">{fmtUsd6(f.amountUsd6)}</span></span>
-    </label>)}</div></section>}
-  </>;
-}
-
 const roleLabel: Record<string, string> = { maker: "Maker", supplier: "Behind it", material: "Material", fallback: "Fallback" };
-const segClass = (role: string) => role === "maker" || role === "fallback" ? "seg-maker" : role === "material" ? "seg-material" : "seg-behind";
+
+/** D40 right column: the why for rows you can buy; everything not on-chain folds into one card. */
+const WhyThese = memo(function WhyThese({ a, allocs }: { a: NonNullable<Purchase["analysis"]>; allocs: Allocation[] }) {
+  const ids = new Set(allocs.map(x => x.assetId));
+  const rows: (JuryRow & { group: string })[] = [
+    ...(a.parent ? [{ ...a.parent, group: "Parent company" }] : []),
+    ...a.enablers.map(r => ({ ...r, group: "Helps build it" })),
+    ...a.commodities.map(r => ({ ...r, group: "Commodity" })),
+  ];
+  const on = rows.filter(r => r.status === "buyable" && r.assetId && ids.has(r.assetId));
+  const off = rows.filter(r => !on.includes(r));
+  const icon = (r: JuryRow) => allocs.find(x => x.assetId === r.assetId)?.icon;
+  return <>
+    {!!on.length && <section className="jury-section"><h3 className="micro">Why these</h3><div className="card list">{on.map((r, i) =>
+      <div key={`${r.name}-${i}`} className="row jury-row">
+        <Monogram name={r.name} icon={icon(r)} tone={toneFor(r.assetId ?? r.name)} size={38} />
+        <span className="row-main">
+          <span className="row-title clip">{r.name}{r.symbol && <span className="ticker"> {r.symbol}</span>}</span>
+          <span className="jury-why">{r.why}</span>
+          <span className="jury-meta"><span className="jury-badge on">{r.group}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
+        </span>
+      </div>)}</div></section>}
+    {!!off.length && <section className="jury-section"><h3 className="micro">Also behind it · not on-chain yet</h3><div className="card off-card">
+      {off.map((r, i) => <span key={`${r.name}-${i}`} className="off-chip" title={r.why}>{r.name}{r.ticker && <span className="ticker"> {r.ticker}</span>}</span>)}
+    </div></section>}
+  </>;
+});
+
+type Mix = "suggested" | "even" | "maker";
+/** "$50" for whole dollars, "$8.04" otherwise: chips read faster without ".00". */
+const short$ = (c: bigint) => fmtUsd(c).replace(/\.00$/, "");
 
 export function Confirm({ id }: { id: string }) {
   const { navigate } = useApp();
@@ -306,31 +301,55 @@ export function Confirm({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [shortfall, setShortfall] = useState<{ freeUsd6: string; shortUsd6: string } | null>(null);
   const data = p.data;
   // Opened while the read still runs (reload, deep link): go back to the live steps.
   useEffect(() => { if (data?.status === "reading") startRead({ kind: "resume", id }, navigate); }, [data?.status, id, navigate]);
-  const toggle = async (assetId: string) => {
-    if (!data) return; haptic(5);
-    const off = data.allocations.filter(a => (a.assetId === assetId ? a.selected : !a.selected)).map(a => a.assetId);
-    try { await api.deselect(id, off); await p.reload(); } catch (e) { setErr(errorCopy(e instanceof ApiError ? e.code : undefined)); }
+
+  // Keyed on content, not identity: the cached paint and its background refetch must not wipe your edits.
+  const sig = (data?.allocations ?? []).map(a => `${a.assetId}:${a.amountUsd6}:${a.selected}`).join("|");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const allocs = useMemo(() => data?.allocations ?? [], [sig]);
+  const ids = useMemo(() => allocs.map(a => a.assetId), [allocs]);
+  // The jury's split, in cents, is the "Suggested" mix; rows you'd unticked earlier start at $0.
+  const suggested = useMemo(() => Object.fromEntries(allocs.map(a => [a.assetId, a.selected ? centsOf(a.amountUsd6) : 0n])) as Cents, [allocs]);
+  const suggestedTotal = sumOf(suggested);
+  const [amt, setAmt] = useState<Cents>({});
+  const [locked, setLocked] = useState<Set<string>>(new Set());
+  const [mix, setMix] = useState<Mix>("suggested");
+  const [chip, setChip] = useState<string>("suggested");
+  const [typing, setTyping] = useState<Record<string, string>>({});
+  // Reset local amounts whenever the server's rows change (new jury run, edited details).
+  useEffect(() => { setAmt(suggested); setLocked(new Set()); setMix("suggested"); setChip("suggested"); setTyping({}); }, [suggested]);
+
+  const maker = allocs.find(a => a.role === "maker") ?? allocs.find(a => a.role === "fallback");
+  const weights = (m: Mix): Cents => m === "even" ? Object.fromEntries(ids.map(x => [x, 1n]))
+    : m === "maker" && maker ? Object.fromEntries(ids.map(x => [x, x === maker.assetId ? 1n : 0n])) : suggested;
+  const total = sumOf(amt);
+  const set = (next: Cents) => setAmt(next);
+  const setTotal = (cents: bigint, keepLocks = true) => {
+    const lk = keepLocks ? locked : new Set<string>();
+    if (!keepLocks) setLocked(lk);
+    set(spread(ids, weights(mix), cents, lk, amt));
   };
-  const confirm = async (amountUsd6?: string) => {
+  const setRow = (assetId: string, cents: bigint) => {
+    const lk = new Set(locked).add(assetId);
+    setLocked(lk); setChip("");
+    setAmt({ ...amt, [assetId]: cents });
+  };
+  const pickMix = (m: Mix) => { haptic(5); setMix(m); setLocked(new Set()); set(spread(ids, weights(m), total, new Set(), amt)); };
+
+  const confirm = async () => {
     setBusy(true); setErr(null);
     try {
-      const { action } = await api.confirm(id, amountUsd6);
+      // Rows you'd unticked before are back in play: $0 now means "not this time" (D40).
+      if (allocs.some(a => !a.selected)) await api.deselect(id, []);
+      const amounts = ids.map(x => ({ assetId: x, amountUsd6: ((amt[x] ?? 0n) * 10_000n).toString() }));
+      const { action } = await api.confirm(id, amounts);
       const signed = await signAction(action);
       await api.confirmSubmitted(id, signed.txHash);
       refreshAll(); navigate(`/add/${id}/saved`);
     } catch (e) {
-      const ae = e instanceof ApiError ? e : null;
-      const details = ae?.details as { freeUsd6?: string; shortUsd6?: string; leftUsd6?: string } | undefined;
-      if (ae?.code === "INSUFFICIENT_FREE" && details?.freeUsd6 && details?.shortUsd6) {
-        setShortfall({ freeUsd6: details.freeUsd6, shortUsd6: details.shortUsd6 });
-        setErr(errorCopy(ae.code, details));
-      } else {
-        setErr(errorCopy(ae?.code));
-      }
+      setErr(errorCopy(e instanceof ApiError ? e.code : undefined));
       setBusy(false);
     }
   };
@@ -340,76 +359,127 @@ export function Confirm({ id }: { id: string }) {
   if (data.status === "needs_details" || editing) return <CheckDetails p={data} onCancel={editing ? () => setEditing(false) : undefined} />;
 
   const r = data.receipt;
-  const selected = data.allocations.filter(a => a.selected);
-  const total = selected.reduce((s, a) => s + BigInt(a.amountUsd6), 0n);
-  const freeUsd6 = home.data?.balance.usdc.freeUsd6 ?? shortfall?.freeUsd6;
-  const free = freeUsd6 ? BigInt(freeUsd6) : null;
-  // Floor free to whole cents so partial confirm matches D18.
-  const freeCents = free != null ? (free / 10_000n) * 10_000n : null;
-  // Save what you can: min(free, invest). No monthly cap (D32).
-  const available = freeCents != null && freeCents < total ? freeCents : total;
-  const canPartial = available > 0n && available < total;
-  const shortUsd6 = shortfall?.shortUsd6 ?? (freeCents != null && freeCents < total ? (total - freeCents).toString() : null);
-  const maker = data.allocations.find(a => a.role === "maker");
+  const spent = r ? centsOf(r.amountUsd6) : 0n;
+  // Wallet USDC not already promised to other jars.
+  const freeCents = home.data ? (w => (w > 0n ? w : 0n))(centsOf(home.data.balance.usdc.freeUsd6) - centsOf(home.data.balance.usdc.inJarsUsd6)) : null;
   const done = data.status === "saved" || data.status === "confirming";
+  const kept = ids.filter(x => (amt[x] ?? 0n) > 0n).length;
+  const lockedSum = ids.reduce((s, x) => s + (locked.has(x) ? amt[x] ?? 0n : 0n), 0n);
+  const maxOf = (...xs: bigint[]) => xs.reduce((m, x) => (x > m ? x : m), 0n);
+  // A sane range for one jar; the total's range starts at what's locked and always leaves room above it.
+  const rowMax = maxOf(spent / 10n, suggestedTotal * 2n, 500n);
+  const sliderMax = maxOf(rowMax, total, lockedSum + rowMax);
+  const step = stepFor(sliderMax - lockedSum);
+  const rowStep = stepFor(rowMax);
+  const fill = (v: bigint, lo: bigint, hi: bigint) => `${hi > lo ? Number(((v - lo) * 1000n) / (hi - lo)) / 10 : 0}%`;
+  const chips: [string, string, bigint][] = [
+    ...(spent ? [["1", "1%", spent / 100n], ["2", "2%", spent / 50n]] as [string, string, bigint][] : []),
+    ["suggested", "Suggested", suggestedTotal],
+    ...(roundNice(suggestedTotal) !== suggestedTotal ? [["round", `Round ${short$(roundNice(suggestedTotal))}`, roundNice(suggestedTotal)]] as [string, string, bigint][] : []),
+    ...(freeCents && freeCents > 0n && freeCents !== suggestedTotal ? [["free", `Free ${short$(freeCents)}`, freeCents]] as [string, string, bigint][] : []),
+  ];
+  const short = freeCents != null && total > freeCents ? total - freeCents : 0n;
+
   return <div className="page flow wide">
     <FlowHead title={data.status === "not_listed" ? "Brand not listed" : "Confirm purchase"} back="/add" />
-    <div className="two-col">
-      <div>
+    <div className="two-col confirm-cols">
+      <div className="confirm-main">
         <section className="card product">
           <div className="product-art" aria-hidden="true"><span /></div>
-          <div className="row-main"><p className="micro">{[r?.shop, r?.date ? new Date(r.date).toLocaleDateString([], { day: "numeric", month: "short" }) : ""].filter(Boolean).join(" · ")}</p><h2 className="h-card big">{r?.items[0] ?? "Purchase"}</h2>{r && <p className="sub">{fmtLocal(r.local.amount, r.local.currency)}{r.local.currency !== "USD" ? ` → ${fmtUsd6(r.amountUsd6)}` : ""}</p>}</div>
-          <div className="product-share"><span className="micro">Your {(data.rateBps ?? 500) / 100}%</span><strong>{fmtUsd6(data.investUsd6)}</strong></div>
+          <div className="row-main"><p className="micro clip">{[r?.shop, r?.date ? new Date(r.date).toLocaleDateString([], { day: "numeric", month: "short" }) : ""].filter(Boolean).join(" · ")}</p><h2 className="h-card big clip2">{r?.items[0] ?? "Purchase"}</h2>{r && <p className="sub clip">{fmtLocal(r.local.amount, r.local.currency)}{r.local.currency !== "USD" ? ` → ${fmtUsd6(r.amountUsd6)}` : ""}</p>}</div>
         </section>
 
         {data.status === "not_listed" && <div className="insight"><span>This brand has no shares to buy yet, so your {(data.rateBps ?? 500) / 100}% ({fmtUsd6(data.investUsd6)}) can go to your fallback instead.</span></div>}
         {data.status === "needs_review" && <div className="insight"><span>We're not sure about one of these companies. Check the match before you confirm.</span></div>}
-        {canPartial && shortUsd6 && <div className="insight"><span>
-          You have {fmtUsd6(freeCents)} free. Add {fmtUsd6(shortUsd6)} or save {fmtUsd6(available)} now and the rest later.
-        </span></div>}
 
-        <div className="block-head block">
-          <div><p className="micro">The match</p><h2 className="h-section">Where your {fmtUsd6(data.investUsd6)} goes</h2></div>
-        </div>
-        <div className="splitbar" role="img" aria-label={data.allocations.map(a => `${assetName(a.assetId, a.name)} ${fmtUsd6(a.amountUsd6)}`).join(", ")}>
-          {data.allocations.map(a => <span key={a.assetId} className={segClass(a.role)} style={{ flexGrow: Number(BigInt(a.amountUsd6) / 10_000n) || 1, opacity: a.selected ? 1 : .25 }} />)}
-        </div>
-        {data.split && <p className="split-legend"><span><i className="seg-maker" />{data.split.maker}% maker</span><span><i className="seg-behind" />{data.split.behind}% behind it</span><span><i className="seg-material" />{data.split.materials}% materials</span></p>}
-      </div>
+        {!!ids.length && <section className="card amount-card" aria-label="How much to set aside">
+          <div className="amount-head">
+            <p className="micro">Set aside</p>
+            {spent > 0n && <span className="sub num">{pct1(total, spent)} of it</span>}
+          </div>
+          <Money cents={total} className="amount-total" />
+          <input type="range" className="range" aria-label="Total to set aside" disabled={done}
+            min={Number(lockedSum)} max={Number(sliderMax)} step={Number(step)} value={Number(total)}
+            style={{ "--p": fill(total, lockedSum, sliderMax) } as CSSProperties}
+            onChange={e => { setChip(""); setTotal(BigInt(e.target.value)); }} />
+          <div className="chip-row" role="group" aria-label="Quick amounts">
+            {chips.map(([k, label, v]) => <button key={k} type="button" className={`chip sm ${chip === k ? "on" : ""}`} disabled={done} onClick={() => { haptic(5); setChip(k); setTotal(v, false); }}>{label}</button>)}
+          </div>
+        </section>}
 
-      <div>
-        {data.analysis ? <JurySections a={data.analysis} allocs={data.allocations} done={done} onToggle={toggle} /> : <div className="card list">
-          {data.allocations.map(a => <label key={a.assetId} className="row split-row">
-            <input type="checkbox" className="tick" checked={a.selected} disabled={done || data.allocations.length === 1} onChange={() => toggle(a.assetId)} />
-            <Monogram name={assetName(a.assetId, a.name)} icon={a.icon} tone={toneFor(a.assetId)} size={38} />
-            <span className="row-main"><span className="row-title">{assetName(a.assetId, a.name)}</span><span className="role">{roleLabel[a.role] ?? a.role}</span></span>
-            <span className="row-end"><span className="row-value">{fmtUsd6(a.amountUsd6)}</span></span>
-          </label>)}
+        {!!ids.length && <section className="card jars-card" aria-label="Your jars">
+          <div className="jars-card-head">
+            <h2 className="h-card">Your jars</h2>
+            {ids.length > 1 && <div className="seg" role="group" aria-label="Mix">
+              {(["suggested", "even", ...(maker ? ["maker"] : [])] as Mix[]).map(m => <button key={m} type="button" className={mix === m && !locked.size ? "on" : ""} disabled={done} onClick={() => pickMix(m)}>{m === "suggested" ? "Suggested" : m === "even" ? "Even" : "Maker only"}</button>)}
+            </div>}
+          </div>
+          <div className="splitbar" role="img" aria-label={ids.map(x => `${assetName(x, allocs.find(a => a.assetId === x)?.name)} ${fmtUsd(amt[x] ?? 0n)}`).join(", ")}>
+            {allocs.map(a => <span key={a.assetId} className={`tone-bg-${toneFor(a.assetId)}`} style={{ flexGrow: Number(amt[a.assetId] ?? 0n), opacity: (amt[a.assetId] ?? 0n) > 0n ? 1 : 0 }} />)}
+          </div>
+          <div className="amt-rows">
+            {allocs.map(a => {
+              const name = assetName(a.assetId, a.name); const v = amt[a.assetId] ?? 0n; const lk = locked.has(a.assetId);
+              const shown = typing[a.assetId] ?? `${v / 100n}.${(v % 100n).toString().padStart(2, "0")}`;
+              return <div key={a.assetId} className={`amt-row ${v === 0n ? "zero" : ""}`}>
+                <Monogram name={name} icon={a.icon} tone={toneFor(a.assetId)} size={36} />
+                <div className="amt-main">
+                  <span className="amt-name"><span className="clip">{name}</span><span className="role-dot">{roleLabel[a.role] ?? a.role}</span></span>
+                  <input type="range" className="range thin" aria-label={`${name} amount`} disabled={done}
+                    min={0} max={Number(maxOf(rowMax, v))} step={Number(rowStep)} value={Number(v)}
+                    style={{ "--p": fill(v, 0n, maxOf(rowMax, v)) } as CSSProperties}
+                    onChange={e => setRow(a.assetId, BigInt(e.target.value))} />
+                </div>
+                <label className="amt-input">
+                  <span aria-hidden="true">$</span>
+                  <input inputMode="decimal" aria-label={`${name} dollars`} disabled={done}
+                    value={shown} style={{ width: `${Math.max(4, shown.length) + .5}ch` }}
+                    onFocus={e => e.currentTarget.select()}
+                    onChange={e => { const raw = e.target.value; setTyping(t => ({ ...t, [a.assetId]: raw })); const c = parseDollars(raw); if (c != null) setRow(a.assetId, c); }}
+                    onBlur={() => setTyping(t => { const n = { ...t }; delete n[a.assetId]; return n; })}
+                    onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                </label>
+                <button type="button" className={`lock ${lk ? "on" : ""}`} disabled={done} aria-pressed={lk} aria-label={lk ? `Unlock ${name}` : `Lock ${name}`}
+                  onClick={() => { const n = new Set(locked); if (lk) n.delete(a.assetId); else n.add(a.assetId); setLocked(n); }}>
+                  {lk ? <Lock size={16} /> : <LockOpen size={16} />}
+                </button>
+              </div>;
+            })}
+          </div>
+          <p className="amt-hint"><Lock size={13} /> Typed amounts lock. The total moves the rest.</p>
+        </section>}
+
+        {!!ids.length && !done && freeCents != null && <div className="free-line">
+          <div className="free-meter" aria-hidden="true"><span style={{ transform: `scaleX(${total > 0n ? Math.min(1, Number((freeCents * 1000n) / total) / 1000) : 1})` }} /></div>
+          <p className="sub">{short === 0n ? "You can buy all of this today." : `${fmtUsd(freeCents)} is ready to buy. Add ${fmtUsd(short)} when you want the rest.`}</p>
         </div>}
-        <button className="disclose" aria-expanded={why} onClick={() => setWhy(!why)}>{data.analysis ? "How we chose these" : "Why these companies?"} <ChevronDown size={16} /></button>
-        {why && <div className="why">
-          {data.analysis ? <p>{data.analysis.cached ? "Answered earlier by the jury for this product: " : "Three private AI jurors on 0G answered on their own, then a judge merged them: "}{data.analysis.jurors.map(j => `${j.model}${j.ok ? "" : " (no answer)"}`).join(", ") || "seed list"}. Code checked every name against the token registry; only verified tokens with a live Jupiter route can be bought.</p>
-            : data.allocations.filter(a => a.why).map(a => <p key={a.assetId}><b>{assetName(a.assetId, a.name)}:</b> {a.why}</p>)}
-          {!!data.ogRequestIds.length && <p className="mono">AI request ID: {data.ogRequestIds.map(x => `${x.slice(0, 4)}…${x.slice(-3)}`).join(", ")}</p>}
-          {!data.ogRequestIds.length && data.source === "typed" && <p className="sub">Typed entry — matched from the company registry (no receipt AI read).</p>}
-        </div>}
-        {!done && data.details && <button className="button quiet" onClick={() => setEditing(true)}>Wrong details? Edit them</button>}
+
         <p className="fee"><ShieldCheck size={15} /> Network fee $0.00 · we cover it</p>
         {err && <p className="error" role="alert">{err}</p>}
         {done ? <div className="dock"><button className="button primary full lg" onClick={() => navigate("/jars")}>View your jars</button></div>
           : <div className="dock">
               {busy ? <button className="button primary full lg" disabled>Saving… usually 2 s</button>
-                : canPartial
-                  ? <>
-                      <ConfirmAction label={`Save ${fmtUsd6(available)} now`} onConfirm={() => confirm(available.toString())} />
-                      {shortUsd6 && <button className="button secondary full" onClick={() => navigate("/funds")}>Add {fmtUsd6(shortUsd6)}</button>}
-                    </>
-                  : <ConfirmAction label={`Confirm ${fmtUsd6(total)} across ${selected.length}`} onConfirm={() => confirm()} />}
-              <div className="dock-row">
-                {maker && data.allocations.length > 1 && data.split && <button className="button quiet" onClick={async () => { await api.makerOnly(id, data.split!).catch(() => {}); p.reload(); }}>Only {assetName(maker.assetId, maker.name)}</button>}
-                {data.status === "not_listed" && <button className="button quiet" onClick={async () => { await api.fallback(id, "skip").catch(() => {}); refreshAll(); navigate("/", { dir: "back" }); }}>Skip this purchase</button>}
-              </div>
+                : kept ? <ConfirmAction label={`Put ${fmtUsd(total)} in ${kept} jar${kept === 1 ? "" : "s"}`} onConfirm={confirm} />
+                : ids.length ? <button className="button primary full lg" disabled>Set an amount first</button> : null}
+              {data.status === "not_listed" && <div className="dock-row"><button className="button quiet" onClick={async () => { await api.fallback(id, "skip").catch(() => {}); refreshAll(); navigate("/", { dir: "back" }); }}>Skip this purchase</button></div>}
             </div>}
+      </div>
+
+      <div className="confirm-side">
+        {data.analysis ? <WhyThese a={data.analysis} allocs={allocs} /> : <section className="jury-section"><h3 className="micro">Why these</h3><div className="card list">
+          {allocs.map(a => <div key={a.assetId} className="row jury-row">
+            <Monogram name={assetName(a.assetId, a.name)} icon={a.icon} tone={toneFor(a.assetId)} size={38} />
+            <span className="row-main"><span className="row-title clip">{assetName(a.assetId, a.name)}</span>{a.why && <span className="jury-why">{a.why}</span>}<span className="jury-meta"><span className="jury-badge on">{roleLabel[a.role] ?? a.role}</span></span></span>
+          </div>)}
+        </div></section>}
+        <button className="disclose" aria-expanded={why} onClick={() => setWhy(!why)}>How we chose these <ChevronDown size={16} /></button>
+        {why && <div className="why">
+          {data.analysis ? <p>{data.analysis.cached ? "Answered earlier by the jury for this product: " : "Three private AI jurors on 0G answered on their own, then a judge merged them: "}{data.analysis.jurors.map(j => `${j.model}${j.ok ? "" : " (no answer)"}`).join(", ") || "seed list"}. Code checked every name against the token registry; only verified tokens with a live Jupiter route can be bought.</p>
+            : <p>Matched from the company registry. Only verified tokens with a live Jupiter route can be bought.</p>}
+          {!!data.ogRequestIds.length && <p className="mono">AI request ID: {data.ogRequestIds.map(x => `${x.slice(0, 4)}…${x.slice(-3)}`).join(", ")}</p>}
+          {!data.ogRequestIds.length && data.source === "typed" && <p className="sub">Typed entry — matched from the company registry (no receipt AI read).</p>}
+        </div>}
+        {!done && data.details && <button className="button quiet full" onClick={() => setEditing(true)}>Wrong details? Edit them</button>}
       </div>
     </div>
   </div>;
@@ -419,12 +489,12 @@ export function Saved({ id }: { id: string }) {
   const { navigate } = useApp();
   const p = useApi(`purchase:${id}`, () => api.purchase(id));
   useEffect(() => { haptic([10, 50, 14]); }, []);
-  const sel = p.data?.allocations.filter(a => a.selected) ?? [];
+  const sel = p.data?.allocations.filter(a => a.selected && BigInt(a.amountUsd6) > 0n) ?? [];
   const maker = sel.find(a => a.role === "maker") ?? sel[0];
   return <div className="page flow narrow center celebrate">
     <div className="celebrate-stage" aria-hidden="true">
       <span className="falling f1" /><span className="falling f2" /><span className="falling f3" />
-      <GlassJar pct={100} ready size={120} />
+      <GlassJar pct={100} ready size={120} icon={maker?.icon} name={maker ? assetName(maker.assetId, maker.name) : undefined} tone={maker ? toneFor(maker.assetId) : undefined} />
     </div>
     <p className="kicker">Purchase saved</p>
     <h1 className="h-hero">{fmtUsd6(p.data?.investUsd6)} is in<br />{sel.length || "your"} jar{sel.length === 1 ? "" : "s"}</h1>

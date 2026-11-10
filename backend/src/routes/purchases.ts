@@ -4,8 +4,8 @@ import { z } from 'zod';
 import { getSql } from '../db/client.js';
 import { ApiError } from '../shared/errors.js';
 import { formatUsd, parseUsd6, toUsd6 } from '../shared/money.js';
-import { scaleAllocations, splitInvest } from '../lib/split.js';
-import { precheckConfirm, remainingThisMonth } from '../lib/limits.js';
+import { splitInvest } from '../lib/split.js';
+import { applyAmounts, remainingThisMonth } from '../lib/limits.js';
 import {
   assertIdempotencyKey,
   jsonError,
@@ -20,8 +20,6 @@ import { analysePurchase, freshSteps, readPurchase, type ReadInput, type Rules }
 import { PurchaseDetails } from '../lib/og/schemas.js';
 import { getCatalogCompany } from '../lib/registry/catalog.js';
 import { getAsset, iconField, verifiedMint } from '../shared/assets.js';
-import { freeByChain } from '../lib/wallet-sync.js';
-import { CENT_USD6 } from '../shared/timing.js';
 
 export const purchaseRoutes = new Hono();
 
@@ -428,41 +426,33 @@ purchaseRoutes.post('/purchases/:id/confirm', async (c) => {
     requireCsrf(c);
     const user = await requireUser(c);
     const key = assertIdempotencyKey(c);
-    const body = z.object({ amountUsd6: z.string().regex(/^\d+$/).optional() }).parse(await c.req.json());
+    const body = z
+      .object({ amounts: z.array(z.object({ assetId: z.string(), amountUsd6: z.string().regex(/^\d+$/) })).max(50).optional() })
+      .parse(await c.req.json());
     const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
     const result = await withIdempotency(user.id, key, hash, async () => {
-      const { p, allocs } = await loadPurchase(user.id, c.req.param('id'));
+      const id = c.req.param('id');
+      const { p, allocs } = await loadPurchase(user.id, id);
+      if (p.status === 'saved') throw new ApiError('VALIDATION', { reason: 'already_saved' });
       const selected = allocs.filter((a) => a.selected);
       if (!selected.length) throw new ApiError('NOTHING_TO_BUY');
 
       const sql = getSql();
-      // Live Arc free (same source as /home); floor to whole cents for D18 partials.
-      const freeLive = (await freeByChain(user)).total;
-      const freeUsd6 = (freeLive / CENT_USD6) * CENT_USD6;
-      const invest = BigInt(p.invest_usd6 != null ? String(p.invest_usd6) : '0');
-      const partial = body.amountUsd6 ? parseUsd6(body.amountUsd6) : undefined;
-      const check = precheckConfirm({
-        investUsd6: invest,
-        freeUsd6,
-        partialUsd6: partial,
-      });
-
-      let payRows = selected.map((a) => ({
-        assetId: a.asset_id,
-        amountUsd6: BigInt(a.amount_usd6),
-      }));
-      if (partial !== undefined && partial < invest) {
-        payRows = scaleAllocations(payRows, check.amountUsd6);
+      // D40: the user's amounts; a save is a reservation, so the free balance doesn't cap it.
+      const { rows: payRows, totalUsd6 } = applyAmounts(
+        selected.map((a) => ({ assetId: a.asset_id, amountUsd6: BigInt(a.amount_usd6) })),
+        body.amounts?.map((a) => ({ assetId: a.assetId, amountUsd6: parseUsd6(a.amountUsd6) })),
+      );
+      if (body.amounts) {
         for (const row of payRows) {
           await sql`
             UPDATE allocations SET amount_usd6 = ${row.amountUsd6.toString()}::bigint
-            WHERE purchase_id = ${c.req.param('id')}::uuid AND asset_id = ${row.assetId}
+            WHERE purchase_id = ${id}::uuid AND asset_id = ${row.assetId}
           `;
         }
         await sql`
-          UPDATE purchases SET rest_usd6 = ${check.restUsd6.toString()}::bigint,
-            invest_usd6 = ${check.amountUsd6.toString()}::bigint, updated_at = now()
-          WHERE id = ${c.req.param('id')}::uuid
+          UPDATE purchases SET invest_usd6 = ${totalUsd6.toString()}::bigint, rest_usd6 = 0, updated_at = now()
+          WHERE id = ${id}::uuid
         `;
       }
 
@@ -471,11 +461,12 @@ purchaseRoutes.post('/purchases/:id/confirm', async (c) => {
         WHERE id = ${c.req.param('id')}::uuid
       `;
 
-      const assets = payRows.map((a) => a.assetId);
-      const amounts = payRows.map((a) => toUsd6(a.amountUsd6));
+      const kept = payRows.filter((a) => a.amountUsd6 > 0n);
+      const assets = kept.map((a) => a.assetId);
+      const amounts = kept.map((a) => toUsd6(a.amountUsd6));
       return {
         action: mockEvmAction(
-          `Save ${formatUsd(toUsd6(check.amountUsd6))} into ${selected.length} jars`,
+          `Save ${formatUsd(toUsd6(totalUsd6))} into ${kept.length} jar${kept.length === 1 ? '' : 's'}`,
           assets,
           amounts,
         ),

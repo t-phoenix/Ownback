@@ -172,8 +172,8 @@ export const api = {
   deselect: (id: string, deselect: string[]) => send<Purchase>("PUT", `/purchases/${id}/assets`, { deselect }),
   makerOnly: (id: string, s: { maker: number; behind: number; materials: number }) => send<Purchase>("PUT", `/purchases/${id}/split`, { ...s, makerOnly: true, saveForFuture: false }),
   fallback: (id: string, choice: "fallback" | "skip") => send<Purchase>("PUT", `/purchases/${id}/fallback`, { choice }),
-  confirm: (id: string, amountUsd6?: Usd6) =>
-    send<{ action: SignableAction }>("POST", `/purchases/${id}/confirm`, amountUsd6 ? { amountUsd6 } : {}, true),
+  confirm: (id: string, amounts?: { assetId: string; amountUsd6: Usd6 }[]) =>
+    send<{ action: SignableAction }>("POST", `/purchases/${id}/confirm`, amounts ? { amounts } : {}, true),
   confirmSubmitted: (id: string, txHash?: string) => send<Purchase>("POST", `/purchases/${id}/confirm/submitted`, txHash ? { txHash } : {}),
   exportData: () => get<unknown>("/me/export"),
 };

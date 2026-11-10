@@ -86,6 +86,23 @@ export const purchase: Purchase = {
     { assetId: "mat:silver", name: "Silver", icon: "https://xstocks-metadata.backed.fi/logos/tokens/SLVx.png", role: "material", tokenized: true, amountUsd6: u(2.38), selected: true, why: "Conductive paste." },
   ],
   ogRequestIds: ["0g_req_croma_iphone_7nov"],
+  analysis: {
+    productType: "physical", category: "phone", cached: false,
+    jurors: [{ model: "glm-5.3", persona: "supply chain", ok: true }, { model: "0gm-1.0", persona: "materials", ok: true }, { model: "glm-5.3", persona: "finance", ok: true }],
+    parent: { name: "Apple", ticker: "AAPL", why: "Designs the iPhone and sells it.", agree: 3, of: 3, status: "buyable", assetId: "co:apple", symbol: "AAPLx" },
+    enablers: [
+      { name: "TSMC", ticker: "TSM", why: "Fabricates the A18 Pro chip on its 3 nm line.", agree: 3, of: 3, status: "buyable", assetId: "co:tsmc", symbol: "TSMx" },
+      { name: "Qualcomm", ticker: "QCOM", why: "Supplies the 5G modem and RF front end.", agree: 2, of: 3, status: "buyable", assetId: "co:qualcomm", symbol: "QCOMx" },
+      { name: "Corning", ticker: "GLW", why: "Makes the Ceramic Shield cover glass.", agree: 2, of: 3, status: "buyable", assetId: "co:corning", symbol: "GLWx" },
+      { name: "Contemporary Amperex Technology Co. Limited", ticker: "300750", why: "Battery cells.", agree: 1, of: 3, status: "not_onchain" },
+      { name: "Foxconn Technology Group", why: "Assembles the phone.", agree: 3, of: 3, status: "not_onchain" },
+    ],
+    commodities: [
+      { name: "Gold", why: "Bond wires and connectors.", agree: 2, of: 3, status: "buyable", assetId: "mat:gold", symbol: "GLDx" },
+      { name: "Silver", why: "Conductive paste.", agree: 1, of: 3, status: "buyable", assetId: "mat:silver", symbol: "SLVx" },
+      { name: "Lithium", ticker: "LIT", why: "Battery cathode.", agree: 2, of: 3, status: "not_onchain" },
+    ],
+  },
 };
 
 export const buyReview: BuyReview = {
@@ -165,7 +182,7 @@ export const rules: Rules = {
   fallbackAsset: "idx:sp500", split: { maker: 70, behind: 20, materials: 10 }, buyDay: "sun", onchainSynced: true,
 };
 
-export const SCREENS = ["signin", "home", "confirm", "jars", "buy-review", "buy-done", "holdings", "receipts", "settings", "type-it", "markets", "market-asset", "markets-wide", "market-asset-wide"] as const;
+export const SCREENS = ["signin", "home", "confirm", "jars", "buy-review", "buy-done", "holdings", "receipts", "settings", "type-it", "markets", "market-asset", "markets-wide", "market-asset-wide", "confirm-wide", "jars-wide"] as const;
 export type ShotScreen = (typeof SCREENS)[number];
 
 /* ───── Markets (docs/12-markets.md). Example prices only; never shown as live quotes. ───── */

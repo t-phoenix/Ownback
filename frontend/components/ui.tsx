@@ -145,29 +145,41 @@ export function Coin3D({ size = 120, still = false }: { size?: number; still?: b
   </div>;
 }
 
-/** A glass jar that fills with gold. `pct` is 0–100 of the $5 reminder threshold. */
-export function GlassJar({ pct, ready, size = 96 }: { pct: number; ready?: boolean; size?: number }) {
+/**
+ * The jar: Ownback's second mark. Gold fills a glass jar whose lid takes the brand's colour and
+ * whose label is the brand's logo. Motion is transform-only; the wave runs only when a jar is
+ * ready or hovered (`live`), so a grid of jars costs nothing while it sits still.
+ */
+export function GlassJar({ pct, ready, size = 96, icon, name, tone, live }: { pct: number; ready?: boolean; size?: number; icon?: string; name?: string; tone?: Tone; live?: boolean }) {
   const id = useId().replace(/:/g, "");
   const level = Math.max(0, Math.min(100, pct));
-  const top = 118 - (level / 100) * 84;
-  return <svg className={`glass-jar ${ready ? "ready" : ""}`} viewBox="0 0 100 130" width={size} height={size * 1.3} aria-hidden="true">
-    <defs>
-      <clipPath id={`${id}c`}><rect x="14" y="30" width="72" height="92" rx="16" /></clipPath>
-      <linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#EFBE45" /><stop offset="1" stopColor="#B07F1A" /></linearGradient>
-      <linearGradient id={`${id}l`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1C9A64" /><stop offset="1" stopColor="#0B5E3C" /></linearGradient>
-    </defs>
-    <rect className="jar-glass" x="12" y="28" width="76" height="96" rx="18" />
-    <g clipPath={`url(#${id}c)`}>
-      <g className="jar-fill" style={{ transform: `translateY(${top}px)` }}>
-        <path className="jar-wave" d="M-60 6 q15 -6 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 V140 H-60 Z" fill={`url(#${id}f)`} />
+  const top = 122 - (level / 100) * 86;
+  const label = size >= 44 && (icon || name);
+  return <span className={`jar ${ready ? "jar-ready" : ""} ${live ?? ready ? "jar-live" : ""} ${tone ? `tone-${tone}` : ""}`} style={{ "--s": `${size}px` } as CSSProperties} aria-hidden="true">
+    <svg className="glass-jar" viewBox="0 0 100 130" width={size} height={size * 1.3}>
+      <defs>
+        <clipPath id={`${id}c`}><path d={JAR} /></clipPath>
+        <linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#F4CC5C" /><stop offset=".55" stopColor="#E0A93A" /><stop offset="1" stopColor="#A9761A" /></linearGradient>
+      </defs>
+      <path className="jar-glass" d={JAR} />
+      <g clipPath={`url(#${id}c)`}>
+        <g className="jar-fill" style={{ transform: `translateY(${top}px)` }}>
+          <g className="jar-wave">
+            <path d="M-60 6 q15 -6 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 V140 H-60 Z" fill={`url(#${id}f)`} />
+            <path className="jar-crest" d="M-60 6 q15 -6 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0" />
+          </g>
+        </g>
       </g>
-    </g>
-    <path className="jar-shine" d="M24 42 v58" strokeLinecap="round" />
-    <path className="jar-shine thin" d="M31 46 v20" strokeLinecap="round" />
-    <rect x="18" y="12" width="64" height="18" rx="7" fill={`url(#${id}l)`} />
-    <rect x="22" y="14" width="40" height="3" rx="1.5" fill="#ffffff" opacity=".22" />
-  </svg>;
+      <path className="jar-shine" d="M23 50 C21 70 21 92 24 108" strokeLinecap="round" />
+      <path className="jar-shine thin" d="M31 52 v14" strokeLinecap="round" />
+      <rect className="jar-neck" x="24" y="22" width="52" height="10" rx="3" />
+      <rect className="jar-lid" x="18" y="8" width="64" height="17" rx="6" />
+      <rect className="jar-slot" x="38" y="13" width="24" height="4" rx="2" />
+    </svg>
+    {label && <span className="jar-label"><Monogram name={name} icon={icon} tone={tone ?? "gold"} size={Math.round(size * .34)} /></span>}
+  </span>;
 }
+const JAR = "M26 30 h48 c0 6 14 8 14 24 v52 c0 12 -8 18 -18 18 h-40 c-10 0 -18 -6 -18 -18 v-52 c0 -16 14 -18 14 -24 z";
 
 /** Thin progress ring. `value` is 0–100. */
 export function Ring({ value, size = 44, stroke = 4, children, label }: { value: number; size?: number; stroke?: number; children?: ReactNode; label?: string }) {
