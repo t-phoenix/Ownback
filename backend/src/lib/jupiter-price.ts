@@ -15,25 +15,76 @@ async function jupFetch(url: string, init: RequestInit & { timeoutMs?: number } 
 }
 
 const priceCache = new Map<string, { v: bigint; at: number }>();
-const PRICE_TTL_MS = 15_000;
+const PRICE_FRESH_MS = 30_000;
+/** Display paths may show a price this old while a refresh runs in the background. */
+const PRICE_STALE_MS = 10 * 60_000;
+/** Mints Jupiter had no price for; display paths skip refetching them for a minute. */
+const noPrice = new Map<string, number>();
+const NO_PRICE_MS = 60_000;
+const BATCH_MAX = 50; // price/v3 takes up to 50 ids per call
 
-/** Jupiter price → Usd6 per whole token. Never invent; null if the mint has no quote. */
-export async function jupiterPriceUsd6(mint: string): Promise<bigint | null> {
-  const hit = priceCache.get(mint);
-  if (hit && Date.now() - hit.at < PRICE_TTL_MS) return hit.v;
+// Every price asked for in the same tick goes out as one batched call.
+// Separate per-mint calls in parallel hit Jupiter's 429 and the 1-8s backoff above.
+let pending: Map<string, ((v: bigint | null) => void)[]> | null = null;
+const inflight = new Map<string, Promise<bigint | null>>();
+
+async function fetchBatch(mints: string[]): Promise<Map<string, bigint>> {
+  const out = new Map<string, bigint>();
   try {
-    const res = await jupFetch(`${JUP_PRICE}?ids=${encodeURIComponent(mint)}`, { timeoutMs: 5_000 });
-    if (!res.ok) return null;
+    const res = await jupFetch(`${JUP_PRICE}?ids=${mints.map(encodeURIComponent).join(',')}`, { timeoutMs: 5_000 });
+    if (!res.ok) return out;
     const body = (await res.json()) as Record<string, { usdPrice?: string | number; price?: string | number } | null>;
-    const row = body[mint];
-    const raw = row?.usdPrice ?? row?.price;
-    if (raw == null) return null;
-    const v = usdStringToUsd6(String(raw));
-    if (v > 0n) priceCache.set(mint, { v, at: Date.now() });
-    return v;
-  } catch {
-    return null;
+    for (const m of mints) {
+      const raw = body[m]?.usdPrice ?? body[m]?.price;
+      const v = raw == null ? 0n : usdStringToUsd6(String(raw));
+      if (v > 0n) { out.set(m, v); priceCache.set(m, { v, at: Date.now() }); noPrice.delete(m); }
+      else noPrice.set(m, Date.now());
+    }
+  } catch { /* null for every mint below */ }
+  return out;
+}
+
+function flush() {
+  const batch = pending!; pending = null;
+  const mints = [...batch.keys()];
+  for (let i = 0; i < mints.length; i += BATCH_MAX) {
+    const chunk = mints.slice(i, i + BATCH_MAX);
+    fetchBatch(chunk).then((got) => { for (const m of chunk) for (const r of batch.get(m)!) r(got.get(m) ?? null); });
   }
+}
+
+function fetchPrice(mint: string): Promise<bigint | null> {
+  const running = inflight.get(mint);
+  if (running) return running;
+  const p = new Promise<bigint | null>((resolve) => {
+    if (!pending) { pending = new Map(); queueMicrotask(flush); }
+    const list = pending.get(mint) ?? [];
+    list.push(resolve); pending.set(mint, list);
+  }).finally(() => inflight.delete(mint));
+  inflight.set(mint, p);
+  return p;
+}
+
+/**
+ * Jupiter price → Usd6 per whole token. Never invent; null if the mint has no quote.
+ * Default: fresh (≤30s) — use on money paths (buy/sell review).
+ * `{ display: true }`: a cached price up to 10 min old comes back at once and refreshes in the background.
+ */
+export async function jupiterPriceUsd6(mint: string, opts: { display?: boolean } = {}): Promise<bigint | null> {
+  const hit = priceCache.get(mint);
+  const age = hit ? Date.now() - hit.at : Infinity;
+  if (hit && age < PRICE_FRESH_MS) return hit.v;
+  if (hit && opts.display && age < PRICE_STALE_MS) { void fetchPrice(mint); return hit.v; }
+  if (!hit && opts.display && Date.now() - (noPrice.get(mint) ?? 0) < NO_PRICE_MS) return null;
+  return fetchPrice(mint);
+}
+
+/** Many prices in one round trip (display). */
+export async function jupiterPricesUsd6(mints: string[], opts: { display?: boolean } = {}): Promise<Map<string, bigint>> {
+  const vals = await Promise.all(mints.map((m) => jupiterPriceUsd6(m, opts)));
+  const out = new Map<string, bigint>();
+  mints.forEach((m, i) => { if (vals[i] != null) out.set(m, vals[i]!); });
+  return out;
 }
 
 /** "236.41" → micro-USDC. Digit string only; no float maths on the money path. */

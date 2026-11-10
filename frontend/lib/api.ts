@@ -19,12 +19,17 @@ function csrfHeader(): Record<string, string> {
 
 export const idempotencyKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
+// After refreshAll (a buy, deposit or sell just finished) GETs skip the server's short cache for a few seconds.
+let freshUntil = 0;
+export function wantFresh() { freshUntil = Date.now() + 5_000; }
+
 export async function apiJson<T>(path: string, init: RequestInit & { idempotent?: boolean } = {}): Promise<T> {
   const isForm = typeof FormData !== "undefined" && init.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(isForm || !init.body ? {} : { "content-type": "application/json" }),
     ...csrfHeader(),
     ...(init.idempotent ? { "Idempotency-Key": idempotencyKey() } : {}),
+    ...(!init.method && Date.now() < freshUntil ? { "cache-control": "no-cache" } : {}),
     ...((init.headers as Record<string, string>) || {}),
   };
   let res: Response;

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { PrivyProvider, useLogin, useLogout, useModalStatus, usePrivy, useSendTransaction, useSignTypedData, useWallets } from "@privy-io/react-auth";
 import { useSignTransaction as useSolSignTransaction, useWallets as useSolWallets } from "@privy-io/react-auth/solana";
 import { api, ApiError, type Me } from "../lib/api";
-import { clearApiCache } from "../lib/use-api";
+import { clearApiCache, setCacheOwner } from "../lib/use-api";
 import { setPrivyBridge } from "../lib/sign-action";
 import { SessionCtx, useSession, type Session } from "./session-context";
 
@@ -51,7 +51,7 @@ function PrivySession({ children }: { children: ReactNode }) {
   const { wallets: solWallets } = useSolWallets();
   const { signTransaction: signSolTx } = useSolSignTransaction();
 
-  const refresh = useCallback(async () => { const m = await fetchMe().catch(() => null); setMe(m); return m; }, []);
+  const refresh = useCallback(async () => { const m = await fetchMe().catch(() => null); setCacheOwner(m?.id ?? null); setMe(m); return m; }, []);
   useEffect(() => { refresh(); }, [refresh]);
 
   const exchange = useCallback(async () => {
@@ -60,7 +60,7 @@ function PrivySession({ children }: { children: ReactNode }) {
       const token = await getAccessToken();
       if (!token) throw new ApiError("AUTH_INVALID", 401);
       const { user } = await api.authPrivy(token);
-      clearApiCache(); setMe(user);
+      clearApiCache(); setCacheOwner(user.id); setMe(user);
     } catch (e) {
       const code = e instanceof ApiError ? e.code : "AUTH_INVALID";
       setError(code);
@@ -126,7 +126,7 @@ function PrivySession({ children }: { children: ReactNode }) {
 /** Without a Privy app ID the app still renders, but sign-in says it isn't set up. */
 function UnconfiguredSession({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
-  const refresh = useCallback(async () => { const m = await fetchMe().catch(() => null); setMe(m); return m; }, []);
+  const refresh = useCallback(async () => { const m = await fetchMe().catch(() => null); setCacheOwner(m?.id ?? null); setMe(m); return m; }, []);
   useEffect(() => { refresh(); }, [refresh]);
   const value = useMemo<Session>(() => ({
     me, refresh, busy: false, configured: false, error: "NOT_CONFIGURED",

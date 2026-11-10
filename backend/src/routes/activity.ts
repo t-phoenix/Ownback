@@ -227,7 +227,7 @@ export async function jarsTotal(userId: string): Promise<bigint> {
 activityRoutes.get('/holdings', async (c) => {
   try {
     const user = await requireUser(c);
-    const [p, inJars] = await Promise.all([portfolio(user), jarsTotal(user.id)]);
+    const [p, inJars] = await Promise.all([portfolio(user, { fresh: c.req.header('cache-control')?.includes('no-cache') }), jarsTotal(user.id)]);
     const usdcRows = [
       { assetId: 'usdc', name: 'USDC on Arc', subtitle: 'Free to buy with', chain: 'arc', valueUsd6: toUsd6(p.arcUsdc) },
       ...(p.solUsdc > 0n ? [{ assetId: 'usdc-sol', name: 'USDC on Solana', subtitle: 'From sells or unspent buys', chain: 'solana', valueUsd6: toUsd6(p.solUsdc) }] : []),
@@ -250,7 +250,7 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
     const assetId = c.req.param('assetId');
     const sql = getSql();
     const [p, rows] = await Promise.all([
-      portfolio(user),
+      portfolio(user, { fresh: c.req.header('cache-control')?.includes('no-cache') }),
       sql<{ spent: bigint; qty: string | null; fill: bigint | null; batch_id: string; venue_tx: string | null; arc_tx: string | null; started_at: Date | null }[]>`
         SELECT e.spent_usd6 AS spent, e.qty::text AS qty, e.fill_price_usd6 AS fill, e.batch_id, e.venue_tx, b.arc_tx, b.started_at
         FROM buy_entries e JOIN buy_batches b ON b.id = e.batch_id

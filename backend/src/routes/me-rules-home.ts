@@ -169,7 +169,7 @@ meRulesHomeRoutes.get('/home', async (c) => {
       WHERE user_id = ${user.id}::uuid AND status NOT IN ('deleted', 'read_failed', 'skipped')
     `;
     // Live Arc wallet (side-effect: records new deposits) + on-chain Solana holdings priced by Jupiter.
-    const p = await portfolio(user);
+    const p = await portfolio(user, { fresh: c.req.header('cache-control')?.includes('no-cache') });
     const inJars = await jarsTotal(user.id);
     const rules = await sql<{ ready_min_usd6: bigint | string }[]>`
       SELECT ready_min_usd6 FROM rules WHERE user_id = ${user.id}::uuid

@@ -73,7 +73,7 @@ jarsBuysRoutes.get('/jars', async (c) => {
       const amt = BigInt(r.amt);
       // Price of one token (one share for xStocks); only for verified mints, never invented.
       const mint = verifiedMint(r.asset_id, 'solana');
-      const price = mint ? await jupiterPriceUsd6(mint.mint) : null;
+      const price = mint ? await jupiterPriceUsd6(mint.mint, { display: true }) : null;
       return {
         assetId: r.asset_id,
         name: assetDisplayName(r.asset_id),

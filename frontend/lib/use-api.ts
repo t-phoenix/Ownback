@@ -1,15 +1,43 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError } from "./api";
+import { ApiError, wantFresh } from "./api";
 
 /** Last good response per key, so returning to a tab paints instantly while it refreshes. */
 const cache = new Map<string, unknown>();
 const listeners = new Set<() => void>();
 
-/** Ask every mounted screen to refetch (pull to refresh, after a confirm or a buy). */
-export function refreshAll() { cache.clear(); listeners.forEach(l => l()); }
-export function clearApiCache() { cache.clear(); }
+// The cache is also kept in localStorage per signed-in user, so a reload or a new visit paints
+// the last screen at once and refreshes behind it. Only set for a real session (not /shots).
+const STORE = "ob:api:v1:";
+let owner: string | null | undefined; // undefined until the session first reports
+const storeKey = () => (owner ? STORE + owner : null);
+
+function save() {
+  const k = storeKey(); if (!k) return;
+  try { localStorage.setItem(k, JSON.stringify(Object.fromEntries(cache))); } catch { /* full or blocked: memory only */ }
+}
+
+function wipeStore() {
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith(STORE)) localStorage.removeItem(k); } catch { /* blocked */ }
+}
+
+/** Session calls this once it knows who is signed in; loads that user's saved screens. */
+export function setCacheOwner(id: string | null) {
+  if (id === owner) return;
+  owner = id; cache.clear();
+  const k = storeKey(); if (!k) { wipeStore(); return; } // signed out or session expired: nothing stays on the device
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith(STORE) && key !== k) localStorage.removeItem(key); // another user's
+    const saved = JSON.parse(localStorage.getItem(k) || "{}") as Record<string, unknown>;
+    for (const [key, v] of Object.entries(saved)) cache.set(key, v);
+  } catch { /* corrupt or blocked: start empty */ }
+}
+
+/** Ask every mounted screen to refetch (pull to refresh, after a confirm or a buy). Skips server caches. */
+export function refreshAll() { cache.clear(); wantFresh(); listeners.forEach(l => l()); }
+/** Sign-in / sign-out: forget everything, on this device too. */
+export function clearApiCache() { cache.clear(); owner = null; wipeStore(); }
 
 export function useApi<T>(key: string | null, load: () => Promise<T>, opts: { pollMs?: number } = {}) {
   const [data, setData] = useState<T | undefined>(() => (key ? (cache.get(key) as T | undefined) : undefined));
@@ -21,7 +49,7 @@ export function useApi<T>(key: string | null, load: () => Promise<T>, opts: { po
     if (!key) return;
     try {
       const v = await loader.current();
-      cache.set(key, v); setData(v); setError(null);
+      cache.set(key, v); save(); setData(v); setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError("UPSTREAM", 0));
     } finally { setLoading(false); }

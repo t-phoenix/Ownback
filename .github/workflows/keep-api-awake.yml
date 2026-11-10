@@ -1,0 +1,13 @@
+# Render's free plan sleeps the API after 15 idle minutes; the first visit then waits 30s+ for a cold start.
+# Ping /api/health (through Vercel's proxy) every 10 minutes. Free on a public repo.
+name: Keep API awake
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl -fsS --max-time 90 https://frontend-beige-delta-bppn1t6ufd.vercel.app/api/health

@@ -9,7 +9,7 @@ import { USDC } from '../shared/chains.js';
 import { listBuyableAssets, verifiedMint } from '../shared/assets.js';
 import { assetDisplayName } from './asset-name.js';
 import { mockChain } from './env.js';
-import { jupiterPriceUsd6, rawToQty, valueUsd6 } from './jupiter-price.js';
+import { jupiterPricesUsd6, rawToQty, valueUsd6 } from './jupiter-price.js';
 import { solRpc } from './jupiter-swap.js';
 import { freeByChain } from './wallet-sync.js';
 import { qtyToRaw } from './qty.js';
@@ -21,8 +21,8 @@ type User = { id: string; evmAddress?: string | null; solAddress?: string | null
 async function solBalances(owner: string): Promise<Map<string, bigint>> {
   const out = new Map<string, bigint>();
   const c = solRpc();
-  for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
-    const res = await c.getParsedTokenAccountsByOwner(new PublicKey(owner), { programId });
+  const both = await Promise.all([TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID].map((programId) => c.getParsedTokenAccountsByOwner(new PublicKey(owner), { programId })));
+  for (const res of both) {
     for (const a of res.value) {
       const info = (a.account.data as { parsed: { info: { mint: string; tokenAmount: { amount: string } } } }).parsed.info;
       out.set(info.mint, (out.get(info.mint) ?? 0n) + BigInt(info.tokenAmount.amount));
@@ -48,7 +48,25 @@ async function bookBalances(userId: string): Promise<Map<string, bigint>> {
   return out;
 }
 
-export async function portfolio(user: User) {
+type Portfolio = Awaited<ReturnType<typeof readPortfolio>>;
+const PORTFOLIO_TTL_MS = 10_000;
+const recent = new Map<string, { at: number; p: Promise<Portfolio> }>();
+
+/**
+ * Display only (Home, Holdings): one read per user shared by concurrent requests and reused for 10s.
+ * `fresh` (the PWA sends Cache-Control: no-cache right after a buy, sell or deposit) skips the reuse.
+ */
+export function portfolio(user: User, opts: { fresh?: boolean } = {}): Promise<Portfolio> {
+  const hit = recent.get(user.id);
+  if (hit && !opts.fresh && Date.now() - hit.at < PORTFOLIO_TTL_MS) return hit.p;
+  const p = readPortfolio(user);
+  recent.set(user.id, { at: Date.now(), p });
+  p.catch(() => { if (recent.get(user.id)?.p === p) recent.delete(user.id); });
+  for (const [k, v] of recent) if (Date.now() - v.at > PORTFOLIO_TTL_MS) recent.delete(k); // keep the map small
+  return p;
+}
+
+async function readPortfolio(user: User) {
   const live = !mockChain() && !!user.solAddress;
   const [balances, arc] = await Promise.all([
     live ? solBalances(user.solAddress!).catch(() => null) : bookBalances(user.id),
@@ -56,12 +74,15 @@ export async function portfolio(user: User) {
   ]);
   const stale = balances === null;
   const bal = balances ?? new Map<string, bigint>();
-  const held: Held[] = [];
-  for (const a of listBuyableAssets()) {
+  const owns = listBuyableAssets().flatMap((a) => {
     const m = a.mints.find((x) => x.chain === 'solana' && x.verified);
     const raw = m ? bal.get(m.mint) ?? 0n : 0n;
-    if (!m || raw <= 0n) continue;
-    const price = (await jupiterPriceUsd6(m.mint)) ?? 0n;
+    return m && raw > 0n ? [{ a, m, raw }] : [];
+  });
+  const prices = await jupiterPricesUsd6(owns.map((o) => o.m.mint), { display: true });
+  const held: Held[] = [];
+  for (const { a, m, raw } of owns) {
+    const price = prices.get(m.mint) ?? 0n;
     held.push({
       assetId: a.assetId, name: assetDisplayName(a.assetId), token: m.symbol, chain: 'solana', mint: m.mint,
       decimals: m.decimals, raw, qty: rawToQty(raw, m.decimals), priceUsd6: price, valueUsd6: valueUsd6(raw, m.decimals, price),
