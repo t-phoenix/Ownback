@@ -1,0 +1,21 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-11-10T12:00:00Z"},
+  "lists": "css",
+  "title": "Ownback · Own what you buy",
+  "cover": "cover",
+  "order": ["cover", "receipt", "oneway", "inside", "idea", "follow", "screens", "trust", "stack", "live", "field", "model", "next", "close"],
+  "sections": {
+    "s1": {"description": "The receipt: you buy, a company wins, you get paper", "start": "cover"},
+    "s2": {"description": "The insight: every product hides a supply chain you could own", "start": "inside"},
+    "s3": {"description": "The product: jars that turn spending into shares you approve", "start": "idea"},
+    "s4": {"description": "Proof: trust model, stack, and real mainnet money", "start": "trust"},
+    "s5": {"description": "The business: field, revenue, gates and the ask", "start": "field"}
+  },
+  "faces": {
+    "bricolage-grotesque": {"family": "Bricolage Grotesque", "href": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400..800&display=swap"},
+    "source-sans-3": {"family": "Source Sans 3", "href": "https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&display=swap"},
+    "jetbrains-mono": {"family": "JetBrains Mono", "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"}
+  },
+  "designSystems": []
+}
