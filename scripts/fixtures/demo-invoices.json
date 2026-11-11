@@ -1,9 +1,9 @@
 {
-  "note": "Mock invoices for Ownback pipeline testing. POST typed ones to /api/purchases as JSON. Verified Solana xStocks (2026-11-09): 834 mints in database/registry/assets-curated.json (three-source). Buyability still needs a live Jupiter route at quote time.",
+  "note": "Mock invoices for Ownback pipeline testing. POST typed ones to /api/purchases as JSON, or multipart image (jpeg/png/webp/heic) for photo path. PDF companions are for viewing only — API rejects application/pdf. Verified Solana xStocks (2026-11-09): 834 mints in database/registry/assets-curated.json (three-source). Buyability still needs a live Jupiter route at quote time.",
   "api": {
     "method": "POST",
     "path": "/api/purchases",
-    "headers": ["Content-Type: application/json", "Idempotency-Key: <uuid>", "Cookie: session", "x-csrf: <token>"],
+    "headers": ["Content-Type: application/json | multipart/form-data", "Idempotency-Key: <uuid>", "Cookie: session", "x-csrf: <token>"],
     "bodyShape": {
       "text": {
         "product": "string",
@@ -13,7 +13,8 @@
         "model": "optional",
         "shop": "optional",
         "date": "optional YYYY-MM-DD"
-      }
+      },
+      "photo": "multipart field `image` = scripts/fixtures/demo-invoice-*.png"
     }
   },
   "invoices": [
@@ -222,6 +223,191 @@
       "expected": {
         "verifiedBuyable": [],
         "statusLikely": ["not_listed", "needs_review", "ready"]
+      }
+    },
+    {
+      "id": "microsoft-surface",
+      "label": "Microsoft Surface Laptop ($2.3k photo/PDF)",
+      "pathUnderTest": "photo read_receipt → catalog Microsoft co:microsoft; large ticket invest",
+      "files": {
+        "image": "demo-invoice-microsoft-surface.png",
+        "pdf": "demo-invoice-microsoft-surface.pdf"
+      },
+      "typed": {
+        "text": {
+          "product": "Microsoft Surface Laptop 7 15\"",
+          "amount": "2320.00",
+          "currency": "USD",
+          "maker": "Microsoft",
+          "model": "Surface Laptop 7 15\"",
+          "shop": "Microsoft Store Online",
+          "date": "2026-11-04"
+        }
+      },
+      "invoiceText": "Microsoft Store invoice MS-INV-20261104-77412. Surface Laptop 7 15\" + Complete Care. Total USD 2320.00.",
+      "expected": {
+        "makerHint": "Microsoft",
+        "makerAssetId": "co:microsoft",
+        "verifiedBuyable": ["co:microsoft"],
+        "investAt5pctUsd": "~116.00"
+      }
+    },
+    {
+      "id": "nvidia-rtx",
+      "label": "NVIDIA RTX 5090 Best Buy ($2.3k photo/PDF)",
+      "pathUnderTest": "photo read_receipt → catalog NVIDIA co:nvidia; GPU hardware ticket",
+      "files": {
+        "image": "demo-invoice-nvidia-rtx.png",
+        "pdf": "demo-invoice-nvidia-rtx.pdf"
+      },
+      "typed": {
+        "text": {
+          "product": "NVIDIA GeForce RTX 5090 32GB",
+          "amount": "2376.13",
+          "currency": "USD",
+          "maker": "NVIDIA",
+          "model": "GeForce RTX 5090 32GB",
+          "shop": "Best Buy #4821",
+          "date": "2026-11-07"
+        }
+      },
+      "invoiceText": "Best Buy San Jose: NVIDIA GeForce RTX 5090 32GB Founders + Corsair PSU. Total USD 2376.13.",
+      "expected": {
+        "makerHint": "NVIDIA",
+        "makerAssetId": "co:nvidia",
+        "verifiedBuyable": ["co:nvidia"],
+        "investAt5pctUsd": "~118.81"
+      }
+    },
+    {
+      "id": "tesla-powerwall",
+      "label": "Tesla Powerwall 3 ($10.6k photo/PDF)",
+      "pathUnderTest": "photo read_receipt → catalog Tesla co:tesla; energy hardware large ticket",
+      "files": {
+        "image": "demo-invoice-tesla-powerwall.png",
+        "pdf": "demo-invoice-tesla-powerwall.pdf"
+      },
+      "typed": {
+        "text": {
+          "product": "Tesla Powerwall 3",
+          "amount": "10611.00",
+          "currency": "USD",
+          "maker": "Tesla",
+          "model": "Powerwall 3",
+          "shop": "Tesla Energy",
+          "date": "2026-11-02"
+        }
+      },
+      "invoiceText": "Tesla Energy invoice TSLA-EN-20261102-55081. Powerwall 3 + Wall Connector + install. Total USD 10611.00.",
+      "expected": {
+        "makerHint": "Tesla",
+        "makerAssetId": "co:tesla",
+        "verifiedBuyable": ["co:tesla"],
+        "investAt5pctUsd": "~530.55"
+      }
+    },
+    {
+      "id": "aws-large",
+      "label": "AWS large bill ($2.6k photo/PDF)",
+      "pathUnderTest": "product-graph digital_cloud aws keys → Amazon; photo path + large ticket vs small aws-bill",
+      "files": {
+        "image": "demo-invoice-aws-large.png",
+        "pdf": "demo-invoice-aws-large.pdf"
+      },
+      "typed": {
+        "text": {
+          "product": "Amazon Web Services — EC2 + S3 + RDS",
+          "amount": "2601.00",
+          "currency": "USD",
+          "maker": "Amazon",
+          "shop": "AWS",
+          "date": "2026-11-01"
+        }
+      },
+      "invoiceText": "Amazon Web Services invoice INV-2026-1101-99821. EC2, S3, RDS, CloudFront. Total USD 2601.00.",
+      "expected": {
+        "makerHint": "Amazon",
+        "makerAssetId": "co:amazon",
+        "verifiedBuyable": ["co:amazon"],
+        "investAt5pctUsd": "~130.05"
+      }
+    },
+    {
+      "id": "nike-wholesale",
+      "label": "Nike wholesale order ($2.4k photo/PDF)",
+      "pathUnderTest": "photo read_receipt → catalog Nike co:nike; apparel wholesale ticket",
+      "files": {
+        "image": "demo-invoice-nike-wholesale.png",
+        "pdf": "demo-invoice-nike-wholesale.pdf"
+      },
+      "typed": {
+        "text": {
+          "product": "Nike Air Max 90 assortment + Academy kits",
+          "amount": "2424.60",
+          "currency": "USD",
+          "maker": "Nike",
+          "shop": "Nike.com",
+          "date": "2026-11-06"
+        }
+      },
+      "invoiceText": "Nike.com order NK-ORD-88441209. Air Max 90 pack + Dri-FIT Academy kits. Total USD 2424.60.",
+      "expected": {
+        "makerHint": "Nike",
+        "makerAssetId": "co:nike",
+        "verifiedBuyable": ["co:nike"],
+        "investAt5pctUsd": "~121.23"
+      }
+    },
+    {
+      "id": "meta-quest",
+      "label": "Meta Quest 3 bundle ($1.6k photo/PDF)",
+      "pathUnderTest": "photo read_receipt → catalog Meta co:meta; VR hardware ticket",
+      "files": {
+        "image": "demo-invoice-meta-quest.png",
+        "pdf": "demo-invoice-meta-quest.pdf"
+      },
+      "typed": {
+        "text": {
+          "product": "Meta Quest 3 512GB (x2) + accessories",
+          "amount": "1683.68",
+          "currency": "USD",
+          "maker": "Meta",
+          "model": "Quest 3 512GB",
+          "shop": "Meta Store",
+          "date": "2026-11-05"
+        }
+      },
+      "invoiceText": "Meta Store invoice META-20261105-33190. Quest 3 512GB x2 + controllers + Elite Strap. Total USD 1683.68.",
+      "expected": {
+        "makerHint": "Meta",
+        "makerAssetId": "co:meta",
+        "verifiedBuyable": ["co:meta"],
+        "investAt5pctUsd": "~84.18"
+      }
+    },
+    {
+      "id": "gcp-large",
+      "label": "Google Cloud large bill ($3.0k photo/PDF)",
+      "pathUnderTest": "product-graph digital_cloud google keys → Alphabet co:googl; photo path + large ticket",
+      "files": {
+        "image": "demo-invoice-gcp-large.png",
+        "pdf": "demo-invoice-gcp-large.pdf"
+      },
+      "typed": {
+        "text": {
+          "product": "Google Cloud Platform — Compute + Storage",
+          "amount": "3026.00",
+          "currency": "USD",
+          "maker": "Alphabet",
+          "shop": "Google Cloud",
+          "date": "2026-11-01"
+        }
+      },
+      "invoiceText": "Google Cloud invoice GCP-2026-10-774991. Compute Engine, Storage, BigQuery, Cloud SQL. Total USD 3026.00.",
+      "expected": {
+        "makerAssetId": "co:googl",
+        "verifiedBuyable": ["co:googl"],
+        "investAt5pctUsd": "~151.30"
       }
     }
   ]
