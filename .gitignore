@@ -12,3 +12,5 @@ scripts/smoke/node_modules/
 # Intro film: keep only the final cut, storyboard and stills; build scripts and stems stay local
 business/intro-video/src/
 business/intro-video/*.wav
+business/demo-video/src/
+business/demo-video/ownback demo narration/
