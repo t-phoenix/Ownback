@@ -1,0 +1,153 @@
+<title>Ownback Intro Storyboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Same zine as the film: cream paper, heavy caps, green blocks, pink tags. Layout: film on top, then a timed shot list (frame | script). */
+:root{--paper:#EEEBE3;--surface:#FAF8F3;--ink:#121212;--ink2:#3A3A36;--muted:#6B6B66;--line:#D9D4C8;--green:#0F7B4F;--on-green:#EEEBE3;--gold:#E9B949;--pink:#E0206F;
+ --f-d:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;--f-b:"Source Sans 3",ui-sans-serif,system-ui,sans-serif;--f-m:"JetBrains Mono",ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#141412;--surface:#1D1D1A;--ink:#EEEBE3;--ink2:#CFCAC0;--muted:#9C978C;--line:#33322D;--green:#3FB27F;--on-green:#0E1A14;--pink:#FF5C9C;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#141412;--surface:#1D1D1A;--ink:#EEEBE3;--ink2:#CFCAC0;--muted:#9C978C;--line:#33322D;--green:#3FB27F;--on-green:#0E1A14;--pink:#FF5C9C;color-scheme:dark}
+body{background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--f-b)}
+.wrap{max-width:1120px;margin:0 auto;padding-block:36px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:48px}
+.bar{display:flex;justify-content:space-between;gap:12px;font:700 12px var(--f-m);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+h1,h2,h3{font-family:var(--f-d);font-weight:800;text-transform:uppercase;line-height:.95;margin:0;text-wrap:balance}
+h1{font-size:clamp(40px,7.5vw,84px)}
+h2{font-size:clamp(26px,4vw,40px)}
+h3{font-size:19px;text-transform:none}
+.hl{background:var(--green);color:var(--on-green);padding:0 .12em}
+.tag{display:inline-block;background:var(--pink);color:#fff;font:700 15px var(--f-b);padding:3px 10px}
+p{margin:0;max-width:68ch}
+header{display:grid;gap:16px}
+.lede{font-size:19px;color:var(--ink2)}
+video{width:100%;max-width:100%;aspect-ratio:16/9;background:#000;display:block;box-shadow:0 18px 40px rgba(0,0,0,.25)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;font:500 13px var(--f-m);color:var(--muted)}
+.scenes{display:grid;gap:34px}
+.scene{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;padding-top:26px;border-top:2px solid var(--ink);align-items:start}
+.frame{margin:0;background:#fff;padding:10px 10px 34px;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;max-width:100%}
+.frame img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.frame figcaption{position:absolute;left:12px;bottom:9px;font:700 12px var(--f-m);color:#333;letter-spacing:.08em}
+.copy{display:grid;gap:12px;min-width:0}
+.tc{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
+.num{font:800 21px var(--f-d);text-transform:uppercase}
+.time{font:700 12px var(--f-m);color:var(--muted);font-variant-numeric:tabular-nums}
+.vo{list-style:none;margin:0;padding:0 0 0 14px;border-left:4px solid var(--gold);display:grid;gap:6px;font-size:17px;font-style:italic}
+.t{font:700 12px var(--f-m);font-style:normal;color:var(--green);margin-right:10px;font-variant-numeric:tabular-nums}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:15px}
+dt{font:700 11px/1.9 var(--f-m);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+dd{margin:0;color:var(--ink2)}
+.sync{background:var(--surface);border:1px solid var(--line);padding:10px 14px}
+.sh{font:700 11px var(--f-m);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.sync ul{list-style:none;margin:0;padding:0;display:grid;gap:3px;font-size:14px}
+@media (max-width:760px){.scene{grid-template-columns:1fr}}
+.section{display:grid;gap:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);padding:16px;display:grid;gap:6px;align-content:start}
+.card p{font-size:14px;color:var(--ink2)}
+.k{font:700 11px var(--f-m);letter-spacing:.08em;text-transform:uppercase;color:var(--green)}
+.tablebox{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{padding:9px 14px;text-align:left;border-bottom:1px solid var(--line)}
+th{font:700 11px var(--f-m);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td.n,th.n{text-align:right;font-family:var(--f-m);font-variant-numeric:tabular-nums}
+tfoot td{font-weight:700}
+ul.notes{display:grid;gap:8px;font-size:14px;color:var(--ink2);padding-left:18px;margin:0}
+a{color:var(--green)}
+</style>
+<div class="wrap">
+<div class="bar"><span>Signal ✱ Abhinil</span><span>Issue 02 · Ownback</span></div>
+<header>
+  <span class="tag">intro film · v4 · 112 seconds · your voice</span>
+  <h1>The MacBook I should have <span class="hl">bought twice.</span></h1>
+  <p class="lede">Ten years of buying Apple and never owning any of it, then 36 hours at ETHGlobal Mumbai to build the fix. Every timestamp below is read from the voice track, and every animation in the film fires on the word shown.</p>
+  <div class="meta"><span>1920×1080 · 30 fps</span><span>Voice: cloned from your 21-second sample, 11 emotional passages</span><span>Real Apple products, real AAPL data, real ETHGlobal footage, your real app screens</span></div>
+</header>
+<video src="intro-video/ownback-intro-1080p.mp4" controls playsinline preload="metadata" poster="intro-video/stills/k01.jpg"></video>
+
+<section class="scenes" aria-label="Shot list">
+<h2>Shot list, synced</h2>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k01.jpg" alt="Frame from scene 1: Cold open · 2016" loading="lazy"><figcaption>0:11.46</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">01 · Cold open · 2016</span><span class="time">0:00.00 – 0:11.76 · 11.8s</span></div>
+<ol class="vo"><li><span class="t">0:00.87</span>I&#x27;ve been an Apple user for ten years.</li><li><span class="t">0:03.28</span>It started in twenty sixteen... my first week of computer science engineering, when my dad bought me my first MacBook Air.</li></ol><dl><dt>Picture</dt><dd>Zine cover in the style of your post: “I’ve been an Apple user for” + green block “10 years.”, real Apple logo sticker. Outline “2016” stamp, pink tag “first week of computer science”. A recreated chat from Papa (marked “chat recreated”, since there is no photo) and a polaroid of a 2015-era MacBook Air with the glowing logo: “Exhibit A · the first one”.</dd><dt>Sound</dt><dd>Soft felt-piano arpeggio starts. Paper slap on each sticker, message blips on the chat.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">0:02.37</span><b>“ten”</b> → “10 years.” block slams in</li><li><span class="t">0:04.13</span><b>“twenty sixteen”</b> → 2016 stamp</li><li><span class="t">0:08.73</span><b>“dad”</b> → Papa’s message pops</li><li><span class="t">0:10.58</span><b>“MacBook”</b> → polaroid lands</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k02.jpg" alt="Frame from scene 2: The habit" loading="lazy"><figcaption>0:19.96</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">02 · The habit</span><span class="time">0:11.76 – 0:19.68 · 7.9s</span></div>
+<ol class="vo"><li><span class="t">0:11.91</span>Then came AirPods. An iPhone Ten. An iPad, for notes. A Watch. And a new iPhone... almost every other year.</li></ol><dl><dt>Picture</dt><dd>Each real product slaps onto the table on its own word: the MacBook Air, AirPods, iPhone X, iPad Air, Watch, then iPhone 11, 14 Pro, MacBook Air 15″, 16 Pro and 17 Pro on “a new iPhone almost every other year”. Year tags in pink. A counter in the top right adds the real launch prices as they land, ending on $8,250.</dd><dt>Sound</dt><dd>One slap per product, on the beat of the word.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">0:12.82</span><b>“AirPods”</b> → AirPods</li><li><span class="t">0:13.81</span><b>“iPhone Ten”</b> → iPhone X</li><li><span class="t">0:14.83</span><b>“iPad”</b> → iPad Air</li><li><span class="t">0:16.21</span><b>“Watch”</b> → Apple Watch</li><li><span class="t">0:17.24</span><b>“new iPhone…year”</b> → five more drop in quick succession</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k03.jpg" alt="Frame from scene 3: The math" loading="lazy"><figcaption>0:36.76</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">03 · The math</span><span class="time">0:19.68 – 0:36.98 · 17.3s</span></div>
+<ol class="vo"><li><span class="t">0:19.78</span>So, last month, I finally did the math.</li><li><span class="t">0:24.39</span>Ten years. Eight thousand, two hundred and fifty dollars... on Apple products.</li><li><span class="t">0:29.95</span>If that same money had gone into Apple&#x27;s stock... it would be worth over thirty-eight thousand dollars today.</li></ol><dl><dt>Picture</dt><dd>“I did the math.” Then $8,250 with a pink “spent on Apple products” tag. It slides left as the real AAPL monthly line (Jun 2016 to Nov 2026, 126 closes) draws itself, with a dot at every purchase month. It lands on $38,254 in a green block. Fine print: split-adjusted, dividends left out, not investment advice.</dd><dt>Sound</dt><dd>Low thud on the total. A rising swell under the line, then the music drops to a single low drone on “thirty-eight thousand”.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">0:23.46</span><b>“math”</b> → title slap</li><li><span class="t">0:25.82</span><b>“eight thousand”</b> → $8,250</li><li><span class="t">0:32.76</span><b>“stock”</b> → AAPL line starts drawing</li><li><span class="t">0:34.87</span><b>“thirty-eight”</b> → $38,254 lands, music cuts</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k04.jpg" alt="Frame from scene 4: The one that hurts" loading="lazy"><figcaption>0:42.31</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">04 · The one that hurts</span><span class="time">0:36.98 – 0:43.06 · 6.1s</span></div>
+<ol class="vo"><li><span class="t">0:37.08</span>And that first MacBook alone? Thirteen thousand dollars. Ha. That&#x27;s... thirteen MacBooks.</li></ol><dl><dt>Picture</dt><dd>The 2016 MacBook Air cutout shrinks and fades while a photoreal gold coin stack rises. $999 struck through, $13,303 in gold. On “Thirteen MacBooks”, a row of 13 MacBook stickers pops in.</dd><dt>Sound</dt><dd>A pour of coin clinks on “thirteen”, 13 quick ticks for the row.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">0:39.08</span><b>“thirteen” (1st)</b> → laptop → coin stack, $13,303</li><li><span class="t">0:42.01</span><b>“MacBooks”</b> → row of 13</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k05.jpg" alt="Frame from scene 5: The turn" loading="lazy"><figcaption>0:55.42</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">05 · The turn</span><span class="time">0:43.06 – 0:55.82 · 12.8s</span></div>
+<ol class="vo"><li><span class="t">0:43.16</span>I don&#x27;t regret the MacBook. It&#x27;s how I learned to code.</li><li><span class="t">0:48.78</span>What I regret... is that I only ever bought what Apple makes. Never a piece of Apple.</li></ol><dl><dt>Picture</dt><dd>“I don’t regret the MacBook.” beside the glowing-laptop polaroid (“It’s how I learned to code”). Then “I regret never owning a piece of Apple.” The Apple logo loses its top-right quarter: the slice lifts off and turns to gold, the same motion as the Ownback mark.</dd><dt>Sound</dt><dd>Music thins to single notes. A soft upward lift on “piece”.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">0:54.18</span><b>“piece”</b> → gold slice lifts out of the logo</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k06.jpg" alt="Frame from scene 6: ETHGlobal Mumbai" loading="lazy"><figcaption>1:04.47</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">06 · ETHGlobal Mumbai</span><span class="time">0:55.82 – 1:04.86 · 9.0s</span></div>
+<ol class="vo"><li><span class="t">0:55.92</span>So at ETH Global Mumbai, with fourteen hundred hackers and thirty-six hours on the clock, we built the thing I wish I&#x27;d had at eighteen.</li></ol><dl><dt>Picture</dt><dd>Full-bleed B-roll from ETHGlobal’s own recap video: arriving with suitcases, the hall, hands on a keyboard, the Arkiv booth, the crowd, a tired stretch. A “1,402 hackers” chip, and a 36:00:00 clock that runs down. Then a cream collage: the 1402-hackers stage photo (ETHGlobal), your “4 AM · still building” photo, your swag table from the post, and your “I demoed” sticker.</dd><dt>Sound</dt><dd>Whoosh in. Music lifts an octave and a soft kick enters. Slaps as the photos land.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">0:55.92</span><b>“ETH Global”</b> → B-roll starts</li><li><span class="t">0:57.89</span><b>“fourteen hundred”</b> → 1,402 chip</li><li><span class="t">0:59.87</span><b>“thirty-six”</b> → clock starts</li><li><span class="t">1:02.35</span><b>“wish”</b> → cut to the collage</li><li><span class="t">1:04.17</span><b>“eighteen”</b> → “at 18.” block</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k07.jpg" alt="Frame from scene 7: The name" loading="lazy"><figcaption>1:06.48</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">07 · The name</span><span class="time">1:04.86 – 1:07.82 · 3.0s</span></div>
+<ol class="vo"><li><span class="t">1:04.96</span>It&#x27;s called Ownback.</li></ol><dl><dt>Picture</dt><dd>“It’s called” then the real Ownback mark spins in, with the wordmark beside it.</dd><dt>Sound</dt><dd>Slap and a coin ring on the name.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">1:05.98</span><b>“Ownback”</b> → mark spins in</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k08.jpg" alt="Frame from scene 8: How it works" loading="lazy"><figcaption>1:25.57</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">08 · How it works</span><span class="time">1:07.82 – 1:25.29 · 17.5s</span></div>
+<ol class="vo"><li><span class="t">1:07.92</span>Snap any receipt. Five percent goes into a U S D C jar, on Arc.</li><li><span class="t">1:11.30</span>When the jar is full, you tap approve.</li><li><span class="t">1:14.10</span>And it buys real, tokenized shares. Apple, who made it. TSMC, who built the chip. Even the gold inside. Straight into your own wallet.</li></ol><dl><dt>Picture</dt><dd>An iPhone 17 Pro frame running your real app screens. Confirm purchase (iPhone 16 Pro ₹79,900 → $47.75), then Buy, then Buy done. Center: a photoreal glass jar labelled “Apple jar · USDC on Arc”. A gold “5%” slice flies from the phone into it. Coins fall in one by one and the real coins rise inside the glass (the full jar is revealed from the bottom of the empty one), with a counter $0.00 → $5.00. “READY” stamps on. A tap ripple on Buy. Then Apple, TSMC and Gold token chips burst out and fly into the phone, which flips to “You bought 2 assets”. A step bar on top: 01 Snap · 02 Save 5% · 03 Approve · 04 Own.</dd><dt>Sound</dt><dd>A clink per falling coin, a ding when the jar is full, a tap, then a burst and a ding as tokens land.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">1:08.66</span><b>“five percent”</b> → slice flies, jar starts filling</li><li><span class="t">1:12.27</span><b>“full”</b> → READY</li><li><span class="t">1:13.34</span><b>“approve”</b> → tap</li><li><span class="t">1:16.67</span><b>“Apple / TSMC / gold”</b> → token chips, one per word</li><li><span class="t">1:24.67</span><b>“wallet”</b> → tokens fly into the phone</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k09.jpg" alt="Frame from scene 9: The rewind" loading="lazy"><figcaption>1:38.06</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">09 · The rewind</span><span class="time">1:25.29 – 1:38.71 · 13.4s</span></div>
+<ol class="vo"><li><span class="t">1:25.39</span>Now play my ten years again. Same MacBook. Same iPhones. Just five percent, set aside.</li><li><span class="t">1:32.15</span>Four hundred and twelve dollars. Today? Worth nineteen hundred. And I&#x27;d still have every single gadget.</li></ol><dl><dt>Picture</dt><dd>The scene-2 table again, with a rewind shake. On “five percent” a small gold stack pops under every product while “Set aside” counts to $412.50. “Worth today $1,913.” On “gadget” every product bounces: you keep them all.</dd><dt>Sound</dt><dd>Rewind sweep, a clink per stack, a low boom on the total.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">1:30.82</span><b>“five percent”</b> → stacks pop in</li><li><span class="t">1:33.70</span><b>“worth”</b> → $1,913</li><li><span class="t">1:37.56</span><b>“gadget”</b> → everything bounces</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k10.jpg" alt="Frame from scene 10: Dad, 2026" loading="lazy"><figcaption>1:45.47</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">10 · Dad, 2026</span><span class="time">1:38.71 – 1:45.58 · 6.9s</span></div>
+<ol class="vo"><li><span class="t">1:38.81</span>Papa... next time you buy me a laptop, let&#x27;s own a little of the company too.</li></ol><dl><dt>Picture</dt><dd>Back to the chat. The 2016 message is greyed out above a “Today” divider. Your new message types itself word by word in time with the voice. “Papa is typing…”, then “😄 Deal. Send me the app.”</dd><dt>Sound</dt><dd>Message blips.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">1:38.81</span><b>each word</b> → the bubble fills as you say it</li><li><span class="t">1:44.17</span><b>line end</b> → Papa is typing</li></ul></div></div></article>
+<article class="scene"><figure class="frame"><img src="intro-video/stills/k11.jpg" alt="Frame from scene 11: End card" loading="lazy"><figcaption>1:51.77</figcaption></figure>
+<div class="copy"><div class="tc"><span class="num">11 · End card</span><span class="time">1:45.58 – 1:52.27 · 6.7s</span></div>
+<ol class="vo"><li><span class="t">1:45.68</span>Ownback. Own what you buy.</li></ol><dl><dt>Picture</dt><dd>Ownback mark and wordmark, green block “Own what you buy.”, a photoreal coin, your “I demoed” sticker, and the footer “Built in 36 hours at ETHGlobal Mumbai · Arc · 0G · Arkiv”.</dd><dt>Sound</dt><dd>A resolved piano chord and a coin ring.</dd></dl>
+<div class="sync"><div class="sh">Sync points</div><ul><li><span class="t">1:48.06</span><b>“Own”</b> → tagline slams</li><li><span class="t">1:48.63</span><b>“buy”</b> → coin and sticker</li></ul></div></div></article>
+</section>
+
+<section class="section">
+  <h2>The numbers</h2>
+  <p>Ten Apple products at US launch prices, each matched to that month's AAPL close (split-adjusted) and valued at $346.92 on 10 Nov 2026. Dividends are left out.</p>
+  <div class="tablebox"><table>
+    <thead><tr><th>Bought</th><th>Product</th><th class="n">Price</th><th class="n">AAPL then</th><th class="n">As AAPL today</th></tr></thead>
+    <tbody>
+    <tr><td>Jul 2016</td><td>MacBook Air 13"</td><td class="n">$999</td><td class="n">$26.05</td><td class="n">$13,303</td></tr>
+    <tr><td>Dec 2016</td><td>AirPods</td><td class="n">$159</td><td class="n">$28.96</td><td class="n">$1,905</td></tr>
+    <tr><td>Nov 2017</td><td>iPhone X</td><td class="n">$999</td><td class="n">$42.96</td><td class="n">$8,067</td></tr>
+    <tr><td>Sep 2019</td><td>iPhone 11</td><td class="n">$699</td><td class="n">$55.99</td><td class="n">$4,331</td></tr>
+    <tr><td>Oct 2020</td><td>iPad Air</td><td class="n">$599</td><td class="n">$108.86</td><td class="n">$1,909</td></tr>
+    <tr><td>Oct 2021</td><td>Apple Watch Series 7</td><td class="n">$399</td><td class="n">$149.80</td><td class="n">$924</td></tr>
+    <tr><td>Sep 2022</td><td>iPhone 14 Pro</td><td class="n">$999</td><td class="n">$138.20</td><td class="n">$2,508</td></tr>
+    <tr><td>Jun 2023</td><td>MacBook Air 15"</td><td class="n">$1,299</td><td class="n">$193.97</td><td class="n">$2,323</td></tr>
+    <tr><td>Sep 2024</td><td>iPhone 16 Pro</td><td class="n">$999</td><td class="n">$233.00</td><td class="n">$1,487</td></tr>
+    <tr><td>Sep 2025</td><td>iPhone 17 Pro</td><td class="n">$1,099</td><td class="n">$254.63</td><td class="n">$1,497</td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="2">Total</td><td class="n">$8,250</td><td></td><td class="n">$38,254</td></tr>
+    <tr><td colspan="2">With Ownback, 5% of each</td><td class="n">$412.50</td><td></td><td class="n">$1,913</td></tr></tfoot>
+  </table></div>
+</section>
+
+<section class="section">
+  <h2>What's in the film</h2>
+  <div class="grid">
+    <div class="card"><span class="k">Photoreal 3D, generated</span><h3>Gold coin, coin stack, jar</h3><p>A coin embossed with the Ownback slice, a 16-coin stack, and the same glass jar full and empty. The fill is a true reveal: the full jar is uncovered from the bottom of the empty one, so real coins rise inside real glass.</p></div>
+    <div class="card"><span class="k">Real products</span><h3>Apple cutouts and photos</h3><p>The iPhone X, 11, 14 Pro, 16 Pro and 17 Pro, the iPad Air, the Apple logo, and the 2012–17 MacBook Air from Wikimedia Commons. Polaroids of the glowing-logo Air, the 15″ Air, AirPods and the Watch.</p></div>
+    <div class="card"><span class="k">Real footage</span><h3>ETHGlobal Mumbai</h3><p>Six clips from ETHGlobal's recap video and their closing-ceremony photos, plus your own 4 AM photo, your swag table and your “I demoed” sticker from the post.</p></div>
+    <div class="card"><span class="k">Your app</span><h3>Real screens in an iPhone 17 Pro</h3><p>Confirm purchase, Buy and Buy done, straight from <span style="font-family:var(--f-m)">docs/screenshots</span>, inside a real iPhone 17 Pro silhouette.</p></div>
+    <div class="card"><span class="k">Recreation</span><h3>The chat with Papa</h3><p>No photo of the day, so the opener is a chat recreation, marked as one on screen. It comes back at the end, in 2026, with the punchline.</p></div>
+    <div class="card"><span class="k">Sound</span><h3>Your voice, told as a story</h3><p>Your voice, cloned and read in 11 passages, each with its own emotion setting: nostalgic, playful, hesitant, stunned, wry, soft, excited, confident, hopeful, tender, calm. Each passage has its own pace (128–180 wpm) and level (−4.5 to +1.5 dB), with pitch matched to your sample. Lines are joined in their natural pauses, never cut mid-word. The piano dips under each whole sentence and comes back slowly, and the sound effects are background only: they play in the pauses and are silenced whenever you speak.</p></div>
+  </div>
+  <ul class="notes">
+    <li>The voice is a clone of your 21-second sample. Your own read will always be the most human; record it line by line against this board and the timings stay.</li>
+    <li>ETHGlobal's photos and video are theirs. Ask them before you post, and credit them. Wikimedia images carry their own licences (CC BY-SA / public domain); credit them in the post.</li>
+    <li>Using Apple's name, logo and products is your call. It's fine for commentary, but it shouldn't suggest Apple endorses Ownback.</li>
+    <li>Keep the "not investment advice" lines on the math and rewind scenes. Mainnet money is involved.</li>
+  </ul>
+</section>
+</div>

@@ -5,3 +5,10 @@
 *.pem
 node_modules/
 scripts/smoke/node_modules/
+
+# Local Claude Code state (worktrees, launch config)
+.claude/
+
+# Intro film: keep only the final cut, storyboard and stills; build scripts and stems stay local
+business/intro-video/src/
+business/intro-video/*.wav
