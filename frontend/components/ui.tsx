@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRight, Check, ChevronsRight } from "lucide-react";
 import type { Tone } from "../lib/assets";
 import { fmtUsd6, splitUsd } from "../lib/money";
@@ -236,18 +237,42 @@ export function ConfirmAction({ label, onConfirm }: { label: string; onConfirm: 
   return <button className="button primary full lg" onClick={() => { haptic(10); onConfirm(); }}>{label} <ArrowRight size={18} /></button>;
 }
 
+/** The brand loader: the Ownback mark flips like a coin while its gold slice snaps back in ("own back"). */
+export function Spinner({ size = 16 }: { size?: number }) {
+  return <svg className="ob-spin" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+    <path d={BODY} fill="currentColor" /><path className="ob-spin-slice" d={SLICE} fill="var(--accent)" />
+  </svg>;
+}
+
+export type StepState = "todo" | "active" | "done";
+/** One dot on a step timeline: number → coin loader → check that pops. The row gets the matching class for the rail. */
+export function StepIcon({ state, n }: { state: StepState; n?: number }) {
+  return <span className={`mini-icon sm track-dot ${state}`}>{state === "done" ? <Check size={16} strokeWidth={2.8} /> : state === "active" ? <Spinner /> : n != null ? <b className="num">{n}</b> : <span className="step-wait" />}</span>;
+}
+
+/** Arc → CCTP → Solana, with a coin that travels the bridge while it runs. */
+export function RouteStrip({ running, done }: { running: boolean; done?: boolean }) {
+  return <div className={`route-strip ${running ? "running" : ""} ${done ? "done" : ""}`} aria-hidden="true">
+    <span className="route-end arc">Arc</span>
+    <span className="route-track"><span className="route-label">CCTP</span><svg className="route-coin" viewBox="0 0 64 64"><path d={BODY} fill="var(--usdc)" /><path d={SLICE} fill="var(--accent)" /></svg></span>
+    <span className="route-end sol">Solana</span>
+  </div>;
+}
+
 /** Bottom sheet on phones, centred dialog on desktop. Drag the handle down, tap outside or press Esc to close. */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const [dy, setDy] = useState(0); const start = useRef<number | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    // Stacked sheets (Buy sheet → Arc approval): Esc closes only the top one.
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape" && panel.current?.parentElement === [...document.querySelectorAll(".sheet-scrim")].at(-1)) onClose(); };
     addEventListener("keydown", k); panel.current?.focus();
     return () => removeEventListener("keydown", k);
   }, [open, onClose]);
-  if (!open) return null;
-  return <div className="sheet-scrim" onClick={onClose}>
+  if (!open || typeof document === "undefined") return null;
+  // Portal: a sticky column or a backdrop-filter dock would otherwise trap the fixed scrim (chart painted over the sheet).
+  return createPortal(<div className="sheet-scrim" onClick={onClose}>
     <div ref={panel} className="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} style={{ transform: dy ? `translateY(${dy}px)` : undefined }} onClick={e => e.stopPropagation()}>
       <div className="sheet-grab"
         onPointerDown={e => { (e.target as HTMLElement).setPointerCapture(e.pointerId); start.current = e.clientY; }}
@@ -258,7 +283,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       <h2 className="sheet-title">{title}</h2>
       {children}
     </div>
-  </div>;
+  </div>, document.body);
 }
 
 type DeckItem = { id: string; title: string; body: string; cta: string; icon: ReactNode; meta?: string };

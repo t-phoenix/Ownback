@@ -962,6 +962,43 @@ svg.spin { animation: spin .8s linear infinite; }
 /* Arc buy plan: one approval, then live status per step. */
 .arc-plan { margin-top: 16px; }
 .arc-plan .mini-icon b { font-size: 14px; }
+
+/* Brand loader: the mark flips like a coin; its gold slice snaps back in. */
+.ob-spin { flex: none; overflow: visible; animation: ob-flip 1.3s var(--ease) infinite; }
+.ob-spin-slice { transform-box: view-box; animation: ob-bite 1.3s var(--spring) infinite; }
+@keyframes ob-flip { 0%, 20% { transform: rotateY(0); } 60%, 100% { transform: rotateY(360deg); } }
+@keyframes ob-bite { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(7px, -7px); } 70% { transform: translate(0, 0); } }
+.steps li.now .step-dot .ob-spin { color: var(--primary); }
+
+/* Step track: numbered dots on a rail that fills green as steps finish. */
+.track { padding-left: 0; list-style: none; }
+.track .row:has(+ .row > .track-dot)::after { content: ""; position: absolute; left: 32px; top: 50%; height: 100%; width: 2px; margin-left: -1px; background: var(--line-strong); transition: background 400ms var(--ease); }
+.track .row.done:has(+ .row > .track-dot)::after { background: var(--primary); }
+.track-dot { position: relative; z-index: 1; transition: background 300ms var(--ease), color 300ms var(--ease); }
+.track-dot.todo { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--line-strong); color: var(--muted); }
+.track-dot.active { background: var(--accent-soft); color: var(--primary); animation: dot-ring 1.6s ease-out infinite; }
+.track-dot.done { background: var(--primary); color: var(--on-primary); }
+.track-dot.done svg { animation: pop 420ms var(--spring); }
+.track-dot .step-wait { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
+.track .row.todo .row-title { color: var(--muted); }
+@keyframes dot-ring { 0% { box-shadow: 0 0 0 0 rgba(233, 185, 73, .55); } 100% { box-shadow: 0 0 0 10px rgba(233, 185, 73, 0); } }
+
+/* Arc → CCTP → Solana: a USDC coin crosses the bridge while the steps run. */
+.route-strip { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.route-end { flex: none; padding: 6px 12px; border-radius: 999px; font: 700 13px var(--font-display); letter-spacing: -.01em; background: var(--soft); color: var(--on-soft); }
+.route-end.sol { background: var(--usdc-soft); color: var(--usdc); }
+.route-track { position: relative; flex: 1; height: 28px; display: grid; place-items: center; }
+.route-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed var(--line-strong); }
+.route-label { position: relative; padding: 2px 8px; border-radius: 99px; background: var(--surface); color: var(--muted); font: 600 10px/1.4 var(--font-mono); letter-spacing: .08em; }
+.route-coin { position: absolute; left: 0; top: 50%; width: 22px; height: 22px; margin-top: -11px; filter: drop-shadow(0 2px 4px var(--usdc-glow)); }
+.route-strip.running .route-coin { animation: route-go 1.8s var(--ease) infinite; }
+.route-strip.running .route-track::before { border-color: var(--usdc-edge); }
+.route-strip.done .route-coin { left: calc(100% - 22px); animation: pop 420ms var(--spring); }
+@keyframes route-go { 0% { left: 0; transform: rotate(0); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { left: calc(100% - 22px); transform: rotate(360deg); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-spin, .ob-spin-slice, .track-dot.active, .route-strip.running .route-coin { animation: none; }
+}
 .sheet > .sub { margin-bottom: 4px; }
 
 /* ───────────── Price tag: ONE token's live price — a ticker, never a balance ───────────── */

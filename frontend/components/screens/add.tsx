@@ -1,9 +1,9 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ArrowRight, Camera, Check, ChevronDown, FileText, Lock, LockOpen, Mail, Mic, Plus, ShieldCheck, Sparkles, Square, Trash2, X } from "lucide-react";
+import { ArrowRight, Camera, Check, ChevronDown, FileText, Lock, LockOpen, Mail, Mic, Plus, ShieldCheck, Square, Trash2, X } from "lucide-react";
 import { useApp } from "../app-context";
-import { ConfirmAction, Creative, GlassJar, Money, Monogram, Tilt, haptic, useCoarse } from "../ui";
+import { ConfirmAction, Creative, GlassJar, Money, Monogram, Spinner, Tilt, haptic, useCoarse } from "../ui";
 import { ErrorState, Skeleton } from "../states";
 import { api, ApiError, type Allocation, type DetailField, type JuryRow, type Purchase, type PurchaseDetails, type ReadStep } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
@@ -234,7 +234,7 @@ export function Reading() {
     <ErrorState error={error} onRetry={() => navigate("/add", { dir: "back" })} />
     <ol className="steps" aria-live="polite">
       {steps.map((s, i) => <li key={`${s.key}-${i}`} className={s.state === "done" ? "done" : s.state === "running" ? "now" : s.state === "failed" ? "failed" : ""}>
-        <span className="step-dot">{s.state === "done" ? <Check size={14} strokeWidth={2.6} /> : s.state === "running" ? <Sparkles size={13} className="spin" /> : s.state === "failed" ? <X size={13} /> : null}</span>
+        <span className="step-dot">{s.state === "done" ? <Check size={14} strokeWidth={2.6} /> : s.state === "running" ? <Spinner size={15} /> : s.state === "failed" ? <X size={13} /> : null}</span>
         <span>{s.label}</span>
       </li>)}
     </ol>

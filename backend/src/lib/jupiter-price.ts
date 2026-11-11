@@ -195,6 +195,19 @@ export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippage
   });
 }
 
+/** $1 USDC→mint route probe: true = route, false = Jupiter says NO_ROUTES_FOUND, null = couldn't ask (429, timeout, 5xx). */
+export async function jupiterRouteOk(mint: string): Promise<boolean | null> {
+  try {
+    const res = await jupFetch(`${JUP_QUOTE}?inputMint=${SOL_USDC}&outputMint=${encodeURIComponent(mint)}&amount=1000000&slippageBps=100`);
+    if (res.ok) return !!((await res.json()) as { outAmount?: string }).outAmount;
+    if (res.status !== 400) return null;
+    const body = (await res.json().catch(() => ({}))) as { errorCode?: string };
+    return /NO_ROUTES|COULD_NOT_FIND|TOKEN_NOT_TRADABLE/.test(body.errorCode ?? '') ? false : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function jupiterSellQuote(mint: string, amountRaw: bigint, slippageBps = 100) {
   return jupiterQuote({
     inputMint: mint,

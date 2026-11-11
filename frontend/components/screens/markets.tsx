@@ -7,9 +7,9 @@
  */
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { ArrowRight, ChevronRight, Copy, ExternalLink, Loader2, RefreshCw, Search, ShieldCheck, Star, WifiOff } from "lucide-react";
+import { ArrowRight, ChevronRight, Copy, ExternalLink, RefreshCw, Search, ShieldCheck, Star, WifiOff } from "lucide-react";
 import { useApp } from "../app-context";
-import { ConfirmAction, Monogram, Ring, Sheet, haptic, useMedia } from "../ui";
+import { ConfirmAction, Monogram, Ring, RouteStrip, Sheet, Spinner, haptic, useMedia } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type Candle, type ChartRange, type MarketBuyReview, type MarketDetail, type MarketItem, type SellReview, type SignableAction, type SellSize } from "../../lib/api";
 import { prefetchApi, refreshAll, useApi } from "../../lib/use-api";
@@ -467,18 +467,19 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
     {note && <p className="callout">{note}</p>}
     {valid && idle && review && <div className="live small"><Ring value={(left / QUOTE_EVERY_S) * 100} size={22} stroke={3} /><span>New price in <b className="num">{left} s</b></span></div>}
     <div className="dock">
-      {phaseLabel ? <button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {phaseLabel}</button>
+      {phaseLabel ? <button className="button primary full lg" disabled><Spinner /> {phaseLabel}</button>
         : valid && row?.selectable && fresh ? <ConfirmAction label={`Buy ${fmtUsd6(usd6)}`} onConfirm={buy} />
-        : <button className="button primary full lg" disabled>{quoting ? <><Loader2 size={16} className="spin" /> Getting a price…</> : `Buy ${usd6 ? fmtUsd6(usd6) : ""}`}</button>}
+        : <button className="button primary full lg" disabled>{quoting ? <><Spinner /> Getting a price…</> : `Buy ${usd6 ? fmtUsd6(usd6) : ""}`}</button>}
       <p className="fineprint center"><ShieldCheck size={14} /> You sign every step. Nothing moves without you.</p>
     </div>
     <Sheet open={!!arcPlan} onClose={() => { if (phase === "review") { setArcPlan(null); setPhase("idle"); } }} title={`Approve ${arcLabels.length} step${arcLabels.length > 1 ? "s" : ""} on Arc`}>
+      <RouteStrip running={phase !== "review"} done={arcDone === arcLabels.length && arcLabels.length > 0} />
       <p className="sub">Moves {fmtUsd6(review?.funding.bridgeUsd6)} of your Arc USDC to your own Solana wallet, then buys {d.token}. You approve once here; your wallet then signs each step in order.</p>
       <ArcPlan labels={arcLabels} steps={steps} />
       {phase === "review" ? <div className="dock">
         <button className="button primary full lg" onClick={() => { haptic(10); void runArc(); }}>Approve and start <ArrowRight size={18} /></button>
         <button className="button quiet full" onClick={() => { setArcPlan(null); setPhase("idle"); }}>Cancel</button>
-      </div> : <div className="dock"><button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {phase === "submitting" ? "Checking Arc receipt…" : `Step ${Math.min(arcDone + 1, arcLabels.length)} of ${arcLabels.length}…`}</button></div>}
+      </div> : <div className="dock"><button className="button primary full lg" disabled><Spinner /> {phase === "submitting" ? "Checking Arc receipt…" : `Step ${Math.min(arcDone + 1, arcLabels.length)} of ${arcLabels.length}…`}</button></div>}
     </Sheet>
   </div>;
 }
@@ -542,7 +543,7 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
     {review && phase === "idle" && <div className="live small"><Ring value={(left / QUOTE_EVERY_S) * 100} size={22} stroke={3} /><span>New price in <b className="num">{left} s</b></span></div>}
     <p className="fineprint">{copy.sellNote}</p>
     <div className="dock">
-      {label ? <button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {label}</button>
+      {label ? <button className="button primary full lg" disabled><Spinner /> {label}</button>
         : review ? <ConfirmAction label={`Sell · ${fmtUsd6(review.estUsdcUsd6)}`} onConfirm={sell} />
         : <button className="button primary full lg" disabled>{quoting ? "Getting a price…" : "Sell"}</button>}
     </div>

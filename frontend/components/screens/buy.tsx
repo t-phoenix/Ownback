@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, Check, ChevronRight, ExternalLink, Loader2, RefreshCw, Share2, ShieldCheck, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, ChevronRight, ExternalLink, RefreshCw, Share2, ShieldCheck, Zap } from "lucide-react";
 import { useApp } from "../app-context";
-import { Coin3D, ConfirmAction, GlassJar, Monogram, PriceTag, Ring, Sheet, haptic } from "../ui";
+import { Coin3D, ConfirmAction, GlassJar, Monogram, PriceTag, Ring, RouteStrip, Sheet, Spinner, StepIcon, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type BuyEntry, type BuyProgress, type Jar, type SignableAction } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
@@ -108,11 +108,12 @@ const detailsOf = (e: unknown) => (e instanceof ApiError ? (e.details as Record<
 
 /** The Arc steps of a buy: what each one does before approval, then a live status per call with explorer links. */
 export function ArcPlan({ labels, steps }: { labels: string[]; steps: StepUpdate[] }) {
-  return <ol className="card list arc-plan" aria-live="polite">
+  return <ol className="card list track arc-plan" aria-live="polite">
     {labels.map((label, i) => {
       const s = steps.find(x => x.index === i);
-      return <li className="row" key={i}>
-        <span className="mini-icon sm">{s?.state === "done" ? <Check size={16} /> : s ? <Loader2 size={16} className="spin" /> : <b className="num">{i + 1}</b>}</span>
+      const state = s?.state === "done" ? "done" : s ? "active" : "todo";
+      return <li className={`row ${state}`} key={i}>
+        <StepIcon state={state} n={i + 1} />
         <span className="row-main"><span className="row-title">{label}</span>
           <span className="row-sub wrap">{!s ? arcStepWhy(label) : s.state === "signing" ? "Signing…" : s.state === "confirming" ? "Confirming on Arc…" : "Confirmed"}</span></span>
         {s?.txHash && <a className="fineprint" href={`https://explorer.arc.io/tx/${s.txHash}`} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc</a>}
@@ -247,7 +248,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
         {d.destination && <p className="fineprint">Shares go straight to your Solana wallet <span className="mono">{d.destination.slice(0, 4)}…{d.destination.slice(-4)}</span>. Ownback pays the Solana gas.</p>}
         {err && <p className="error" role="alert">{err}</p>}
         <div className="dock">
-          {phaseLabel ? <button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {phaseLabel}</button>
+          {phaseLabel ? <button className="button primary full lg" disabled><Spinner /> {phaseLabel}</button>
             : dirty ? <button className="button primary full lg" onClick={applyAmounts}>Update quotes first</button>
             : selectable.length ? <ConfirmAction label={`Buy now · ${fmtUsd6(d.totalUsd6)}`} onConfirm={buy} />
             : <button className="button primary full lg" disabled>Nothing can be bought right now</button>}
@@ -256,6 +257,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
       </div>
     </div>}
     <Sheet open={!!arcPlan} onClose={() => { if (phase === "review") { setArcPlan(null); setPhase("idle"); } }} title={`Approve ${arcLabels.length} step${arcLabels.length > 1 ? "s" : ""} on Arc`}>
+      <RouteStrip running={phase !== "review"} done={arcDone === arcLabels.length && arcLabels.length > 0} />
       <p className="sub">Moves {fmtUsd6(d?.funding.bridgeUsd6)} of your Arc USDC to your own Solana wallet, where each share is bought. You approve once here; your wallet then signs each step in order.</p>
       <ArcPlan labels={arcLabels} steps={steps} />
       {phase === "review"
@@ -263,7 +265,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
             <button className="button primary full lg" onClick={() => { haptic(10); void runArc(); }}>Approve and start <ArrowRight size={18} /></button>
             <button className="button quiet full" onClick={() => { setArcPlan(null); setPhase("idle"); }}>Cancel</button>
           </div>
-        : <div className="dock"><button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {phase === "submitting" ? "Checking Arc receipt…" : `Step ${Math.min(arcDone + 1, arcLabels.length)} of ${arcLabels.length}…`}</button></div>}
+        : <div className="dock"><button className="button primary full lg" disabled><Spinner /> {phase === "submitting" ? "Checking Arc receipt…" : `Step ${Math.min(arcDone + 1, arcLabels.length)} of ${arcLabels.length}…`}</button></div>}
       <p className="fineprint center"><ShieldCheck size={14} /> Only these steps, only this amount. Checked on your device before signing.</p>
     </Sheet>
   </div>;
@@ -359,13 +361,13 @@ export function BuyDone({ batchId }: { batchId: string }) {
     </div>
     {batchErr && <p className="error" role="alert"><AlertTriangle size={14} /> {d?.status === "attesting" || d?.status === "minting" ? "Still working: " : ""}{batchErr}</p>}
     {err && <p className="error" role="alert">{err}</p>}
-    {d && <ol className="card list" style={{ marginTop: 20 }} aria-live="polite">
+    {d && <ol className="card list track" style={{ marginTop: 20 }} aria-live="polite">
       {stages.map(st => {
         const done = st.doneAfter.includes(d.status);
         const active = !done && ((st.key === "arc" && d.status === "bridging") || (st.key === "attest" && d.status === "attesting") || (st.key === "mint" && d.status === "minting"));
         const link = st.key === "arc" ? d.links.arc : st.key === "mint" ? d.links.mint : undefined;
-        return <li className="row" key={st.key}>
-          <span className="mini-icon sm">{done ? <Check size={16} /> : <Loader2 size={16} className="spin" />}</span>
+        return <li className={`row ${done ? "done" : active ? "active" : "todo"}`} key={st.key}>
+          <StepIcon state={done ? "done" : active ? "active" : "todo"} />
           <span className="row-main">
             <span className="row-title">{st.label}</span>
             <span className="row-sub">{st.key === "arc" ? fmtUsd6(d.bridgeUsd6) : active && d.error ? pipelineCopy(d.error) : active ? "In progress" : done ? "Done" : "Waiting"}</span>
@@ -383,7 +385,7 @@ export function BuyDone({ batchId }: { batchId: string }) {
           : canSwap ? "Ready to sign"
           : "Waits for USDC on Solana";
         return <li className="row" key={e.assetId}>
-          <Monogram name={name} icon={e.icon} tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : busy ? <Loader2 size={16} className="spin" /> : e.icon ? undefined : name.slice(0, 2).toUpperCase()}</Monogram>
+          <Monogram name={name} icon={e.icon} tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : busy ? <Spinner /> : e.icon ? undefined : name.slice(0, 2).toUpperCase()}</Monogram>
           <span className="row-main">
             <span className="row-title">Buy {e.token ?? name}</span>
             <span className="row-sub">{sub}</span>
@@ -407,7 +409,7 @@ export function BuyDone({ batchId }: { batchId: string }) {
       {needsNewBuy && <button className="button primary full lg" onClick={() => navigate(marketBack ? `${marketBack}?trade=buy` : "/buy/review")}>Start a new buy <ArrowRight size={18} /></button>}
       {showRetry && !needsNewBuy && (
         <button className="button primary full lg" disabled={retrying || !!signing} onClick={retryPipeline}>
-          {retrying ? <><Loader2 size={16} className="spin" /> Retrying…</> : <><RefreshCw size={16} /> Retry</>}
+          {retrying ? <><Spinner /> Retrying…</> : <><RefreshCw size={16} /> Retry</>}
         </button>
       )}
       <button className={`button ${showRetry || needsNewBuy ? "quiet" : "primary"} full lg`} onClick={() => navigate(market ? `/holdings/${encodeURIComponent(market.assetId)}` : "/holdings")}>
@@ -465,7 +467,7 @@ export function SellReview({ assetId }: { assetId: string }) {
       <p className="fineprint">USDC lands in your Solana wallet. You can move it to Arc from Holdings.</p>
       {err && <p className="error" role="alert">{err}</p>}
       <div className="dock">
-        {label ? <button className="button primary full lg" disabled><Loader2 size={16} className="spin" /> {label}</button>
+        {label ? <button className="button primary full lg" disabled><Spinner /> {label}</button>
           : dirty ? <button className="button primary full lg" onClick={() => { setQtyApplied(qty.trim()); setErr(null); }}>Update quote</button>
           : <ConfirmAction label={`Sell · ${fmtUsd6(d.estUsdcUsd6)}`} onConfirm={sell} />}
       </div>

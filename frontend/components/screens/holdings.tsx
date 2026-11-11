@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Loader2, Share2 } from "lucide-react";
+import { Check, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Share2 } from "lucide-react";
 import { useApp } from "../app-context";
 import { Logo } from "../logo";
-import { Creative, Money, Monogram, PriceTag, Sheet, Tilt } from "../ui";
+import { Creative, Money, Monogram, PriceTag, Sheet, Spinner, StepIcon, Tilt } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type HoldingRow as Row, type MoveProgress } from "../../lib/api";
 import { signAction } from "../../lib/sign-action";
@@ -183,10 +183,10 @@ function MoveToArc({ row, onClose }: { row: Row | null; onClose: () => void }) {
           <button type="button" className="chip" onClick={() => setAmt(usd6ToDollarsInput(max))}>Max</button></div>
       </label>
       {err && <p className="error" role="alert">{err}</p>}
-      <button className="button primary full" disabled={!!label} onClick={go}>{label ? <><Loader2 size={16} className="spin" /> {label}</> : "Move to Arc"}</button>
-    </> : <ol className="card list" aria-live="polite">
-      <li className="row"><span className="mini-icon sm"><Check size={16} /></span><span className="row-main"><span className="row-title">Burned on Solana</span></span>{st?.links.sol && <a className="fineprint" href={st.links.sol} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Solscan</a>}</li>
-      <li className="row"><span className="mini-icon sm">{st?.status === "sent" ? <Check size={16} /> : <Loader2 size={16} className="spin" />}</span><span className="row-main"><span className="row-title">{st?.status === "sent" ? "Arrived on Arc" : "Circle attests, then we mint on Arc"}</span>{st?.error && <span className="row-sub">Retrying: {st.error}</span>}</span>{st?.links.arc && <a className="fineprint" href={st.links.arc} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc</a>}</li>
+      <button className="button primary full" disabled={!!label} onClick={go}>{label ? <><Spinner /> {label}</> : "Move to Arc"}</button>
+    </> : <ol className="card list track" aria-live="polite">
+      <li className="row done"><StepIcon state="done" /><span className="row-main"><span className="row-title">Burned on Solana</span></span>{st?.links.sol && <a className="fineprint" href={st.links.sol} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Solscan</a>}</li>
+      <li className={`row ${st?.status === "sent" ? "done" : "active"}`}><StepIcon state={st?.status === "sent" ? "done" : "active"} /><span className="row-main"><span className="row-title">{st?.status === "sent" ? "Arrived on Arc" : "Circle attests, then we mint on Arc"}</span>{st?.error && <span className="row-sub">Retrying: {st.error}</span>}</span>{st?.links.arc && <a className="fineprint" href={st.links.arc} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc</a>}</li>
     </ol>}
   </Sheet>;
 }

@@ -107,6 +107,8 @@ Rules that follow:
 | O6 | **Money moves are still MOCK_CHAIN (7 Nov).** Confirm returns a no-op vault call, and `/buys/review` has no venue prices; `/buys` doesn't verify EIP-712 yet. The PWA never broadcasts a call with empty calldata and submits without a tx hash, which the API accepts only under MOCK_CHAIN. Before mainnet: real `deposit`/`setRules` calldata, Jupiter quotes, EIP-712 + ERC-1271 verify (S20), then MOCK_CHAIN=0. | Open — blocks real money |
 | O7 | **Solana identity vs ATA on the vault (7 Nov).** | **Closed → D28** |
 | O8 | **Markets: liquidity floor for prices (10 Nov).** | **Closed → D39** |
+| O9 | **More stock issuers (11 Nov).** Add Ondo Global Markets and Backpack Securities Solana tokens as extra verified mints per company (same Jupiter venue, user's own wallet)? Both carry jurisdiction limits (e.g. no US persons). Plan: [13](13-asset-expansion-plan.md) | Open — needs the user's yes + issuer evidence URLs |
+| O10 | **Verified token, no route (11 Nov).** QCOMx is verified but Jupiter has no pool. Show "No market right now" instead of "Token not verified yet"? | Open — copy change needs a yes |
 | — | Spikes S1–S20 + **S-Privy**; Circle wallet spikes (S4, S6, S7, S12, S20) use Privy/EOA fallbacks from Q9 | ([08](08-build-plan-and-checklists.md)) |
 
 ## Decisions (settled)
