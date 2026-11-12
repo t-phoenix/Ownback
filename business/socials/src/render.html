@@ -1,0 +1,83 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  html,body{height:100%;margin:0;overflow:hidden;font-family:'Source Sans 3',sans-serif}
+  body{background:radial-gradient(120% 120% at 70% 30%,#16402F 0%,#0E2A1F 45%,#081A13 100%)}
+  body.clear{background:transparent}
+  canvas{position:absolute;inset:0}
+  .t{position:absolute;color:#F2F6F3}
+  h1{font-family:'Bricolage Grotesque';font-weight:800;margin:0;letter-spacing:-.02em;line-height:.95}
+  .gold{color:#E9B949}.mut{color:#A6E8C6}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head><body>
+<div id="txt"></div>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// mode, canvas size, logo center (px), logo height (px), overlay html
+const W = innerWidth, H = innerHeight, mode = location.hash.slice(1);
+const L = {
+  logo:     { cx:.5, cy:.5, s:.78 },
+  avatar:   { cx:.5, cy:.52, s:.62 },
+  xheader:  { cx:.84, cy:.5, s:.78 },
+  ytbanner: { cx:.37, cy:.5, s:.24 },
+  intro:    { cx:.8, cy:.52, s:.62 },
+  demo:     { cx:.86, cy:.2, s:.3 },
+}[mode];
+const T = {
+  xheader:  `<div class="t" style="left:540px;top:150px"><h1 style="font-size:92px">Own what<br>you <span class="gold">buy.</span></h1>
+             <div class="mut" style="font-size:26px;margin-top:22px;font-weight:600">ownback.tech</div></div>`,
+  ytbanner: `<div class="t" style="left:1150px;top:560px"><h1 style="font-size:150px">Ownback</h1>
+             <div style="font-size:52px;margin-top:22px;font-weight:600">Own what you <span class="gold">buy.</span></div></div>`,
+  intro:    `<div class="t" style="left:70px;top:120px"><h1 style="font-size:118px">I spent<br><span class="gold">$8,250</span><br>on Apple.</h1>
+             <div style="font-size:46px;margin-top:28px;font-weight:600">Never owned <span class="gold">any</span> of it.</div></div>`,
+  demo:     `<div class="t" style="left:70px;top:90px"><h1 style="font-size:104px">Receipt <span class="gold">→</span><br>real shares</h1>
+             <div class="mut" style="font-size:40px;margin-top:22px;font-weight:600">Full live demo · 2 min</div></div>
+             <img src="demo-frame.jpg" style="position:absolute;left:650px;top:270px;width:580px;border-radius:14px;box-shadow:0 20px 60px #0009;outline:2px solid #4CC38A55">`,
+}[mode] || '';
+document.getElementById('txt').innerHTML = T;
+if (mode === 'logo') document.body.className = 'clear';
+
+const r = new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:true });
+r.setPixelRatio(1); r.setSize(W, H); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05;
+r.outputColorSpace = THREE.SRGBColorSpace;
+document.body.prepend(r.domElement);
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), .04).texture;
+
+// Same geometry as frontend/components/logo.tsx (y flipped): ¾ disc + the quarter that comes back.
+const disc = new THREE.Shape(); disc.moveTo(0,0); disc.lineTo(0,24); disc.absarc(0,0,24,Math.PI/2,Math.PI*2,false); disc.lineTo(0,0);
+const wedge = new THREE.Shape(); wedge.moveTo(5,5); wedge.lineTo(29,5); wedge.absarc(5,5,24,0,Math.PI/2,false); wedge.lineTo(5,5);
+const ext = { depth:7, bevelEnabled:true, bevelThickness:1.6, bevelSize:1.3, bevelSegments:10, curveSegments:96 };
+const g = new THREE.Group();
+const m1 = new THREE.Mesh(new THREE.ExtrudeGeometry(disc, ext),
+  new THREE.MeshPhysicalMaterial({ color:0x1E9E66, roughness:.28, metalness:.1, clearcoat:1, clearcoatRoughness:.12 }));
+const m2 = new THREE.Mesh(new THREE.ExtrudeGeometry(wedge, ext),
+  new THREE.MeshPhysicalMaterial({ color:0xF2C14E, roughness:.32, metalness:.55, clearcoat:1, emissive:0x5a3c00, emissiveIntensity:.35 }));
+m2.position.z = 6;
+g.add(m1, m2);
+g.position.set(-2.5, -2.5, -4);  // center of the combined 53×53 footprint
+const pivot = new THREE.Group(); pivot.add(g); pivot.rotation.set(-.32, .42, .04); scene.add(pivot);
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(-40, 60, 80); scene.add(key);
+const rim = new THREE.DirectionalLight(0xA6E8C6, 1.2); rim.position.set(60, -20, -40); scene.add(rim);
+
+// Orthographic camera so we can place the logo by pixel.
+const cam = new THREE.OrthographicCamera(-W/2, W/2, H/2, -H/2, -2000, 2000);
+cam.position.z = 500;
+const size = L.s * H; pivot.scale.setScalar(size / 62);
+pivot.position.set((L.cx - .5) * W, (.5 - L.cy) * H, 0);
+// soft shadow blob under the logo
+if (mode !== 'logo') {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(128,128,0,128,128,128); gr.addColorStop(0,'rgba(0,0,0,.55)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle = gr; x.fillRect(0,0,256,256);
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(size*1.1, size*.28), new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false }));
+  sh.position.set(pivot.position.x, pivot.position.y - size*.55, -900); scene.add(sh);
+}
+await document.fonts.ready;
+r.render(scene, cam);
+window.DONE = true;
+</script></body></html>
