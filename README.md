@@ -26,6 +26,7 @@ Brand kit (not ranked; it covers only the look; picked: Logo C, Ledger Green, Br
 | [backend/](backend/) | API contract, integrations, keeper and jobs, AI spec, backend security and tests | [backend/README.md](backend/README.md) |
 | [database/](database/) | Postgres schema, Arkiv schema, registry seed data, data privacy | [database/README.md](database/README.md) |
 | [frontend/](frontend/) | Screens and routes, app architecture, copy and errors, design tokens, frontend security and tests | [frontend/README.md](frontend/README.md) |
+| [site/](site/) | The ownback.tech marketing site: scroll film, waitlist, Launch-app gate, hidden admin | [site/README.md](site/README.md) |
 | [scripts/](scripts/) | Verified helper scripts (Arkiv query check) | [scripts/arkiv-check.ts](scripts/arkiv-check.ts) |
 
 ## Reading order

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ownback · Own what you buy</title>
+<meta name="description" content="A small share of every purchase goes into the companies behind it. You approve every buy, and the shares land in your own wallet.">
+<meta name="theme-color" content="#eeebe3">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ownback.tech/">
+<meta property="og:title" content="Ownback · Own what you buy">
+<meta property="og:description" content="A small share of every purchase goes into the companies behind it. You approve every buy.">
+<meta property="og:image" content="https://ownback.tech/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="preload" as="image" href="/img/01-salary.webp">
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="nav">
+  <a class="logo" href="/" aria-label="Ownback home">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 8a24 24 0 1 0 24 24H32z" fill="#4CC38A"/><path d="M37 3a24 24 0 0 1 24 24H37z" fill="#E9B949"/></svg>Ownback
+  </a>
+  <div class="right">
+    <a class="skip" href="#join">skip the film ↓</a>
+    <button class="btn btn-ink" type="button" data-gate>Launch app</button>
+  </div>
+</header>
+
+<main>
+<section id="film" aria-label="The Ownback story">
+  <div class="stage" id="stage">
+
+    <div class="shot hero" data-shot="hero">
+      <div class="mast"><span>Ownback ★ invite only</span><span>Issue 01 · Mumbai · 2026</span></div>
+      <div class="copy">
+        <span class="tag">you’ve bought it all</span>
+        <h1>Own what<br>you <span class="blk">buy.</span></h1>
+        <p class="lede">A small share of every purchase goes into the companies behind it. You approve every buy. The shares land in your own wallet.</p>
+        <div class="ctas"><a class="btn btn-green" href="#join">Get early access</a><button class="btn btn-line" type="button" data-gate>Launch app</button></div>
+      </div>
+      <canvas id="coin" aria-label="A gold Ownback coin. Drag to spin it, tap its gold corner to save a piece."></canvas>
+      <span class="coinhint tag" id="coinhint">spin me · tap the gold corner</span>
+      <div class="minijar" id="minijar" aria-live="polite"><div class="mj-glass"><div class="mj-fill" id="mjfill"></div></div><div><b id="mjamt">$0.00</b><span id="mjmsg">your jar</span></div></div>
+    </div>
+
+    <div class="shot" data-shot="salary" data-src="/img/01-salary.webp" data-focus=".56,.6" hidden></div>
+
+    <div class="shot phoneui" data-shot="phone" hidden>
+      <div class="pframe" id="pframe">
+        <div class="app">
+          <div class="lock" id="lock"><span class="lt">9:41</span><span class="ld">Monday, 1 December</span><div class="ln"><i>BANK · NOW</i><b>₹68,000.00 credited</b>Salary · December</div></div>
+          <header><span class="av">CG</span><div><b>College gang</b><span>Rohan, Aisha, Kabir, you</span></div></header>
+          <div class="thread" id="thread">
+            <span class="day">Today</span>
+            <div class="msg"><i style="color:#0f7b4f">Rohan</i>NVDA did 3x since I bought 😭</div>
+            <div class="msg"><i style="color:#c2185b">Aisha</i>should've bought Apple in college fr</div>
+            <div class="msg"><i style="color:#0f7b4f">Rohan</i>everyone's on US stocks now</div>
+            <div class="msg"><i style="color:#8a6417">Kabir</i>which app?? LRS forms? forex fees? 💀</div>
+            <div class="msg me">wait how do you even start</div>
+          </div>
+          <div class="composer"><span class="field">Message</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+          <div class="order" id="order">
+            <span class="tick">✓</span>
+            <h4>Order placed</h4>
+            <div class="item"><span class="pic" id="orderpic"></span><div><b>Running shoes</b><span>₹5,999 · paid by UPI</span></div></div>
+            <span class="eta">Arriving tomorrow by 9 PM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="shot" data-shot="bedroom" data-src="/img/04-chat.webp" data-focus=".62,.5" hidden></div>
+    <div class="shot" data-shot="doorway" data-src="/img/02-orders.webp" data-focus=".66,.55" data-focus-m=".74,.55" hidden></div>
+    <div class="shot" data-shot="box" data-src="/img/06-turn.webp" data-focus=".5,.5" hidden></div>
+
+    <div class="shot split" data-shot="split" hidden>
+      <canvas id="split"></canvas>
+      <svg id="leaders" aria-hidden="true"></svg>
+      <div id="pins"></div>
+      <div class="splitbar" id="splitbar" aria-hidden="true"><span>70 maker</span><span>20 parts</span><span>10</span></div>
+    </div>
+
+    <div class="shot" data-shot="jars" data-src="/img/09-jars.webp" data-focus=".5,.62" data-focus-m=".36,.62" hidden>
+      <span class="ov jartag" data-at=".295,.88">Apple · $0.00</span>
+      <span class="ov jartag" data-at=".5,.88">Chips &amp; glass · $0.00</span>
+      <span class="ov jartag" data-at=".705,.88">Gold · $0.00</span>
+    </div>
+
+    <div class="shot" data-shot="sunday" data-src="/img/10-sunday.webp" data-focus=".55,.6" hidden>
+      <span class="ov ripple" data-at=".64,.67" id="ripple"></span>
+      <span class="ov chip" data-at=".66,.42" id="approved">✓ Bought 0.0216 AAPL · fee $0.04</span>
+    </div>
+
+    <div class="shot goldshot" data-shot="gold" hidden></div>
+    <div class="shot vaultshot" data-shot="vault" hidden><canvas id="vault"></canvas></div>
+    <div class="shot papershot" data-shot="paper" hidden><div class="endmark"><span class="lockup"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 8a24 24 0 1 0 24 24H32z" fill="#0F7B4F"/><path d="M37 3a24 24 0 0 1 24 24H37z" fill="#E9B949"/></svg>Ownback</span><span class="blk">Own what you buy.</span></div></div>
+
+    <canvas id="fx" aria-hidden="true"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="hud" id="hud"><span class="tag">spent this month</span><b id="spent">₹0</b></div>
+    <p class="cap" id="cap"></p>
+    <div class="endcta" id="endcta"><a class="btn btn-green" href="#join">Get early access</a><button class="btn btn-ink" type="button" data-gate>I’m already on the list</button></div>
+    <div class="scrollhint" id="scrollhint"><span>scroll to play</span><i></i></div>
+  </div>
+</section>
+
+<section class="section" id="join" aria-labelledby="joinh">
+  <div class="wrap">
+    <div>
+      <div class="joinhead">
+        <span class="eyebrow">Invite only, for now</span>
+        <h2 id="joinh">Get in <span class="blk">early.</span></h2>
+        <p class="muted" style="font-size:19px;max-width:40ch">The app is live with real money on mainnet. We're letting people in a few at a time. Leave your email, and once you're approved, Launch app lets you in.</p>
+      </div>
+      <form class="form" id="joinform" novalidate>
+        <label for="email">Email
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
+        </label>
+        <label for="why">Why do you want in? <span style="font-weight:400">(optional)</span>
+          <textarea id="why" name="why" maxlength="500" placeholder="What would you love to own a piece of?"></textarea>
+        </label>
+        <span class="count" id="whycount">0 / 500</span>
+        <label class="check" for="news"><input id="news" name="newsletter" type="checkbox"> Send me the occasional update. No spam, unsubscribe any time.</label>
+        <div class="hp" aria-hidden="true"><label for="company">Company</label><input id="company" name="company" tabindex="-1" autocomplete="off"></div>
+        <p class="err" id="joinerr" role="alert"></p>
+        <button class="btn btn-green" id="joinbtn" type="submit">Join the waitlist</button>
+        <p class="fine">We only use your email for access (and updates, if you ticked the box). We never sell it.</p>
+      </form>
+    </div>
+
+    <div class="play" aria-labelledby="playh">
+      <div class="head">
+        <div>
+          <span class="eyebrow">Try it with last month's orders</span>
+          <h3 id="playh">Scratch to see what you'd own</h3>
+        </div>
+        <button class="linkbtn" type="button" id="deal">Deal new cards</button>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="tally" id="tally"><span class="muted">Scratch all three. Every card pays.</span></div>
+      <p class="fine muted" style="font-size:12px">Example stock prices, for illustration. Ownback buys only after you approve, at the live price shown in the app.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how" aria-labelledby="howh" style="padding-top:0">
+  <div class="wrap">
+    <span class="eyebrow">How it works</span>
+    <h2 id="howh" style="font-size:clamp(36px,4.6vw,60px);margin-top:12px">Four steps, <span class="blk">all yours.</span></h2>
+    <div class="how">
+      <div><span class="eyebrow">01</span><b>Add a purchase</b><p class="muted">Snap the receipt, or let Ownback find the invoice in your Gmail.</p></div>
+      <div><span class="eyebrow">02</span><b>Save a share</b><p class="muted">2–10% of it (5% by default) goes into USDC jars, split between the maker, the companies behind it and the raw materials.</p></div>
+      <div><span class="eyebrow">03</span><b>Approve the buy</b><p class="muted">When a jar is ready, you see the live price and every fee. Nothing buys until you tap.</p></div>
+      <div><span class="eyebrow">04</span><b>Own it</b><p class="muted">Tokenized shares land in your own wallet, with a public proof of every step.</p></div>
+    </div>
+    <div class="faq">
+      <details><summary>Is this real money?</summary><p>Yes. The app runs on mainnet. You hold USDC, and the shares you buy are tokenized and go to your own wallet.</p></details>
+      <details><summary>Does Ownback buy anything on its own?</summary><p>No. Every buy needs your approval. You see the live price, the quantity and the fees in dollars before you sign.</p></details>
+      <details><summary>Do I need crypto to start?</summary><p>You sign in with Google. You only ever hold USDC; network fees are shown in dollars and capped by your own limit.</p></details>
+      <details><summary>Why is there a waitlist?</summary><p>Because it's real money, we're opening slowly and adding people a few at a time.</p></details>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap"><span>© 2026 Ownback · Built in 36 hours at ETHGlobal Mumbai · Arc · 0G · Arkiv</span><span>Not investment advice. Prices on this page are examples.</span></div></footer>
+
+<dialog id="gate" aria-labelledby="gateh">
+  <form class="gate" id="gateform" method="dialog" novalidate>
+    <h3 id="gateh">Launch the app</h3>
+    <p class="muted">Ownback is invite-only right now. Enter the email you joined with.</p>
+    <label class="sr" for="gateemail">Email</label>
+    <input id="gateemail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
+    <p class="msg2" id="gatemsg" role="status"></p>
+    <div class="row"><button class="btn btn-line" type="button" id="gateclose">Close</button><button class="btn btn-green" type="submit" id="gatego">Continue</button></div>
+  </form>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+<script src="/js/coin.js" defer></script>
+<script src="/js/split3d.js" defer></script>
+<script src="/js/vault3d.js" defer></script>
+<script src="/js/film.js" defer></script>
+<script src="/js/scratch.js" defer></script>
+<script src="/js/app.js" defer></script>
+</body>
+</html>

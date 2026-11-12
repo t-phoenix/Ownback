@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Ownback Waitlist Desk</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/css/site.css">
+<style>
+  body { padding: 28px var(--gut) 60px; }
+  .desk { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 700px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .stat { border: 2px solid var(--ink); background: var(--panel); padding: 14px 16px; }
+  .stat b { display: block; font: 800 30px/1 var(--display); font-variant-numeric: tabular-nums; margin-top: 6px; }
+  .tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .tools input, .tools select, .login input { font: 400 16px/1.3 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .tools input[type=search] { flex: 1; min-width: 200px; }
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 15px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: var(--panel); position: sticky; top: 0; }
+  td.n { font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  td.why { max-width: 38ch; color: var(--ink); }
+  .pill { font: 600 11px/1 var(--mono); padding: 5px 8px; border-radius: 99px; white-space: nowrap; }
+  .pill.waiting { background: #fbf2d6; color: #7a5300; } .pill.approved { background: #d9f0e3; color: #0b5f3d; }
+  .act { display: flex; gap: 6px; }
+  .act button { font: 600 13px/1 var(--body); padding: 8px 12px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+  .act button.ok { background: var(--green); color: #fff; border-color: var(--green); }
+  .act button.x { color: #b4342b; }
+  .login { max-width: 380px; margin: 14vh auto 0; display: grid; gap: 12px; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 99px; font-weight: 600; opacity: 0; transition: .3s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<form class="login" id="login" hidden>
+  <span class="eyebrow">Ownback</span>
+  <h1 style="font-size:36px">Waitlist desk</h1>
+  <label class="sr" for="pw">Password</label>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="Password" required>
+  <p class="err" id="lerr" style="color:#b4342b;min-height:1em"></p>
+  <button class="btn btn-green" type="submit">Sign in</button>
+</form>
+
+<main class="desk" id="desk" hidden>
+  <div class="top">
+    <div><span class="eyebrow">Ownback · private</span><h1 style="font-size:clamp(30px,4vw,44px);margin-top:6px">Waitlist desk</h1></div>
+    <div class="tools"><a class="btn btn-line" href="/api/admin?action=export">Export CSV</a><button class="btn btn-line" type="button" id="logout">Sign out</button></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="eyebrow">Sign-ups</span><b id="sTotal">0</b></div>
+    <div class="stat"><span class="eyebrow">Waiting</span><b id="sWait">0</b></div>
+    <div class="stat"><span class="eyebrow">Approved</span><b id="sOk">0</b></div>
+    <div class="stat"><span class="eyebrow">Newsletter</span><b id="sNews">0</b></div>
+  </div>
+  <form class="tools" id="grant">
+    <label class="sr" for="gemail">Email to let in</label>
+    <input id="gemail" type="email" placeholder="Let someone in directly: investor@fund.vc" style="flex:1;min-width:220px" required>
+    <button class="btn btn-gold" type="submit">Approve email</button>
+  </form>
+  <div class="tools">
+    <label class="sr" for="q">Search</label><input id="q" type="search" placeholder="Search email or reason">
+    <label class="sr" for="fs">Status</label><select id="fs"><option value="">All</option><option value="waiting">Waiting</option><option value="approved">Approved</option></select>
+    <label class="sr" for="fn">Newsletter</label><select id="fn"><option value="">Any newsletter</option><option value="1">Said yes</option><option value="0">Said no</option></select>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Email</th><th>Why they want in</th><th>Joined</th><th>News</th><th>Status</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table><div class="empty" id="empty" hidden>No sign-ups match.</div></div>
+</main>
+<div class="toast" id="toast" role="status"></div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>
