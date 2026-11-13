@@ -19,6 +19,7 @@ import { newId, shareId } from '../lib/ids.js';
 import { EXPLORER, isDepositChain } from '../shared/chains.js';
 import { portfolio, type Held } from '../lib/portfolio.js';
 import { qtyToRaw } from '../lib/qty.js';
+import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
 import { iconField, verifiedMint } from '../shared/assets.js';
 
 export const activityRoutes = new Hono();
@@ -251,8 +252,8 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
     const sql = getSql();
     const [p, rows] = await Promise.all([
       portfolio(user, { fresh: c.req.header('cache-control')?.includes('no-cache') }),
-      sql<{ spent: bigint; qty: string | null; fill: bigint | null; batch_id: string; venue_tx: string | null; arc_tx: string | null; started_at: Date | null }[]>`
-        SELECT e.spent_usd6 AS spent, e.qty::text AS qty, e.fill_price_usd6 AS fill, e.batch_id, e.venue_tx, b.arc_tx, b.started_at
+      sql<{ spent: bigint; qty: string | null; fill: bigint | null; batch_id: string; venue_tx: string | null; arc_tx: string | null; started_at: Date | null; finished_at: Date | null; trigger: string }[]>`
+        SELECT e.spent_usd6 AS spent, e.qty::text AS qty, e.fill_price_usd6 AS fill, e.batch_id, e.venue_tx, b.arc_tx, b.started_at, b.finished_at, b.trigger
         FROM buy_entries e JOIN buy_batches b ON b.id = e.batch_id
         WHERE e.user_id = ${user.id}::uuid AND e.asset_id = ${assetId} AND e.status = 'bought'
         ORDER BY b.started_at DESC NULLS LAST`,
@@ -265,6 +266,18 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
     const boughtRaw = mint ? rows.reduce((s, r) => s + (r.qty ? qtyToRaw(r.qty, mint.decimals) ?? 0n : 0n), 0n) : 0n;
     const avg = mint && boughtRaw > 0n ? (paid * 10n ** BigInt(mint.decimals)) / boughtRaw : 0n;
     const last = rows[0];
+    // Proof trail extras: which receipts filled this jar (jar buys), and the token's Arkiv record.
+    const [receipts, arkiv] = await Promise.all([
+      last && last.trigger !== 'market'
+        ? sql<{ n: number; last_at: Date | null; last_id: string | null }[]>`
+            SELECT COUNT(DISTINCT p.id)::int AS n, MAX(p.created_at) AS last_at,
+              (ARRAY_AGG(p.id::text ORDER BY p.created_at DESC))[1] AS last_id
+            FROM allocations a JOIN purchases p ON p.id = a.purchase_id
+            WHERE p.user_id = ${user.id}::uuid AND a.asset_id = ${assetId} AND a.selected = true
+              AND p.created_at <= COALESCE(${last.started_at}, now())`.then((r) => r[0]).catch(() => undefined)
+        : undefined,
+      mint ? readAssetFromArkiv(assetId, 'solana').catch(() => null) : null,
+    ]);
     return c.json({
       assetId,
       name: assetDisplayName(assetId),
@@ -285,6 +298,17 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
         amountUsd6: toUsd6(r.spent ?? 0n),
       })),
       proof: {
+        ...(last ? {
+          batchId: last.batch_id,
+          source: last.trigger === 'market' ? 'market' : 'jar',
+          ...(last.started_at ? { startedAt: last.started_at.toISOString() } : {}),
+          ...(last.finished_at ? { finishedAt: last.finished_at.toISOString() } : {}),
+          ...(last.qty ? { qty: String(last.qty).replace(/\.?0+$/, '') } : {}),
+          spentUsd6: toUsd6(last.spent ?? 0n),
+          ...(last.fill ? { fillPriceUsd6: toUsd6(last.fill) } : {}),
+        } : {}),
+        ...(receipts && receipts.n > 0 ? { receipts: { count: receipts.n, ...(receipts.last_at ? { lastAt: receipts.last_at.toISOString() } : {}), ...(receipts.last_id ? { lastId: receipts.last_id } : {}) } } : {}),
+        ...(arkiv ? { arkiv } : {}),
         ...(last?.arc_tx ? { arcTx: last.arc_tx } : {}),
         ...(last?.venue_tx ? { venueTx: last.venue_tx } : {}),
         links: {

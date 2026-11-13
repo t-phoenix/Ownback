@@ -11,13 +11,13 @@ import { ArrowRight, ChevronRight, Copy, ExternalLink, RefreshCw, Search, Shield
 import { useApp } from "../app-context";
 import { ConfirmAction, Monogram, Ring, RouteStrip, Sheet, Spinner, haptic, useMedia } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
-import { api, ApiError, type Candle, type ChartRange, type MarketBuyReview, type MarketDetail, type MarketItem, type SellReview, type SignableAction, type SellSize } from "../../lib/api";
+import { api, ApiError, type Candle, type ChartRange, type MarketBuyReview, type MarketDetail, type MarketItem, type MarketTrade, type NetworkFees, type SellReview, type SignableAction, type SellSize } from "../../lib/api";
 import { prefetchApi, refreshAll, useApi } from "../../lib/use-api";
 import { errorCopy, marketCopy as copy } from "../../lib/copy";
 import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6 } from "../../lib/money";
-import { ago, change, estQty, fmtBps, fmtCompact, fmtPrice, filterMarkets, isStale, isThin, loadStarred, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy } from "../../lib/markets";
+import { ago, change, estQty, fmtBps, fmtCompact, fmtFee, fmtPrice, filterMarkets, isStale, isThin, loadStarred, pctOfUsd6, qtyValueUsd6, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy } from "../../lib/markets";
 import { FlowHead } from "./home";
 import { ArcPlan, dollarsToUsd6, usd6ToDollarsInput } from "./buy";
 import type { Hover } from "../markets/price-chart-impl";
@@ -214,7 +214,7 @@ function withLive(candles: Candle[], live: string | null | undefined): Candle[] 
   return [...candles.slice(0, -1), { ...last, c: live, h: bi(last.h) > v ? last.h : live, l: bi(last.l) < v ? last.l : live }];
 }
 
-export function MarketAsset({ id, trade }: { id: string; trade?: "buy" | "sell" }) {
+export function MarketAsset({ id, trade, trades }: { id: string; trade?: "buy" | "sell"; trades?: boolean }) {
   const { navigate } = useApp();
   const wide = useMedia("(min-width: 900px)");
   const d = useApi(`market:${id}`, () => api.market(id));
@@ -226,6 +226,7 @@ export function MarketAsset({ id, trade }: { id: string; trade?: "buy" | "sell" 
   if (c.data?.candles.length) lastCandles.current = c.data.candles;
   const [hover, setHover] = useState<Hover>(null);
   const [sheet, setSheet] = useState<"buy" | "sell" | null>(trade ?? null);
+  const [allTrades, setAllTrades] = useState(!!trades);
   const [starred, setStarred] = useState(false);
   useEffect(() => setStarred(loadStarred().has(id)), [id]);
   const [, tick] = useState(0);
@@ -298,13 +299,15 @@ export function MarketAsset({ id, trade }: { id: string; trade?: "buy" | "sell" 
     {md.usMarket !== "open" && <p className="callout">{usMarketCopy[md.usMarket]}. {copy.closedHint}</p>}
   </section>;
 
-  const recent = md && md.recent.length > 0 && <section className="block">
-    <h2 className="h-section">Your trades</h2>
-    <div className="card list">{md.recent.map((t, i) => <button key={i} className="row" onClick={() => navigate(t.link)}>
-      <span className="row-main"><span className="row-title">{t.kind === "buy" ? "Bought" : "Sold"} {t.qty} {md.token}</span>
-        <span className="row-sub">{new Date(t.at).toLocaleDateString([], { day: "numeric", month: "short" })} · {t.source === "jar" ? "From jar" : "Market"}</span></span>
+  const recent = md && md.recent.length > 0 && <section className="block" id="trades">
+    <div className="block-head"><h2 className="h-section">Your trades</h2>
+      {md.recent.length > RECENT_SHOWN && <button className="link" onClick={() => setAllTrades(true)}>View all {md.recent.length} <ChevronRight size={15} /></button>}</div>
+    <div className="card list">{md.recent.slice(0, RECENT_SHOWN).map((t, i) => <button key={i} className="row" onClick={() => navigate(t.link)}>
+      <span className="row-main"><span className="row-title">{tradeTitle(t, md.token)}</span>
+        <span className="row-sub">{tradeWhen(t.at)} · {sourceWord[t.source]}{t.priceUsd6 ? ` · at ${fmtPrice(t.priceUsd6)}` : ""}</span></span>
       <span className="row-end"><span className="row-value num">{fmtUsd6(t.amountUsd6)}</span></span><ChevronRight size={16} className="row-chev" />
     </button>)}</div>
+    {md.recent.length <= RECENT_SHOWN && <button className="link center" onClick={() => setAllTrades(true)}>Details and explorer links <ChevronRight size={15} /></button>}
   </section>;
 
   const panel = md && <TradePanel d={md} mode={sheet ?? "buy"} setMode={m => setSheet(m)} livePrice={price} />;
@@ -337,13 +340,67 @@ export function MarketAsset({ id, trade }: { id: string; trade?: "buy" | "sell" 
       <button className="button primary" disabled={!md.tradable.buy} onClick={() => setSheet("buy")}>{md.tradable.buy ? "Buy" : md.tradable.reason === "relay_off" ? copy.relayOff : copy.notTradable}</button>
     </div>}
     {!wide && <Sheet open={!!sheet && !!md} onClose={() => setSheet(null)} title={`${sheet === "sell" ? "Sell" : "Buy"} ${name}`}>{panel}</Sheet>}
+    <Sheet open={allTrades && !!md} onClose={() => setAllTrades(false)} title={`Your ${md?.token ?? name} trades`}>
+      {md && <TradeLog trades={md.recent} token={md.token} onOpen={l => { setAllTrades(false); navigate(l); }} />}
+    </Sheet>
   </div>;
+}
+
+const RECENT_SHOWN = 5;
+const sourceWord: Record<MarketTrade["source"], string> = { jar: "From jar", market: "Market", holding: "From Holdings" };
+const tradeTitle = (t: MarketTrade, token: string) => `${t.kind === "buy" ? "Bought" : "Sold"} ${t.qty} ${token}`;
+const tradeWhen = (iso: string) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** Every trade with its exact time, price, amount and the on-chain links. */
+function TradeLog({ trades, token, onOpen }: { trades: MarketTrade[]; token: string; onOpen: (link: string) => void }) {
+  return <ul className="trade-log">{trades.map((t, i) => <li key={i} className="card trade-item">
+    <div className="trade-top"><b>{tradeTitle(t, token)}</b><b className="num">{fmtUsd6(t.amountUsd6)}</b></div>
+    <dl className="mk-lines">
+      <div><dt>{t.kind === "buy" ? "Started" : "Placed"}</dt><dd>{new Date(t.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</dd></div>
+      {t.doneAt && <div><dt>Settled</dt><dd>{new Date(t.doneAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</dd></div>}
+      {t.priceUsd6 && <div><dt>Price</dt><dd className="num">{fmtPrice(t.priceUsd6)} per {token}</dd></div>}
+      <div><dt>Source</dt><dd>{sourceWord[t.source]}</dd></div>
+    </dl>
+    <div className="trade-links">
+      {t.txs?.arc && <a className="fineprint" href={t.txs.arc} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc explorer</a>}
+      {t.txs?.solana && <a className="fineprint" href={t.txs.solana} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Solscan</a>}
+      <button className="fineprint link-btn" onClick={() => onOpen(t.link)}>Status <ChevronRight size={14} /></button>
+    </div>
+  </li>)}</ul>;
+}
+
+/** Fee and network lines shared by buy and sell. */
+function CostLines({ fee, amountUsd6, network }: { fee: string; amountUsd6: string; network?: NetworkFees }) {
+  return <>
+    <div><dt>Swap fee</dt><dd className="num" title="Pool fee and price impact, measured from a live round-trip quote">{fmtFee(fee, amountUsd6)}</dd></div>
+    {network?.arcUsd6 && BigInt(network.arcUsd6) > 0n && <div><dt>Arc network</dt><dd className="num">{BigInt(network.arcUsd6) < 10_000n ? "Under $0.01" : `≈ ${fmtUsd6(network.arcUsd6)}`} from your Arc USDC</dd></div>}
+    <div><dt>Solana network</dt><dd>Paid by Ownback</dd></div>
+  </>;
 }
 
 // ─────────────────────────────── Trade panel ───────────────────────────────
 
 const BUY_CHIPS = ["5", "10", "25", "50"];
 const PCTS = [25, 50, 75, 100] as const;
+type ChipMode = "usd" | "pct";
+const CHIP_PREF = "ob:chips";
+const loadChipMode = (): ChipMode => { try { return localStorage.getItem(CHIP_PREF) === "pct" ? "pct" : "usd"; } catch { return "usd"; } };
+
+/** Quick amounts: fixed dollars or a share of what you can spend, one tap to switch (remembered). */
+function AmountChips({ amt, setAmt, maxUsd6, disabled }: { amt: string; setAmt: (v: string) => void; maxUsd6: string; disabled: boolean }) {
+  const [mode, setMode] = useState<ChipMode>("usd");
+  useEffect(() => setMode(loadChipMode()), []);
+  const flip = () => { const m: ChipMode = mode === "usd" ? "pct" : "usd"; setMode(m); try { localStorage.setItem(CHIP_PREF, m); } catch { /* memory only */ } };
+  const usd6 = dollarsToUsd6(amt);
+  const tooSmall = BigInt(maxUsd6) < MIN_BUY_USD6;
+  return <div className="mk-chips-row">
+    {mode === "usd"
+      ? BUY_CHIPS.map(v => <button key={v} className={`chip sm ${amt === `${v}.00` ? "on" : ""}`} disabled={disabled} onClick={() => setAmt(`${v}.00`)}>${v}</button>)
+      : PCTS.slice(0, 3).map(p => { const v = pctOfUsd6(maxUsd6, p); return <button key={p} className={`chip sm ${usd6 === v ? "on" : ""}`} disabled={disabled || BigInt(v) < MIN_BUY_USD6} onClick={() => setAmt(usd6ToDollarsInput(v))} title={fmtUsd6(v)}>{p}%</button>; })}
+    <button className={`chip sm ${usd6 === maxUsd6 ? "on" : ""}`} disabled={disabled || tooSmall} onClick={() => setAmt(usd6ToDollarsInput(maxUsd6))}>Max</button>
+    <button className="chip sm chip-mode" disabled={disabled} onClick={flip} aria-label={mode === "usd" ? "Show percent of balance" : "Show dollar amounts"}>{mode === "usd" ? "%" : "$"}</button>
+  </div>;
+}
 const QUOTE_EVERY_S = 15;
 
 function TradePanel({ d, mode, setMode, livePrice }: { d: MarketDetail; mode: "buy" | "sell"; setMode: (m: "buy" | "sell") => void; livePrice: string | null }) {
@@ -451,12 +508,13 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
     </label>
     <p className={`mk-est num ${row && fresh ? "" : "muted"}`}>{row && fresh && row.selectable ? `≈ ${row.estQty} ${row.token ?? d.token}`
       : valid && estQty(usd6, livePrice) ? `≈ ${estQty(usd6, livePrice)} ${d.token}` : quoting ? "Getting a price…" : " "}</p>
-    <div className="mk-chips-row">{BUY_CHIPS.map(v => <button key={v} className={`chip sm ${amt === `${v}.00` ? "on" : ""}`} disabled={!idle} onClick={() => setAmt(`${v}.00`)}>${v}</button>)}
-      <button className={`chip sm ${usd6 === d.funds.maxBuyUsd6 ? "on" : ""}`} disabled={!idle || max < MIN_BUY_USD6} onClick={() => setAmt(usd6ToDollarsInput(d.funds.maxBuyUsd6))}>Max</button></div>
+    <AmountChips amt={amt} setAmt={v => { setAmt(v); setNote(null); }} maxUsd6={d.funds.maxBuyUsd6} disabled={!idle} />
+    <p className="fineprint mk-avail">{fmtUsd6(d.funds.maxBuyUsd6)} available to buy with</p>
     {local && <p className="error left" role="alert">{local}</p>}
     {!local && row && fresh && <dl className="mk-lines">
       <div><dt>Price</dt><dd className="num">{fmtPrice(row.price.usd6PerUnit)} per {row.token ?? d.token}</dd></div>
-      <div><dt>Fees</dt><dd className="num">{fmtUsd6(row.fees.totalUsd6)} · {fmtBps(row.fees.pctBps)}</dd></div>
+      {row.minQty && row.minQty !== "0" && <div><dt>Least you get</dt><dd className="num">{row.minQty} {row.token ?? d.token}</dd></div>}
+      <CostLines fee={row.fees.totalUsd6} amountUsd6={row.amountUsd6} network={bi(review!.funding.bridgeUsd6) > 0n ? review!.network : { solanaPaidBy: "ownback" }} />
       <div><dt>Pays from</dt><dd className="num">{bi(review!.funding.bridgeUsd6) > 0n
         ? `${fmtUsd6((bi(review!.totalUsd6) - bi(review!.funding.bridgeUsd6)).toString())} Solana + ${fmtUsd6(review!.funding.bridgeUsd6)} from Arc` : "Your Solana USDC"}</dd></div>
       <div><dt>Lands in</dt><dd>Your Solana wallet</dd></div>
@@ -484,6 +542,15 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
   </div>;
 }
 
+/** Does this review answer the size on screen? A stale one must never be signed. */
+function answers(r: SellReview | null, size: SellSize | null): boolean {
+  if (!r || !size) return false;
+  if (!r.request) return true; // older API: trust the sequence guard
+  if (size.pct) return r.request.pct === String(size.pct);
+  if (size.usd6) return r.request.usd6 === size.usd6;
+  return r.request.qty === size.qty;
+}
+
 function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }) {
   const { navigate } = useApp();
   const [by, setBy] = useState<"usd" | "qty">("usd");
@@ -493,9 +560,19 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
   const [quoting, setQuoting] = useState(false);
   const [phase, setPhase] = useState<"idle" | "building" | "signing" | "submitting">("idle");
   const [err, setErr] = useState<string | null>(null);
-  const size: SellSize | null = pct ? { pct }
-    : by === "usd" ? (dollarsToUsd6(input) ? { usd6: dollarsToUsd6(input)! } : null)
-    : /^\d+(\.\d+)?$/.test(input.trim()) ? { qty: input.trim() } : null;
+  const held = d.position?.qty ?? "0";
+  const heldUsd6 = d.position?.valueUsd6 ?? "0";
+  const typedUsd6 = by === "usd" ? dollarsToUsd6(input) : null;
+  const typedQty = by === "qty" && /^\d*\.?\d+$/.test(input.trim()) ? input.trim() : null;
+  // Checked here at once, before any quote: more than you hold, or nothing at all.
+  const overQty = typedQty != null && Number(typedQty) > Number(held); // display check only; the server re-checks in base units
+  const local = pct ? null
+    : by === "qty" && input.trim() && !typedQty ? copy.enterAmount
+    : overQty ? copy.haveQty(held, d.token)
+    : by === "usd" && input.trim() && !typedUsd6 ? copy.enterAmount : null;
+  const size: SellSize | null = local ? null : pct ? { pct }
+    : typedUsd6 && BigInt(typedUsd6) > 0n ? { usd6: typedUsd6 }
+    : typedQty && Number(typedQty) > 0 ? { qty: typedQty } : null;
   const key = JSON.stringify(size);
   const seq = useRef(0);
   const quote = useCallback(async () => {
@@ -508,8 +585,14 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d.assetId, key]);
   const left = useDebouncedQuote(key, !!size && phase === "idle", quote);
+  const fresh = answers(review, size);
+  // Instant estimate at the live price while the real quote is on its way.
+  const instant = pct ? null
+    : typedUsd6 ? (estQty(typedUsd6, livePrice) ? `≈ ${estQty(typedUsd6, livePrice)} ${d.token}` : null)
+    : typedQty ? (qtyValueUsd6(typedQty, livePrice) ? `≈ ${fmtUsd6(qtyValueUsd6(typedQty, livePrice))}` : null) : null;
+  const capped = fresh && review && typedUsd6 && review.qty === review.heldQty && BigInt(typedUsd6) > BigInt(review.estUsdcUsd6);
   const sell = async () => {
-    if (!review) return;
+    if (!review || !fresh) return;
     setErr(null); setPhase("building");
     try {
       const start = await api.sell(d.assetId, review.qty, "market");
@@ -519,33 +602,44 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
   };
   const label = phase === "building" ? "Getting the best route…" : phase === "signing" ? "Approve in wallet…" : phase === "submitting" ? "Confirming on Solana…" : null;
   const pnl = signedUsd(review?.pnlUsd6);
+  const switchTo = (m: "usd" | "qty") => {
+    if (m === by) return;
+    // Carry the current size across, from the quote when it matches, else from the live price.
+    const carry = m === "usd"
+      ? (fresh && review ? usd6ToDollarsInput(review.estUsdcUsd6) : typedQty && qtyValueUsd6(typedQty, livePrice) ? usd6ToDollarsInput(qtyValueUsd6(typedQty, livePrice)!) : "")
+      : (fresh && review ? review.qty : typedUsd6 ? estQty(typedUsd6, livePrice) ?? "" : "");
+    setBy(m); setPct(undefined); setInput(carry);
+  };
   return <div className="mk-form">
     <div className="segmented sm" role="tablist" aria-label="Sell by">
-      <button role="tab" aria-selected={by === "usd"} className={by === "usd" ? "on" : ""} onClick={() => { setBy("usd"); setPct(undefined); setInput(review ? usd6ToDollarsInput(review.estUsdcUsd6) : ""); }}>$ amount</button>
-      <button role="tab" aria-selected={by === "qty"} className={by === "qty" ? "on" : ""} onClick={() => { setBy("qty"); setPct(undefined); setInput(review?.qty ?? ""); }}>Quantity</button>
+      <button role="tab" aria-selected={by === "usd"} className={by === "usd" ? "on" : ""} onClick={() => switchTo("usd")}>$ amount</button>
+      <button role="tab" aria-selected={by === "qty"} className={by === "qty" ? "on" : ""} onClick={() => switchTo("qty")}>Quantity</button>
     </div>
     <label className="mk-amount" htmlFor="mk-sell-amt"><span className="sr-only">{by === "usd" ? "Dollars to sell" : `${d.token} to sell`}</span>
       {by === "usd" && <span className="mk-cur">$</span>}
       <input id="mk-sell-amt" inputMode="decimal" autoComplete="off" disabled={phase !== "idle"}
-        value={pct ? (by === "usd" ? (review ? usd6ToDollarsInput(review.estUsdcUsd6) : "") : review?.qty ?? "") : input}
-        placeholder={by === "usd" ? "0.00" : "0"} onChange={e => { setPct(undefined); setInput(e.target.value.replace(/[^\d.]/g, "")); }} />
+        value={pct ? (by === "usd" ? (review && fresh ? usd6ToDollarsInput(review.estUsdcUsd6) : "") : review && fresh ? review.qty : "") : input}
+        placeholder={pct ? "…" : by === "usd" ? "0.00" : "0"} onChange={e => { setPct(undefined); setInput(e.target.value.replace(/[^\d.]/g, "")); }} />
       {by === "qty" && <span className="mk-cur">{d.token}</span>}
     </label>
-    <p className="mk-est num">{review ? `${review.qty} of your ${review.heldQty} ${d.token}` : quoting ? "Getting a price…" : " "}</p>
+    <p className={`mk-est num ${fresh ? "" : "muted"}`}>{fresh && review ? `${review.qty} of your ${review.heldQty} ${d.token} · ≈ ${fmtUsd6(review.estUsdcUsd6)}` : instant ?? (quoting ? "Getting a price…" : `You have ${held} ${d.token} · ${fmtUsd6(heldUsd6)}`)}</p>
     <div className="mk-chips-row">{PCTS.map(p => <button key={p} className={`chip sm ${pct === p ? "on" : ""}`} disabled={phase !== "idle"} onClick={() => setPct(p)}>{p === 100 ? "Max" : `${p}%`}</button>)}</div>
-    {review && <dl className="mk-lines">
+    {local && <p className="error left" role="alert">{local}</p>}
+    {capped && <p className="callout">That's more than you hold, so this sells all of it.</p>}
+    {review && <dl className={`mk-lines ${fresh ? "" : "stale"}`} aria-busy={!fresh}>
       <div><dt>You get</dt><dd className="num">≈ {fmtUsd6(review.estUsdcUsd6)} USDC</dd></div>
-      <div><dt>Fees</dt><dd className="num">{fmtUsd6(review.fees.totalUsd6)} · {fmtBps(review.fees.pctBps)}</dd></div>
+      {review.minUsdcUsd6 && <div><dt>Least you get</dt><dd className="num">{fmtUsd6(review.minUsdcUsd6)} USDC</dd></div>}
+      <div><dt>Price</dt><dd className="num">{fmtPrice(review.execPriceUsd6 ?? livePrice)} per {d.token}</dd></div>
+      <CostLines fee={review.fees.totalUsd6} amountUsd6={review.estUsdcUsd6} network={review.network} />
       {pnl && <div><dt>Return on this part</dt><dd className={`num ${pnl.cls}`}>{pnl.text}</dd></div>}
-      {livePrice && <div><dt>Price</dt><dd className="num">{fmtPrice(livePrice)} per {d.token}</dd></div>}
     </dl>}
     {err && <p className="error left" role="alert">{err}</p>}
-    {review && phase === "idle" && <div className="live small"><Ring value={(left / QUOTE_EVERY_S) * 100} size={22} stroke={3} /><span>New price in <b className="num">{left} s</b></span></div>}
+    {review && fresh && phase === "idle" && <div className="live small"><Ring value={(left / QUOTE_EVERY_S) * 100} size={22} stroke={3} /><span>New price in <b className="num">{left} s</b></span></div>}
     <p className="fineprint">{copy.sellNote}</p>
     <div className="dock">
       {label ? <button className="button primary full lg" disabled><Spinner /> {label}</button>
-        : review ? <ConfirmAction label={`Sell · ${fmtUsd6(review.estUsdcUsd6)}`} onConfirm={sell} />
-        : <button className="button primary full lg" disabled>{quoting ? "Getting a price…" : "Sell"}</button>}
+        : review && fresh ? <ConfirmAction label={`Sell ${review.qty} ${d.token} · ${fmtUsd6(review.estUsdcUsd6)}`} onConfirm={sell} />
+        : <button className="button primary full lg" disabled>{quoting || (size && !fresh) ? <><Spinner /> Getting a price…</> : "Sell"}</button>}
     </div>
   </div>;
 }

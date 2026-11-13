@@ -12,6 +12,7 @@ import { arcChain, getKeeperWalletClient } from './keeper.js';
 import { fetchAttestation, receiveOnSolana } from './cctp.js';
 import { usdcAtaBytes32 } from './solana-ata.js';
 import { newId } from './ids.js';
+import { mockChain } from './env.js';
 import { pipelineError } from './pipeline-error.js';
 
 export const VAULT_ABI = parseAbi([
@@ -34,6 +35,20 @@ let pub: ReturnType<typeof createPublicClient> | null = null;
 export function arcPublic() {
   if (!pub) pub = createPublicClient({ chain: arcChain, transport: http(arcChain.rpcUrls.default.http[0], { timeout: 10_000 }) });
   return pub;
+}
+
+// Measured: withdrawCrossChain used ~143k gas on Arc mainnet; + approve and deposit when the wallet funds the vault first.
+// shortcut: fixed gas units, upgrade to eth_estimateGas on the built calls if this needs to be exact.
+const ARC_BRIDGE_GAS = 250_000n;
+let gasCache: { at: number; v: bigint } | null = null;
+
+/** Approximate Arc network fee (Usd6) the user's wallet pays to bridge USDC to Solana. Arc gas is native USDC with 18 decimals. null if the RPC fails. */
+export async function arcBridgeGasUsd6(): Promise<bigint | null> {
+  if (mockChain()) return 0n;
+  try {
+    if (!gasCache || Date.now() - gasCache.at > 60_000) gasCache = { at: Date.now(), v: await arcPublic().getGasPrice() };
+    return (gasCache.v * ARC_BRIDGE_GAS) / 10n ** 12n; // wei (18 dp) → Usd6
+  } catch { return null; }
 }
 
 export function vaultAddress(): `0x${string}` {

@@ -3,6 +3,7 @@
  * shortcut: fixture-only, replace with live seed when demo user has real data
  */
 import type {
+  SellSize,
   Balance, BuyProgress, BuyReview, Candles, ChartRange, GmailState, Home, Holdings, Jars, MarketBuyReview, MarketDetail, MarketItem, Markets, Me, Purchase, Receipts, Rules, SellReview,
 } from "./api";
 
@@ -225,9 +226,14 @@ export const marketDetail: MarketDetail = {
   position: { qty: "0.2638", valueUsd6: u(61.04), avgCostUsd6: u(219.8), pnlUsd6: u(3.06), pnlBps: 528 },
   tradable: { buy: true, sell: true },
   funds: { solanaUsdcUsd6: u(12), arcUsdcUsd6: u(50), maxBuyUsd6: u(61.9) },
+  // Demo explorer links point at the explorers' home pages, never at made-up transactions.
   recent: [
-    { kind: "buy", source: "market", at: "2026-11-09T09:12:00Z", qty: "0.1078", amountUsd6: u(25), link: `/buy/${SHOT_IDS.batch}` },
-    { kind: "buy", source: "jar", at: "2026-11-08T04:30:00Z", qty: "0.156", amountUsd6: u(33.43), link: `/buy/${SHOT_IDS.batch}` },
+    { kind: "sell", source: "market", at: "2026-11-12T15:40:00Z", doneAt: "2026-11-12T15:40:20Z", qty: "0.0216", amountUsd6: u(5), priceUsd6: u(231.48), link: `/buy/${SHOT_IDS.batch}`, txs: { solana: "https://solscan.io" } },
+    { kind: "buy", source: "market", at: "2026-11-09T09:12:00Z", doneAt: "2026-11-09T09:13:05Z", qty: "0.1078", amountUsd6: u(25), priceUsd6: u(231.91), link: `/buy/${SHOT_IDS.batch}`, txs: { arc: "https://explorer.arc.io", solana: "https://solscan.io" } },
+    { kind: "buy", source: "jar", at: "2026-11-08T04:30:00Z", doneAt: "2026-11-08T04:31:40Z", qty: "0.156", amountUsd6: u(33.43), priceUsd6: u(214.29), link: `/buy/${SHOT_IDS.batch}`, txs: { arc: "https://explorer.arc.io", solana: "https://solscan.io" } },
+    { kind: "buy", source: "jar", at: "2026-11-02T04:30:00Z", qty: "0.0094", amountUsd6: u(2), priceUsd6: u(212.77), link: `/buy/${SHOT_IDS.batch}`, txs: { solana: "https://solscan.io" } },
+    { kind: "buy", source: "market", at: "2026-10-29T11:02:00Z", qty: "0.0046", amountUsd6: u(1), priceUsd6: u(217.39), link: `/buy/${SHOT_IDS.batch}`, txs: { solana: "https://solscan.io" } },
+    { kind: "buy", source: "jar", at: "2026-10-26T04:30:00Z", qty: "0.0233", amountUsd6: u(5), priceUsd6: u(214.59), link: `/buy/${SHOT_IDS.batch}`, txs: { arc: "https://explorer.arc.io", solana: "https://solscan.io" } },
   ],
 };
 const STEP: Record<ChartRange, [number, number]> = { "1D": [300, 288], "1W": [3600, 168], "1M": [14400, 180], "3M": [86400, 91], "1Y": [86400, 365], ALL: [86400, 500] };
@@ -243,13 +249,14 @@ export function candles(range: ChartRange): Candles {
 }
 export const marketBuyReview = (amountUsd6: string): MarketBuyReview => {
   const amt = Number(amountUsd6) / 1e6;
-  const row = { ...buyReview.rows[0], amountUsd6, estQty: (amt / 231.88).toFixed(4), price: { usd6PerUnit: u(231.88) }, refPriceUsd6: u(231.4), fees: { totalUsd6: u(amt * 0.0024), pctBps: 24, withinCap: true }, selectable: true };
+  const row = { ...buyReview.rows[0], amountUsd6, estQty: (amt / 231.88).toFixed(4), minQty: (amt / 231.88 * 0.99).toFixed(4), price: { usd6PerUnit: u(231.88) }, refPriceUsd6: u(231.4), fees: { totalUsd6: u(amt * 0.00012), pctBps: 1, withinCap: true }, selectable: true };
   const bridge = Math.max(0, amt - 12);
-  return { ...buyReview, quoteId: "00000000-0000-0000-0000-000000000001", expiresAt: new Date(Date.now() + 30_000).toISOString(), rows: [row], row, totalUsd6: amountUsd6, fees: row.fees, funding: { solanaUsdc6: u(12), arcUsdc6: u(50), bridgeUsd6: u(bridge) } };
+  return { ...buyReview, quoteId: "00000000-0000-0000-0000-000000000001", expiresAt: new Date(Date.now() + 30_000).toISOString(), rows: [row], row, totalUsd6: amountUsd6, fees: row.fees, funding: { solanaUsdc6: u(12), arcUsdc6: u(50), bridgeUsd6: u(bridge) }, network: { arcUsd6: "5400", solanaPaidBy: "ownback" } };
 };
-export const sellReview = (pct = 50): SellReview => {
-  const qty = (0.2638 * pct / 100).toFixed(4);
+export const sellReview = (size: SellSize = { pct: 50 }): SellReview => {
+  const qty = size.qty ?? (size.usd6 ? Math.min(0.2638, Number(size.usd6) / 1e6 / 231.4).toFixed(4) : (0.2638 * (size.pct ?? 50) / 100).toFixed(4));
   const out = Number(qty) * 231.4 * 0.9978;
   return { assetId: "co:apple", name: "Apple", icon: logo("AAPLx"), token: "AAPLx", mint: marketDetail.mint, decimals: 8, heldQty: "0.2638", qty, amountRaw: "0",
-    estUsdcUsd6: u(out), priceUsd6: u(231.4), fees: { totalUsd6: u(out * 0.0022), pctBps: 22 }, destination: "", costBasisUsd6: u(Number(qty) * 219.8), pnlUsd6: u(out - Number(qty) * 219.8) };
+    estUsdcUsd6: u(out), minUsdcUsd6: u(out * 0.99), priceUsd6: u(231.4), execPriceUsd6: u(231.4 * 0.9978), fees: { totalUsd6: u(out * 0.00011), pctBps: 1 }, destination: "", costBasisUsd6: u(Number(qty) * 219.8), pnlUsd6: u(out - Number(qty) * 219.8),
+    request: { qty: size.qty ?? null, usd6: size.usd6 ?? null, pct: size.pct ? String(size.pct) : null }, network: { solanaPaidBy: "ownback" } };
 };

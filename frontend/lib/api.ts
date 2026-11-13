@@ -63,7 +63,7 @@ export type Price = { usd6PerUnit: Usd6; at: string; source: string };
 export type HoldingRow = { assetId: string; name: string; icon?: string; subtitle: string; qty?: string; token?: string; chain?: string; valueUsd6: Usd6; price?: Price };
 export type Home = { balance: Balance; stats: { receipts: number; spendingUsd6: Usd6; inJarsUsd6: Usd6 }; topHoldings: HoldingRow[]; recentReceipts: ReceiptRow[]; nextBuy: { at: string; readyJars: number } };
 export type Holdings = { balance: Balance; sections: { key: string; totalUsd6: Usd6; rows: HoldingRow[] }[] };
-export type HoldingDetail = HoldingRow & { spentThisYearUsd6: Usd6; avgPriceUsd6: Usd6; paidTotalUsd6: Usd6; buys: { batchId: string; at: string; qty: string; priceUsd6: Usd6; amountUsd6: Usd6 }[]; proof: { ogRequestId?: string; arcTx?: string; venueTx?: string; arkivKey?: string; links: Record<string, string> }; issuerNote: string };
+export type HoldingDetail = HoldingRow & { spentThisYearUsd6: Usd6; avgPriceUsd6: Usd6; paidTotalUsd6: Usd6; buys: { batchId: string; at: string; qty: string; priceUsd6: Usd6; amountUsd6: Usd6 }[]; proof: { batchId?: string; source?: "jar" | "market"; startedAt?: string; finishedAt?: string; qty?: string; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; receipts?: { count: number; lastAt?: string; lastId?: string }; arkiv?: { key: string; url: string }; arcTx?: string; venueTx?: string; links: Record<string, string> }; issuerNote: string };
 export type JarState = "filling" | "ready" | "approved" | "buying" | "returning" | "paused" | "fees_high" | "no_venue";
 export type Jar = { assetId: string; name: string; icon?: string; role: string; amountUsd6: Usd6; readyMinUsd6: Usd6; state: JarState; token?: string; price?: Price; note?: string };
 export type Jars = { jars: Jar[]; nextReminderAt: string; estFeesUsd6: Usd6 };
@@ -72,21 +72,23 @@ export type SignableAction =
   | { kind: "evm_calls"; chain: string; calls: { to: string; data: string; value: "0" }[]; labels?: string[]; summary: string }
   | { kind: "sol_tx"; txBase64: string; feePayer: string; summary: string }
   | { kind: "typed_data"; typedData: unknown; summary: string };
-export type BuyRow = { assetId: string; name: string; icon?: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; token?: string; mint?: string; decimals?: number; issuer?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string } };
-export type BuyReview = { quoteId: string; expiresAt: string; rows: BuyRow[]; totalUsd6: Usd6; fees: Fees; funding: { solanaUsdc6: Usd6; arcUsdc6: Usd6; bridgeUsd6: Usd6 }; destination: string };
+export type BuyRow = { assetId: string; name: string; icon?: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; token?: string; mint?: string; decimals?: number; issuer?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; minQty?: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string } };
+export type BuyReview = { quoteId: string; expiresAt: string; rows: BuyRow[]; totalUsd6: Usd6; fees: Fees; funding: { solanaUsdc6: Usd6; arcUsdc6: Usd6; bridgeUsd6: Usd6 }; network?: NetworkFees; destination: string };
+/** Paid on top of the amount: Arc gas from the user's Arc USDC when bridging (approx.); Solana fees by Ownback's relay. */
+export type NetworkFees = { arcUsd6?: Usd6; solanaPaidBy: "ownback" };
 export type BuyStatus = "bridging" | "attesting" | "minting" | "swap_ready" | "swapping" | "done" | "done_partial" | "failed";
 export type BuyEntry = { assetId: string; name: string; icon?: string; token?: string; status: "quoted" | "waiting" | "sent" | "bought" | "paused"; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; error?: string; venueTx?: string; explorerUrl?: string };
 export type BuyProgress = { batchId: string; status: BuyStatus; trigger?: "approval" | "user" | "market"; startedAt: string; totalUsd6: Usd6; bridgeUsd6: Usd6; error?: string; links: { arc?: string; mint?: string }; entries: BuyEntry[]; boughtUsd6: Usd6; destination: string };
 export type BuyStart = { batchId: string; action?: Extract<SignableAction, { kind: "evm_calls" }> };
 export type SolAction = Extract<SignableAction, { kind: "sol_tx" }>;
-export type SellReview = { assetId: string; name: string; icon?: string; token: string; mint: string; decimals: number; heldQty: string; qty: string; amountRaw: string; estUsdcUsd6: Usd6; priceUsd6: Usd6; fees: Fees; destination: string; costBasisUsd6?: Usd6; pnlUsd6?: string };
+export type SellReview = { assetId: string; name: string; icon?: string; token: string; mint: string; decimals: number; heldQty: string; qty: string; amountRaw: string; estUsdcUsd6: Usd6; minUsdcUsd6?: Usd6; priceUsd6: Usd6; execPriceUsd6?: Usd6; fees: Fees; destination: string; costBasisUsd6?: Usd6; pnlUsd6?: string; request?: { qty: string | null; usd6: string | null; pct: string | null }; network?: NetworkFees };
 /* Markets (docs/12-markets.md) */
 export type UsMarket = "open" | "closed" | "pre" | "post";
 export type MarketClass = "stock" | "index" | "commodity";
 export type MarketItem = { assetId: string; name: string; ticker: string; token: string; icon?: string; class: MarketClass; chain: "solana"; priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null; liquidityUsd6: Usd6 | null; spark: Usd6[]; held: boolean; positionUsd6?: Usd6 };
 export type Markets = { pricesAt: string; usMarket: UsMarket; items: MarketItem[] };
 export type MarketPrices = { at: string; prices: Record<string, { priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null }> };
-export type MarketTrade = { kind: "buy" | "sell"; source: "jar" | "market" | "holding"; at: string; qty: string; amountUsd6: Usd6; link: string };
+export type MarketTrade = { kind: "buy" | "sell"; source: "jar" | "market" | "holding"; at: string; doneAt?: string; qty: string; amountUsd6: Usd6; priceUsd6?: Usd6; link: string; txs?: { arc?: string; solana?: string } };
 export type MarketDetail = {
   assetId: string; name: string; ticker: string; token: string; icon?: string; class: MarketClass; chain: "solana"; mint: string; decimals: number; issuer: string;
   links: { mint: string; issuer?: string }; priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null; liquidityUsd6: Usd6 | null; volume24hUsd6: Usd6 | null; usMarket: UsMarket;

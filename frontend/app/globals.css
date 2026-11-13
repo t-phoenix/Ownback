@@ -1159,3 +1159,20 @@ svg.spin { animation: spin .8s linear infinite; }
 .shots-wide .shots-notch { display: none; }
 .shots-wide .shell { grid-template-columns: 1fr; } /* no sidebar in shots */
 .mk-count { margin: 0 0 10px; }
+
+/* Holding page: Buy / Sell sit apart from the hero card. */
+.holding-actions { margin: 14px 0 18px; }
+.timeline .link-btn, .trade-links .link-btn { display: inline-flex; align-items: center; gap: 2px; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.timeline li > a.fineprint { white-space: nowrap; }
+
+/* Trade panel: $ / % chip switch, availability, quotes being refreshed. */
+.chip-mode { min-width: 36px; font-weight: 700; border-style: dashed; }
+.mk-avail { margin: -2px 0 0; text-align: center; }
+.mk-lines.stale { opacity: .5; transition: opacity .15s; }
+
+/* All trades sheet. */
+.trade-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.trade-item { padding: 14px 16px; display: grid; gap: 10px; }
+.trade-top { display: flex; justify-content: space-between; gap: 12px; }
+.trade-links { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.trade-links a.fineprint { display: inline-flex; align-items: center; gap: 4px; }

@@ -14,7 +14,7 @@ import { jsonError, requireCsrf, requireUser } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { assetDisplayName } from '../lib/asset-name.js';
 import { iconField, verifiedMint } from '../shared/assets.js';
-import { jupiterPriceUsd6, jupiterSellQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
+import { jupiterPriceUsd6, jupiterSellQuote, rawToQty, routeFeeUsd6, sellSwapCostUsd6, sizeSellForUsd6, valueUsd6 } from '../lib/jupiter-price.js';
 import { buildUserSwap, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import { buildSolanaBurnToArc } from '../lib/cctp.js';
 import { advanceMove, logEvent } from '../lib/buy-pipeline.js';
@@ -83,11 +83,15 @@ sellsRoutes.get('/sells/review', async (c) => {
     for (const p of [priceP, avgP, rulesP]) p.catch(() => {}); // awaited below
     const [held, sized] = await Promise.all([heldRaw(user, assetId), c.req.query('usd6') ? priceP : null]);
     if (held <= 0n) throw new ApiError('NOT_FOUND', { reason: 'nothing_held' });
-    const amountRaw = pickAmount(held, { qty: c.req.query('qty'), usd6: c.req.query('usd6'), pct: c.req.query('pct') }, mint.decimals, sized);
-    const [quote, oracle, avg, [r]] = await Promise.all([jupiterSellQuote(mint.mint, amountRaw), priceP, avgP, rulesP]);
+    let amountRaw = pickAmount(held, { qty: c.req.query('qty'), usd6: c.req.query('usd6'), pct: c.req.query('pct') }, mint.decimals, sized);
+    // By dollars: the reference price can lag the pool, so size from what the pool actually pays (two quotes).
+    const byUsd = c.req.query('usd6') ? await sizeSellForUsd6(mint.mint, BigInt(c.req.query('usd6')!), held, mint.decimals, sized) : null;
+    if (byUsd) amountRaw = byUsd.amountRaw;
+    const [quote, oracle, avg, [r]] = await Promise.all([byUsd?.quote ?? jupiterSellQuote(mint.mint, amountRaw), priceP, avgP, rulesP]);
     if (!quote) throw new ApiError('UPSTREAM', { reason: 'no_route' });
     const outUsd6 = BigInt(quote.outAmount); // USDC raw === Usd6
-    const fee = oracle ? routeFeeUsd6(valueUsd6(amountRaw, mint.decimals, oracle), outUsd6) : 0n;
+    // Measured round trip first (docs/05); the reference-price gap only when the reverse quote fails.
+    const fee = (await sellSwapCostUsd6(mint.mint, amountRaw, outUsd6)) ?? (oracle ? routeFeeUsd6(valueUsd6(amountRaw, mint.decimals, oracle), outUsd6) : 0n);
     const cost = valueUsd6(amountRaw, mint.decimals, avg);
     return c.json({
       assetId,
@@ -100,7 +104,13 @@ sellsRoutes.get('/sells/review', async (c) => {
       qty: rawToQty(amountRaw, mint.decimals),
       amountRaw: amountRaw.toString(),
       estUsdcUsd6: toUsd6(outUsd6),
+      // Worst case after slippage protection: the swap fails rather than pay less.
+      minUsdcUsd6: toUsd6(BigInt(quote.otherAmountThreshold)),
       priceUsd6: toUsd6(oracle ?? 0n),
+      // What this sell actually gets per whole token.
+      execPriceUsd6: toUsd6((outUsd6 * 10n ** BigInt(mint.decimals)) / amountRaw),
+      request: { qty: c.req.query('qty') ?? null, usd6: c.req.query('usd6') ?? null, pct: c.req.query('pct') ?? null },
+      network: { solanaPaidBy: 'ownback' as const },
       fees: buildFees([{ label: 'Jupiter route', usd6: fee }], outUsd6 > 0n ? outUsd6 : 1n, r?.max_fee_bps ?? 500, false),
       ...(avg > 0n ? { costBasisUsd6: toUsd6(cost), pnlUsd6: (outUsd6 - cost).toString() } : {}),
       destination: user.solAddress ?? '',

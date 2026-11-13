@@ -38,5 +38,5 @@ export function installShotApi() {
   api.marketPrices = async (ids) => ({ at: new Date().toISOString(), prices: Object.fromEntries(f.markets.items.filter(i => ids.includes(i.assetId)).map(i => [i.assetId, { priceUsd6: i.priceUsd6, priceAt: new Date().toISOString(), change24hBps: i.change24hBps }])) });
   api.candles = async (_id, range) => f.candles(range);
   api.marketBuyReview = async (_id, amountUsd6) => f.marketBuyReview(amountUsd6);
-  api.sellsReview = async (_id, size) => f.sellReview(typeof size === "object" && size.pct ? size.pct : 50);
+  api.sellsReview = async (_id, size) => { await new Promise(r => setTimeout(r, 400)); return f.sellReview(typeof size === "object" ? size : size ? { qty: size } : undefined); };
 }

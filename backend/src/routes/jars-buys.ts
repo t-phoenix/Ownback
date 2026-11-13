@@ -14,11 +14,12 @@ import { assertIdempotencyKey, jsonError, mockEvmAction, requireCsrf, requireUse
 import { newId } from '../lib/ids.js';
 import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
 import { iconField, verifiedMint } from '../shared/assets.js';
-import { jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
+import { buySwapCostUsd6, jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
 import { buildUserSwap, relayConfigured, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import {
   advanceBatch,
   arcBridgeCalls,
+  arcBridgeGasUsd6,
   arcPublic,
   arcUsdcBalance,
   debitJars,
@@ -171,7 +172,9 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
       ]);
       const outRaw = quote ? BigInt(quote.outAmount) : 0n;
       const priceUsd6 = mint && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
-      const fee = mint && oracle ? routeFeeUsd6(spend, valueUsd6(outRaw, mint.decimals, asUsd6(oracle))) : 0n;
+      // Measured round trip first (docs/05); the reference-price gap only when the reverse quote fails.
+      const measured = mint && outRaw > 0n ? await buySwapCostUsd6(mint.mint, spend, outRaw) : null;
+      const fee = measured ?? (mint && oracle ? routeFeeUsd6(spend, valueUsd6(outRaw, mint.decimals, asUsd6(oracle))) : 0n);
       const fees = buildFees([{ label: 'Jupiter route', usd6: fee }], spend, maxFeeBps, false);
       const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(fee, spend, maxFeeBps);
       return {
@@ -187,6 +190,8 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
         price: { usd6PerUnit: toUsd6(priceUsd6), at: now, source: 'jupiter' as const },
         refPriceUsd6: toUsd6(oracle ?? 0n),
         estQty: mint && outRaw > 0n ? rawToQty(outRaw, mint.decimals) : '0',
+        // Worst case after slippage protection: the swap fails rather than give less.
+        minQty: mint && quote ? rawToQty(BigInt(quote.otherAmountThreshold), mint.decimals) : '0',
         fees,
         selectable,
         ...(selectable ? {} : { reason: (mint ? 'fees_high' : 'no_venue') as 'fees_high' | 'no_venue' }),
@@ -200,6 +205,7 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
   const totalFee = picked.reduce((a, r) => a + BigInt(r.fees.totalUsd6), 0n);
   const [onSolana, onArc] = await funding;
   const bridge = total > onSolana ? total - onSolana : 0n;
+  const arcGas = bridge > 0n ? await arcBridgeGasUsd6() : 0n;
   const quoteId = newId();
   const expiresAt = new Date(Date.now() + QUOTE_REFRESH_MS).toISOString();
   await sql`
@@ -213,6 +219,8 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
     totalUsd6: toUsd6(total),
     fees: buildFees([{ label: 'Jupiter route', usd6: totalFee }], total > 0n ? total : 1n, maxFeeBps, false),
     funding: { solanaUsdc6: toUsd6(onSolana), arcUsdc6: toUsd6(onArc), bridgeUsd6: toUsd6(bridge) },
+    // Paid on top of the amount: Arc gas from the user's Arc USDC when bridging (approx.); Solana fees by the relay.
+    network: { ...(arcGas != null ? { arcUsd6: toUsd6(arcGas) } : {}), solanaPaidBy: 'ownback' as const },
     destination: user.solAddress ?? '',
   };
 }

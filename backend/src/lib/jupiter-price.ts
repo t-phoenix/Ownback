@@ -6,10 +6,10 @@ const JUP_SWAP = 'https://lite-api.jup.ag/swap/v1/swap';
 const JUP_PRICE = 'https://lite-api.jup.ag/price/v3';
 
 /** lite-api is rate limited (429). Back off and retry a few times instead of reporting "no route". */
-async function jupFetch(url: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
+async function jupFetch(url: string, init: RequestInit & { timeoutMs?: number; retries?: number } = {}): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, { ...init, signal: AbortSignal.timeout(init.timeoutMs ?? 8_000) });
-    if (res.status !== 429 || attempt >= 4) return res;
+    if (res.status !== 429 || attempt >= (init.retries ?? 4)) return res;
     await new Promise((r) => setTimeout(r, 1_000 * 2 ** attempt)); // 1, 2, 4, 8 s
   }
 }
@@ -159,6 +159,8 @@ export async function jupiterQuote(opts: {
   outputMint: string;
   amountRaw: bigint;
   slippageBps?: number;
+  /** 429 retries (default 4, waits 1-2-4-8 s). Fee measurements use 1 so a review never waits long. */
+  retries?: number;
 }): Promise<JupiterQuote | null> {
   if (opts.amountRaw <= 0n) return null;
   try {
@@ -167,7 +169,7 @@ export async function jupiterQuote(opts: {
       `&outputMint=${encodeURIComponent(opts.outputMint)}` +
       `&amount=${opts.amountRaw.toString()}` +
       `&slippageBps=${opts.slippageBps ?? 100}`;
-    const res = await jupFetch(url);
+    const res = await jupFetch(url, { retries: opts.retries });
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
     if (!body.outAmount || !body.inAmount) return null;
@@ -186,12 +188,13 @@ export async function jupiterQuote(opts: {
   }
 }
 
-export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippageBps = 100) {
+export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippageBps = 100, retries?: number) {
   return jupiterQuote({
     inputMint: SOL_USDC,
     outputMint: mint,
     amountRaw: usdcRawFromUsd6(amountUsd6),
     slippageBps,
+    retries,
   });
 }
 
@@ -208,12 +211,13 @@ export async function jupiterRouteOk(mint: string): Promise<boolean | null> {
   }
 }
 
-export async function jupiterSellQuote(mint: string, amountRaw: bigint, slippageBps = 100) {
+export async function jupiterSellQuote(mint: string, amountRaw: bigint, slippageBps = 100, retries?: number) {
   return jupiterQuote({
     inputMint: mint,
     outputMint: SOL_USDC,
     amountRaw,
     slippageBps,
+    retries,
   });
 }
 
@@ -228,6 +232,74 @@ export function priceUsd6FromBuyQuote(inUsd6: bigint, outRaw: bigint, decimals: 
 /** Value of a raw token amount at a Usd6-per-whole-token price. */
 export function valueUsd6(raw: bigint, decimals: number, priceUsd6: bigint): bigint {
   return (raw * priceUsd6) / 10n ** BigInt(decimals);
+}
+
+/**
+ * One-way swap cost = half of what a round trip at this size loses (pool fee + price impact each way).
+ * Measured from two live quotes, so it doesn't depend on a reference price that can lag the pool.
+ * `sent` and `back` are in the same unit (the side the trip starts from). Pure; exported for tests.
+ */
+export function halfRoundTrip(sent: bigint, back: bigint): bigint {
+  return sent > back ? (sent - back) / 2n : 0n;
+}
+
+// The measured rate barely moves between quotes of a similar size, so it is reused for a minute per token,
+// side and order size (power of ten in dollars). Saves one Jupiter call per refresh (lite-api rate limits).
+const costCache = new Map<string, { at: number; ppm: bigint }>();
+const COST_TTL_MS = 5 * 60_000;
+const sizeBucket = (usd6: bigint) => usd6.toString().length;
+
+async function cachedCost(key: string, amountUsd6: bigint, measure: () => Promise<bigint | null>): Promise<bigint | null> {
+  const hit = costCache.get(key);
+  if (hit && Date.now() - hit.at < COST_TTL_MS) return (amountUsd6 * hit.ppm) / 1_000_000n;
+  const cost = await measure();
+  if (cost != null && amountUsd6 > 0n) costCache.set(key, { at: Date.now(), ppm: (cost * 1_000_000n) / amountUsd6 });
+  // Rate limited or no route right now: the last measured rate beats the reference-price fallback.
+  return cost ?? (hit ? (amountUsd6 * hit.ppm) / 1_000_000n : null);
+}
+
+/** Buy cost in Usd6: spend USDC → outRaw tokens; selling outRaw back returns less USDC. null when the reverse quote fails. */
+export async function buySwapCostUsd6(mint: string, spendUsd6: bigint, outRaw: bigint): Promise<bigint | null> {
+  if (outRaw <= 0n) return null;
+  return cachedCost(`${mint}:buy:${sizeBucket(spendUsd6)}`, spendUsd6, async () => {
+    const back = await jupiterSellQuote(mint, outRaw, 100, 1);
+    return back ? halfRoundTrip(spendUsd6, BigInt(back.outAmount)) : null;
+  });
+}
+
+/** Sell cost in Usd6: amountRaw tokens → outUsd6; buying back with outUsd6 returns fewer tokens, valued at this sell's price. */
+export async function sellSwapCostUsd6(mint: string, amountRaw: bigint, outUsd6: bigint): Promise<bigint | null> {
+  if (amountRaw <= 0n || outUsd6 <= 0n) return null;
+  return cachedCost(`${mint}:sell:${sizeBucket(outUsd6)}`, outUsd6, async () => {
+    const back = await jupiterBuyQuote(mint, outUsd6, 100, 1);
+    return back ? (halfRoundTrip(amountRaw, BigInt(back.outAmount)) * outUsd6) / amountRaw : null;
+  });
+}
+
+/**
+ * Raw tokens to sell for about `targetUsd6`. Jupiter has no exact-out route for these tokens, so: size from the
+ * reference price, quote it, rescale by what the pool actually pays, and quote again. Lands within a few bps.
+ * Returns the final amount and its quote (capped at `held`). Pure maths in `rescale` (exported for tests).
+ */
+export function rescale(raw: bigint, gotUsd6: bigint, targetUsd6: bigint): bigint {
+  return gotUsd6 > 0n ? (raw * targetUsd6) / gotUsd6 : raw;
+}
+
+export async function sizeSellForUsd6(mint: string, targetUsd6: bigint, held: bigint, decimals: number, refPriceUsd6: bigint | null) {
+  if (!refPriceUsd6 || refPriceUsd6 <= 0n) return null;
+  let raw = (targetUsd6 * 10n ** BigInt(decimals)) / refPriceUsd6;
+  if (raw > held) raw = held;
+  if (raw <= 0n) return null;
+  const first = await jupiterSellQuote(mint, raw);
+  if (!first) return null;
+  const got = BigInt(first.outAmount);
+  // Within 0.05% already: one quote is enough.
+  if ((got > targetUsd6 ? got - targetUsd6 : targetUsd6 - got) * 10_000n <= targetUsd6 * 5n) return { amountRaw: raw, quote: first };
+  let next = rescale(raw, got, targetUsd6);
+  if (next > held) next = held;
+  if (next <= 0n || next === raw) return { amountRaw: raw, quote: first };
+  const second = await jupiterSellQuote(mint, next);
+  return second ? { amountRaw: next, quote: second } : { amountRaw: raw, quote: first };
 }
 
 /**

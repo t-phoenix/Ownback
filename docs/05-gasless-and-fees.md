@@ -17,6 +17,8 @@
 | Bridge fee (BNB route only) | Third-party bridge | ✓ |
 | Price impact / slippage | Up to 1%, shown separately as "Price protection" | ✗ (shown, but has its own cap) |
 
+**How the Jupiter route fee is measured (D42):** half the loss of a live round trip at the same size: buy = (spend − USDC back from selling the tokens) / 2; sell = (tokens − tokens back from buying with the proceeds) / 2, valued at the sell's own price. That is the pool fee plus price impact one way, independent of a reference price that can lag the pool. The rate is reused for 5 min per token, side and order size; if the round trip can't be quoted, the last rate is used, else the old gap to Jupiter's price. Arc gas for the bridge (user's Arc USDC) is shown separately as an estimate; Solana fees are paid by the relay. Sells by a dollar amount are sized from the pool (quote, rescale, re-quote), not from the reference price.
+
 **Fee check (required integer form):** `(feeUsd6 * 10_000n) / amountUsd6 <= maxFeeBps`.
 
 Example: fees $0.05 on $5.00 → `(50_000n * 10_000n) / 5_000_000n = 100` → 1.00% ≤ default 500 bps → pass.

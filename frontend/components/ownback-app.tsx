@@ -173,7 +173,7 @@ function Shell({ initialPath }: { initialPath: string }) {
   else if (seg[0] === "add" && seg[1]) screen = <Confirm id={seg[1]} />;
   else if (route === "/jars") screen = <Jars />;
   else if (marketsOn && route === "/markets") screen = <Markets />;
-  else if (marketsOn && seg[0] === "markets" && seg[1]) { const q = new URLSearchParams(query ?? ""); const t = q.get("trade"); screen = <MarketAsset id={decodeURIComponent(seg[1])} trade={t === "buy" || t === "sell" ? t : undefined} />; }
+  else if (marketsOn && seg[0] === "markets" && seg[1]) { const q = new URLSearchParams(query ?? ""); const t = q.get("trade"); screen = <MarketAsset id={decodeURIComponent(seg[1])} trade={t === "buy" || t === "sell" ? t : undefined} trades={q.get("trades") === "1"} />; }
   else if (route === "/buy/review") { const q = new URLSearchParams(query ?? ""); screen = <BuyReview all={q.has("all")} assetId={q.get("asset") ?? undefined} amountUsd6={q.get("amount") ?? undefined} />; }
   else if (seg[0] === "buy" && seg[1]) screen = <BuyDone batchId={seg[1]} />;
   else if (seg[0] === "sell" && seg[1] === "review" && seg[2]) screen = marketsOn ? <MarketAsset id={decodeURIComponent(seg[2])} trade="sell" /> : <SellReview assetId={decodeURIComponent(seg[2])} />;

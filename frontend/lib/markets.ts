@@ -25,6 +25,31 @@ export function estQty(usd6: Usd6 | null | undefined, priceUsd6: Usd6 | null | u
   return `${s.slice(0, -6)}.${s.slice(-6)}`.replace(/\.?0+$/, "");
 }
 
+/** Fee line: "$0.08 · 0.24%", "< $0.01 · 0.02%", "< $0.01 · < 0.01%" or "None". Bigint maths; never a float compare (docs/05). */
+export function fmtFee(feeUsd6: Usd6 | null | undefined, amountUsd6: Usd6 | null | undefined): string {
+  const f = big(feeUsd6) ?? 0n, a = big(amountUsd6) ?? 0n;
+  if (f <= 0n) return "None";
+  const money = f < 10_000n ? "< $0.01" : fmtUsd6(f);
+  const bps = a > 0n ? (f * 10_000n) / a : 0n;
+  return `${money} · ${bps < 1n ? "< 0.01%" : fmtBps(Number(bps))}`;
+}
+
+/** Dollar value of a typed quantity ("0.0012") at a Usd6 price → Usd6 string, floored. Display only. */
+export function qtyValueUsd6(qty: string, priceUsd6: Usd6 | null | undefined): Usd6 | null {
+  const p = big(priceUsd6);
+  const m = /^(\d*)(?:\.(\d*))?$/.exec(qty.trim());
+  if (!m || !p || p <= 0n || (!m[1] && !m[2])) return null;
+  const frac = (m[2] ?? "").slice(0, 12).padEnd(12, "0");
+  const q12 = BigInt(m[1] || "0") * 10n ** 12n + BigInt(frac); // 12-decimal fixed point
+  return ((q12 * p) / 10n ** 12n).toString();
+}
+
+/** p% of a balance, floored to whole cents (D18: invest amounts are whole cents). */
+export function pctOfUsd6(maxUsd6: Usd6 | null | undefined, p: number): Usd6 {
+  const m = big(maxUsd6) ?? 0n;
+  return (((m * BigInt(p)) / 100n / 10_000n) * 10_000n).toString();
+}
+
 /** 138 → "1.38%" (no sign; the ▲/▼ glyph carries it). */
 export function fmtBps(bps: number): string {
   const a = Math.abs(bps);

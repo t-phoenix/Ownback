@@ -15,6 +15,7 @@ import { portfolio } from '../lib/portfolio.js';
 import { jupiterBuyQuote, valueUsd6 } from '../lib/jupiter-price.js';
 import { relayConfigured } from '../lib/jupiter-swap.js';
 import { mockChain } from '../lib/env.js';
+import { EXPLORER } from '../shared/chains.js';
 import { qtyToRaw } from '../lib/qty.js';
 import { marketAsset, marketAssets, type MarketAsset } from '../lib/markets/catalog.js';
 import { marketPrices, markViewed, sparklines, capWait } from '../lib/markets/prices.js';
@@ -120,7 +121,8 @@ async function canRoute(mint: string): Promise<boolean | null> {
   return !!q;
 }
 
-type Trade = { kind: 'buy' | 'sell'; source: 'jar' | 'market' | 'holding'; at: Date; qty: string; amount: string; link: string };
+type Trade = { kind: 'buy' | 'sell'; source: 'jar' | 'market' | 'holding'; at: Date; doneAt: Date | null; qty: string; amount: string; price: string | null; link: string; arcTx: string | null; solTx: string | null };
+const TRADES_MAX = 50; // the page shows 5; "View all" lists these
 
 marketRoutes.get('/markets/:assetId', async (c) => {
   try {
@@ -135,14 +137,15 @@ marketRoutes.get('/markets/:assetId', async (c) => {
       capWait(portfolio(user, { fresh: c.req.header('cache-control') === 'no-cache' }).catch(() => null)),
       canRoute(a.mint),
       capWait(topPool(a.mint).catch(() => null), 1_500),
-      sql<{ batch_id: string; trigger: string; started_at: Date | null; qty: string | null; spent: string | null }[]>`
-        SELECT e.batch_id, b.trigger, b.started_at, e.qty::text AS qty, e.spent_usd6::text AS spent
+      sql<{ batch_id: string; trigger: string; started_at: Date | null; finished_at: Date | null; qty: string | null; spent: string | null; fill: string | null; arc_tx: string | null; venue_tx: string | null }[]>`
+        SELECT e.batch_id, b.trigger, b.started_at, b.finished_at, e.qty::text AS qty, e.spent_usd6::text AS spent,
+          e.fill_price_usd6::text AS fill, b.arc_tx, e.venue_tx
         FROM buy_entries e JOIN buy_batches b ON b.id = e.batch_id
         WHERE e.user_id = ${user.id}::uuid AND e.asset_id = ${a.assetId} AND e.status = 'bought'
         ORDER BY b.started_at DESC NULLS LAST`,
-      sql<{ id: string; source: string | null; created_at: Date; qty: string; received_usd6: string | null }[]>`
-        SELECT id, source, created_at, qty, received_usd6::text FROM sells
-        WHERE user_id = ${user.id}::uuid AND asset_id = ${a.assetId} AND status = 'done' ORDER BY created_at DESC LIMIT 10`,
+      sql<{ id: string; source: string | null; created_at: Date; finished_at: Date | null; qty: string; received_usd6: string | null; venue_tx: string | null }[]>`
+        SELECT id, source, created_at, finished_at, qty, received_usd6::text, venue_tx FROM sells
+        WHERE user_id = ${user.id}::uuid AND asset_id = ${a.assetId} AND status = 'done' ORDER BY created_at DESC LIMIT ${TRADES_MAX}`,
     ]);
     const price = prices.get(a.assetId)!;
     const h = p?.held.find((x) => x.assetId === a.assetId);
@@ -153,9 +156,13 @@ marketRoutes.get('/markets/:assetId', async (c) => {
     const cost = h && avg > 0n ? valueUsd6(h.raw, a.decimals, avg) : 0n;
     const pnl = h && avg > 0n ? h.valueUsd6 - cost : null;
     const trades: Trade[] = [
-      ...buys.map((b) => ({ kind: 'buy' as const, source: (b.trigger === 'market' ? 'market' : 'jar') as Trade['source'], at: b.started_at ?? new Date(), qty: (b.qty ?? '0').replace(/\.?0+$/, ''), amount: b.spent ?? '0', link: `/buy/${b.batch_id}` })),
-      ...sells.map((s) => ({ kind: 'sell' as const, source: (s.source === 'market' ? 'market' : 'holding') as Trade['source'], at: s.created_at, qty: s.qty, amount: s.received_usd6 ?? '0', link: `/sell/${s.id}` })),
-    ].sort((x, y) => y.at.getTime() - x.at.getTime()).slice(0, 5);
+      ...buys.map((b) => ({ kind: 'buy' as const, source: (b.trigger === 'market' ? 'market' : 'jar') as Trade['source'], at: b.started_at ?? new Date(), doneAt: b.finished_at, qty: (b.qty ?? '0').replace(/\.?0+$/, ''), amount: b.spent ?? '0', price: b.fill, link: `/buy/${b.batch_id}`, arcTx: b.arc_tx, solTx: b.venue_tx })),
+      ...sells.map((s) => {
+        const raw = qtyToRaw(s.qty, a.decimals) ?? 0n;
+        const price = raw > 0n && s.received_usd6 ? ((BigInt(s.received_usd6) * 10n ** BigInt(a.decimals)) / raw).toString() : null;
+        return { kind: 'sell' as const, source: (s.source === 'market' ? 'market' : 'holding') as Trade['source'], at: s.created_at, doneAt: s.finished_at, qty: s.qty.replace(/\.?0+$/, ''), amount: s.received_usd6 ?? '0', price, link: `/sell/${s.id}`, arcTx: null, solTx: s.venue_tx };
+      }),
+    ].sort((x, y) => y.at.getTime() - x.at.getTime()).slice(0, TRADES_MAX);
     const solUsdc = p?.solUsdc ?? 0n; const arcUsdc = p?.arcUsdc ?? 0n;
     const arcSpendable = arcUsdc > ARC_GAS_BUFFER_USD6 ? arcUsdc - ARC_GAS_BUFFER_USD6 : 0n;
     const relayOk = mockChain() || relayConfigured();
@@ -173,7 +180,11 @@ marketRoutes.get('/markets/:assetId', async (c) => {
       position: h ? { qty: h.qty, valueUsd6: toUsd6(h.valueUsd6), avgCostUsd6: toUsd6(avg), ...(pnl != null ? { pnlUsd6: pnl.toString(), pnlBps: cost > 0n ? Number((pnl * 10_000n) / cost) : 0 } : {}) } : null,
       tradable: { buy: !reason, sell: !!h && relayOk, ...(reason ? { reason } : !h ? { reason: 'nothing_held' as const } : {}) },
       funds: { solanaUsdcUsd6: toUsd6(solUsdc), arcUsdcUsd6: toUsd6(arcUsdc), maxBuyUsd6: toUsd6(((solUsdc + arcSpendable) / CENT_USD6) * CENT_USD6) },
-      recent: trades.map((t) => ({ kind: t.kind, source: t.source, at: t.at.toISOString(), qty: t.qty, amountUsd6: toUsd6(t.amount), link: t.link })),
+      recent: trades.map((t) => ({
+        kind: t.kind, source: t.source, at: t.at.toISOString(), ...(t.doneAt ? { doneAt: t.doneAt.toISOString() } : {}),
+        qty: t.qty, amountUsd6: toUsd6(t.amount), ...(t.price && BigInt(t.price) > 0n ? { priceUsd6: toUsd6(t.price) } : {}), link: t.link,
+        txs: { ...(t.arcTx ? { arc: EXPLORER.arcTx(t.arcTx) } : {}), ...(t.solTx ? { solana: EXPLORER.solTx(t.solTx) } : {}) },
+      })),
     });
   } catch (e) {
     return jsonError(c, e);

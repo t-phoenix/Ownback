@@ -85,11 +85,23 @@ export function Holding({ id }: { id: string }) {
   const [hide, setHide] = useState(true);
   const name = assetName(id, d.data?.name);
   const proof = d.data?.proof;
-  const steps = [
-    { label: `Receipt matched to ${name}`, sub: proof?.ogRequestId ? `0G request ${proof.ogRequestId.slice(0, 8)}…` : undefined, done: !!proof?.ogRequestId },
-    { label: "USDC moved from Arc to Solana", sub: proof?.arcTx ? `Arc ${proof.arcTx.slice(0, 10)}…` : undefined, href: proof?.links.arc, done: !!proof?.arcTx },
-    { label: `${name} bought on Jupiter`, sub: proof?.venueTx ? `Solana ${proof.venueTx.slice(0, 10)}…` : undefined, href: proof?.links.venue, done: !!proof?.venueTx },
-    { label: "Ownership record published", sub: proof?.arkivKey ? "Arkiv" : "Pending", done: !!proof?.arkivKey },
+  const token = d.data?.token ?? "";
+  const when = (iso?: string) => iso ? new Date(iso).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : undefined;
+  const short = (h: string) => `${h.slice(0, 6)}…${h.slice(-4)}`;
+  type Step = { key: string; label: string; sub?: string; href?: string; go?: string; linkLabel?: string; done: boolean };
+  const steps: Step[] = !proof?.batchId ? [] : [
+    proof.source === "market"
+      ? { key: "src", label: "Ordered in Markets", sub: when(proof.startedAt), done: true }
+      : { key: "src", label: proof.receipts ? `Saved from ${proof.receipts.count} receipt${proof.receipts.count > 1 ? "s" : ""}` : `Saved in your ${name} jar`,
+          sub: proof.receipts?.lastAt ? `Last receipt ${when(proof.receipts.lastAt)}` : undefined, go: proof.receipts?.lastId ? `/add/${proof.receipts.lastId}` : undefined, linkLabel: "Receipt", done: true },
+    proof.arcTx
+      ? { key: "arc", label: "USDC moved from Arc to Solana", sub: `Arc ${short(proof.arcTx)} · ${when(proof.startedAt) ?? ""}`, href: proof.links.arc, linkLabel: "Arc explorer", done: true }
+      : { key: "arc", label: "Paid from your Solana USDC", sub: "No bridge needed", done: true },
+    { key: "swap", label: proof.qty ? `${proof.qty} ${token} bought on Jupiter` : `${name} bought on Jupiter`,
+      sub: proof.venueTx ? [proof.fillPriceUsd6 && `at ${fmtUsd6(proof.fillPriceUsd6)}`, proof.spentUsd6 && `${fmtUsd6(proof.spentUsd6)} spent`, when(proof.finishedAt)].filter(Boolean).join(" · ") : "Waiting for the swap",
+      href: proof.links.venue, linkLabel: "Solscan", done: !!proof.venueTx },
+    { key: "arkiv", label: proof.arkiv ? `${token || name} verified on Arkiv` : "Token record on Arkiv", sub: proof.arkiv ? `Entity ${short(proof.arkiv.key)}` : "Not found right now",
+      href: proof.arkiv?.url, linkLabel: "Arkiv", done: !!proof.arkiv },
   ];
   const shareText = `I bought something I love. Now I own a piece of ${name}.`;
   const canSell = !!d.data?.qty && BigInt(d.data.valueUsd6 || "0") > 0n;
@@ -103,7 +115,7 @@ export function Holding({ id }: { id: string }) {
           <div><p className="micro">{name}{d.data?.token ? ` · ${d.data.token}` : ""}</p><Money cents={centsOf(d.data?.valueUsd6)} className="holding-num" /><p className="sub">{d.data?.qty ? `${d.data.qty} ${d.data.token ?? ""} in your wallet` : "Nothing bought yet"}</p>
             <div className="hero-tags"><PriceTag token={d.data?.token} usd6={d.data?.price?.usd6PerUnit} />{d.data && BigInt(d.data.avgPriceUsd6 || "0") > 0n && <span className="sub">You paid {fmtUsd6(d.data.avgPriceUsd6)} avg</span>}</div></div>
         </section>}
-        {d.data?.token && <div className="dock-row" style={{ marginBottom: 16 }}>
+        {d.data?.token && <div className="dock-row holding-actions">
           {canSell && <button className="button secondary" onClick={() => navigate(marketsOn ? `/markets/${encodeURIComponent(id)}?trade=sell` : `/sell/review/${encodeURIComponent(id)}`)}>Sell</button>}
           <button className="button primary" onClick={() => navigate(marketsOn ? `/markets/${encodeURIComponent(id)}?trade=buy` : `/buy/review?asset=${encodeURIComponent(id)}`)}>Buy more {d.data.token}</button>
         </div>}
@@ -117,12 +129,14 @@ export function Holding({ id }: { id: string }) {
         </section>}
 
         <section className="block" aria-labelledby="proof">
-          <h2 id="proof" className="h-section">Proof trail for the last buy</h2>
-          {d.loading ? <SkeletonList rows={4} /> : <ol className="timeline card">
-            {steps.map(s => <li key={s.label} className={s.done ? "" : "pending"}>
+          <div className="block-head"><h2 id="proof" className="h-section">Proof trail for the last buy</h2>
+            {marketsOn && d.data?.token && <button className="link" onClick={() => navigate(`/markets/${encodeURIComponent(id)}?trades=1`)}>All trades <ChevronRight size={15} /></button>}</div>
+          {d.loading ? <SkeletonList rows={4} /> : !steps.length ? <p className="sub">No buys yet. Your first buy shows its proof here.</p> : <ol className="timeline card">
+            {steps.map(s => <li key={s.key} className={s.done ? "" : "pending"}>
               <span className="tl-dot">{s.done ? <Check size={13} strokeWidth={2.6} /> : null}</span>
               <span className="row-main"><span className="row-title">{s.label}</span>{s.sub && <span className="row-sub mono">{s.sub}</span>}</span>
-              {"href" in s && s.href && <a className="fineprint" href={s.href} target="_blank" rel="noreferrer"><ExternalLink size={14} /> View</a>}
+              {s.href ? <a className="fineprint" href={s.href} target="_blank" rel="noreferrer"><ExternalLink size={14} /> {s.linkLabel ?? "View"}</a>
+                : s.go ? <button className="fineprint link-btn" onClick={() => navigate(s.go!)}>{s.linkLabel} <ChevronRight size={14} /></button> : null}
             </li>)}
           </ol>}
         </section>
