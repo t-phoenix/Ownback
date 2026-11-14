@@ -1,7 +1,11 @@
-// Waitlist desk: sign in, search, approve or revoke, let someone in directly, remove, export.
+// Admin desk: sign in, search, remove, export. With the gate on (OB.gated) it also approves, revokes and lets people in.
 (function () {
   const $ = (id) => document.getElementById(id);
   let rows = [];
+  const gated = !!(window.OB && window.OB.gated);
+  document.body.classList.toggle('is-gated', gated);
+  document.title = gated ? 'Ownback Waitlist Desk' : 'Ownback Sign-ups';
+  if (!gated) document.querySelectorAll('h1').forEach((h) => { h.textContent = 'Sign-ups'; });
   const api = async (method, data) => {
     const r = await fetch(method === 'GET' ? `/api/admin?action=${data}` : '/api/admin', method === 'GET' ? {} : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     const j = await r.json().catch(() => ({}));
@@ -26,14 +30,15 @@
     $('sWait').textContent = rows.filter((r) => r.status === 'waiting').length;
     $('sOk').textContent = rows.filter((r) => r.status === 'approved').length;
     $('sNews').textContent = rows.filter((r) => r.newsletter).length;
+    $('sWeek').textContent = rows.filter((r) => Date.now() - new Date(r.created_at) < 7 * 864e5).length;
     const q = $('q').value.trim().toLowerCase(), fs = $('fs').value, fn = $('fn').value;
     const view = rows.filter((r) => (!fs || r.status === fs) && (!fn || String(+r.newsletter) === fn) && (!q || r.email.includes(q) || (r.why || '').toLowerCase().includes(q)));
     $('empty').hidden = view.length > 0;
     $('rows').innerHTML = view.map((r) => `<tr>
       <td class="n">${r.id}</td><td>${esc(r.email)}${r.source === 'admin' ? ' <span class="muted" style="font-size:12px">· added by you</span>' : ''}</td>
       <td class="why">${r.why ? esc(r.why) : '<span class="muted">—</span>'}</td><td class="n">${day(r.created_at)}</td><td>${r.newsletter ? 'Yes' : 'No'}</td>
-      <td><span class="pill ${r.status}">${r.status === 'approved' ? 'Approved' : 'Waiting'}</span></td>
-      <td><div class="act">${r.status === 'approved' ? `<button data-id="${r.id}" data-s="waiting">Revoke</button>` : `<button class="ok" data-id="${r.id}" data-s="approved">Approve</button>`}<button class="x" data-del="${r.id}" aria-label="Remove ${esc(r.email)}">Remove</button></div></td></tr>`).join('');
+      <td class="gated"><span class="pill ${r.status}">${r.status === 'approved' ? 'Approved' : 'Waiting'}</span></td>
+      <td><div class="act">${!gated ? '' : r.status === 'approved' ? `<button data-id="${r.id}" data-s="waiting">Revoke</button>` : `<button class="ok" data-id="${r.id}" data-s="approved">Approve</button>`}<button class="x" data-del="${r.id}" aria-label="Remove ${esc(r.email)}">Remove</button></div></td></tr>`).join('');
   }
   $('rows').addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return;

@@ -195,6 +195,7 @@ p { margin: 0; }
 .form .err { color: #b4342b; font-size: 15px; min-height: 1em; }
 .form .fine { font-size: 13px; color: var(--muted); }
 .done { display: grid; gap: 10px; text-align: left; }
+.done .btn { justify-self: start; margin-top: 6px; }
 .done .big { font: 800 clamp(48px, 6vw, 80px)/1 var(--display); color: var(--green); }
 .btn.pulse { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(255 46 136 / .5); } 50% { box-shadow: 0 0 0 12px rgb(255 46 136 / 0); } }

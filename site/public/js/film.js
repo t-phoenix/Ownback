@@ -212,9 +212,9 @@
     ['skyIn', 5, (t, s) => { look('sunday', RECT.sky, ease(t)); slice(W / 2, H / 2, Math.min(W, H) * lerp(.03, .5, ease(t)), s * 2); const gd = rest('gold', 2); gd.el.style.opacity = seg(t, .6, 1); }],
     ['vaultOut', 8, (t, s) => { rest('vault'); window.OBVault.render('out', t, s * 1000); const gd = rest('gold', 2); gd.el.style.opacity = 1 - seg(t, 0, .45); }],
     ['vault', 14, (t, s) => { rest('vault'); window.OBVault.render('open', t, s * 1000); },
-      (t) => (t < .4 ? '<b>Your pieces are</b><br><em>kept safe.</em><i>in your own wallet, not ours</i>' : '<em>The app is live.</em><i>we’re letting people in a few at a time</i>')],
+      (t) => (t < .4 ? '<b>Your pieces are</b><br><em>kept safe.</em><i>in your own wallet, not ours</i>' : '<em>The app is live.</em><i>free for the first 1,000 people</i>')],
     ['vaultIn', 9, (t, s) => { rest('vault'); window.OBVault.render('in', t, s * 1000); const p = rest('paper', 2); p.el.style.opacity = seg(t, .5, .95); },
-      '<em>The app is live.</em><i>we’re letting people in a few at a time</i>'],
+      '<em>The app is live.</em><i>free for the first 1,000 people</i>'],
   ];
   const total = S.reduce((a, x) => a + x[1], 0);
   film.style.setProperty('--film-h', (total * 6 + 100) + 'vh');

@@ -6,6 +6,7 @@ delete process.env.DATABASE_URL;
 process.env.ADMIN_PASSWORD = 'correct-horse-battery';
 process.env.ADMIN_SECRET = 'x'.repeat(40);
 process.env.APP_URL = 'https://app.example.test';
+process.env.GATED = '1';
 
 const { normEmail, cleanText, csvCell } = await import('../lib/valid.js');
 const { makeToken, tokenOk, passwordOk } = await import('../lib/auth.js');
@@ -76,6 +77,9 @@ test('join → gate says waiting → admin approves → gate returns app URL', a
 });
 
 test('honeypot, bad email, cross-site and rate limit', async () => {
+  process.env.GATED = '0';
+  assert.equal((await call(access, { body: { email: 'riya@example.com' } })).status, 404, 'gate off: email check is closed');
+  process.env.GATED = '1';
   assert.equal((await call(join, { body: { email: 'bot@x.com', company: 'Acme' } })).json.position, 0);
   assert.equal((await call(join, { body: { email: 'bad' } })).status, 400);
   assert.equal((await call(join, { body: { email: 'a@b.co' }, headers: { origin: 'https://evil.test' } })).status, 403);

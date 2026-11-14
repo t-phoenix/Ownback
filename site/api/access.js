@@ -6,6 +6,8 @@ import { normEmail } from '../lib/valid.js';
 import { allow, lookup } from '../lib/store.js';
 
 export default async function handler(req, res) {
+  // Off unless the gate is on (GATED=1), so no one can probe which emails signed up.
+  if (process.env.GATED !== '1') return send(res, 404, { error: 'Not found.' });
   if (req.method !== 'POST') return send(res, 405, { error: 'Use POST.' });
   if (!sameOrigin(req)) return send(res, 403, { error: 'Forbidden.' });
   const email = normEmail(body(req).email);

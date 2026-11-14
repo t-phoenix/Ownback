@@ -66,8 +66,7 @@
       cleared = true; cv.classList.add('gone'); const r = cv.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2); buzz([10, 30, 14]);
       done++; saved += share;
       if (done === deck.length) {
-        tally.innerHTML = `<span>${deck.length} orders put aside <b>$${saved.toFixed(2)}</b> in your jars.</span><a class="btn btn-gold pulse" href="#join" id="tallycta">Get this on your real receipts</a>`;
-        document.getElementById('tallycta').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('email').focus(); });
+        tally.innerHTML = `<span>${deck.length} orders put aside <b>$${saved.toFixed(2)}</b> in your jars.</span><a class="btn btn-gold pulse" href="${(window.OB || {}).appUrl || 'https://app.ownback.tech'}" data-launch>Do this with your real receipts</a>`;
       } else tally.innerHTML = `<span><b>$${saved.toFixed(2)}</b> put aside so far.</span><span class="muted">${deck.length - done} to go</span>`;
     }
     cv.addEventListener('pointerdown', (e) => { down = true; lastP = null; cv.setPointerCapture(e.pointerId); scratch(at(e)); });

@@ -12,7 +12,7 @@
   body { padding: 28px var(--gut) 60px; }
   .desk { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px; }
   .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
   @media (max-width: 700px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .stat { border: 2px solid var(--ink); background: var(--panel); padding: 14px 16px; }
   .stat b { display: block; font: 800 30px/1 var(--display); font-variant-numeric: tabular-nums; margin-top: 6px; }
@@ -35,6 +35,7 @@
   .empty { padding: 30px; text-align: center; color: var(--muted); }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 99px; font-weight: 600; opacity: 0; transition: .3s; pointer-events: none; }
   .toast.on { opacity: 1; }
+  body:not(.is-gated) .gated, body.is-gated .open { display: none !important; }
 </style>
 </head>
 <body>
@@ -54,26 +55,28 @@
   </div>
   <div class="stats">
     <div class="stat"><span class="eyebrow">Sign-ups</span><b id="sTotal">0</b></div>
-    <div class="stat"><span class="eyebrow">Waiting</span><b id="sWait">0</b></div>
-    <div class="stat"><span class="eyebrow">Approved</span><b id="sOk">0</b></div>
+    <div class="stat gated"><span class="eyebrow">Waiting</span><b id="sWait">0</b></div>
+    <div class="stat gated"><span class="eyebrow">Approved</span><b id="sOk">0</b></div>
+    <div class="stat open"><span class="eyebrow">Last 7 days</span><b id="sWeek">0</b></div>
     <div class="stat"><span class="eyebrow">Newsletter</span><b id="sNews">0</b></div>
   </div>
-  <form class="tools" id="grant">
+  <form class="tools gated" id="grant">
     <label class="sr" for="gemail">Email to let in</label>
     <input id="gemail" type="email" placeholder="Let someone in directly: investor@fund.vc" style="flex:1;min-width:220px" required>
     <button class="btn btn-gold" type="submit">Approve email</button>
   </form>
   <div class="tools">
     <label class="sr" for="q">Search</label><input id="q" type="search" placeholder="Search email or reason">
-    <label class="sr" for="fs">Status</label><select id="fs"><option value="">All</option><option value="waiting">Waiting</option><option value="approved">Approved</option></select>
+    <label class="sr" for="fs">Status</label><select id="fs" class="gated"><option value="">All</option><option value="waiting">Waiting</option><option value="approved">Approved</option></select>
     <label class="sr" for="fn">Newsletter</label><select id="fn"><option value="">Any newsletter</option><option value="1">Said yes</option><option value="0">Said no</option></select>
   </div>
   <div class="tbl"><table>
-    <thead><tr><th>#</th><th>Email</th><th>Why they want in</th><th>Joined</th><th>News</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Email</th><th>What they’d own</th><th>Joined</th><th>News</th><th class="gated">Status</th><th></th></tr></thead>
     <tbody id="rows"></tbody>
   </table><div class="empty" id="empty" hidden>No sign-ups match.</div></div>
 </main>
 <div class="toast" id="toast" role="status"></div>
+<script src="/js/config.js"></script>
 <script src="/js/admin.js" defer></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ownback · Own what you buy</title>
-<meta name="description" content="A small share of every purchase goes into the companies behind it. You approve every buy, and the shares land in your own wallet.">
+<meta name="description" content="A small share of every purchase goes into the companies behind it. You approve every buy, and the shares land in your own wallet. Free for the first 1,000 people.">
 <meta name="theme-color" content="#eeebe3">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -27,7 +27,7 @@
   </a>
   <div class="right">
     <a class="skip" href="#join">skip the film ↓</a>
-    <button class="btn btn-ink" type="button" data-gate>Launch app</button>
+    <a class="btn btn-ink" href="https://app.ownback.tech" data-launch>Launch app</a>
   </div>
 </header>
 
@@ -36,12 +36,12 @@
   <div class="stage" id="stage">
 
     <div class="shot hero" data-shot="hero">
-      <div class="mast"><span>Ownback ★ invite only</span><span>Issue 01 · Mumbai · 2026</span></div>
+      <div class="mast"><span>Ownback ★ free for the first 1,000</span><span>Issue 01 · Mumbai · 2026</span></div>
       <div class="copy">
-        <span class="tag">you’ve bought it all</span>
+        <span class="tag">free for the first 1,000 people</span>
         <h1>Own what<br>you <span class="blk">buy.</span></h1>
         <p class="lede">A small share of every purchase goes into the companies behind it. You approve every buy. The shares land in your own wallet.</p>
-        <div class="ctas"><a class="btn btn-green" href="#join">Get early access</a><button class="btn btn-line" type="button" data-gate>Launch app</button></div>
+        <div class="ctas"><a class="btn btn-green" href="https://app.ownback.tech" data-launch>Launch the app</a><a class="btn btn-line" href="#join">How it works</a></div>
       </div>
       <canvas id="coin" aria-label="A gold Ownback coin. Drag to spin it, tap its gold corner to save a piece."></canvas>
       <span class="coinhint tag" id="coinhint">spin me · tap the gold corner</span>
@@ -104,7 +104,7 @@
     <div class="vignette" aria-hidden="true"></div>
     <div class="hud" id="hud"><span class="tag">spent this month</span><b id="spent">₹0</b></div>
     <p class="cap" id="cap"></p>
-    <div class="endcta" id="endcta"><a class="btn btn-green" href="#join">Get early access</a><button class="btn btn-ink" type="button" data-gate>I’m already on the list</button></div>
+    <div class="endcta" id="endcta"><a class="btn btn-green" href="https://app.ownback.tech" data-launch>Launch the app</a><a class="btn btn-ink" href="#join">Get updates</a></div>
     <div class="scrollhint" id="scrollhint"><span>scroll to play</span><i></i></div>
   </div>
 </section>
@@ -113,23 +113,23 @@
   <div class="wrap">
     <div>
       <div class="joinhead">
-        <span class="eyebrow">Invite only, for now</span>
-        <h2 id="joinh">Get in <span class="blk">early.</span></h2>
-        <p class="muted" style="font-size:19px;max-width:40ch">The app is live with real money on mainnet. We're letting people in a few at a time. Leave your email, and once you're approved, Launch app lets you in.</p>
+        <span class="eyebrow">Free for the first 1,000 people</span>
+        <h2 id="joinh">Claim your <span class="blk">spot.</span></h2>
+        <p class="muted" style="font-size:19px;max-width:40ch">The app is live with real money on mainnet. The first 1,000 people use it free, everywhere. Start now, or leave your email and we'll tell you what's new.</p>
+        <div class="ctas"><a class="btn btn-green" href="https://app.ownback.tech" data-launch>Launch the app</a></div>
       </div>
       <form class="form" id="joinform" novalidate>
         <label for="email">Email
           <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
         </label>
-        <label for="why">Why do you want in? <span style="font-weight:400">(optional)</span>
-          <textarea id="why" name="why" maxlength="500" placeholder="What would you love to own a piece of?"></textarea>
+        <label for="why">What would you love to own a piece of? <span style="font-weight:400">(optional)</span>
+          <textarea id="why" name="why" maxlength="500" placeholder="The phone I’m holding, my running shoes, my coffee…"></textarea>
         </label>
         <span class="count" id="whycount">0 / 500</span>
-        <label class="check" for="news"><input id="news" name="newsletter" type="checkbox"> Send me the occasional update. No spam, unsubscribe any time.</label>
-        <div class="hp" aria-hidden="true"><label for="company">Company</label><input id="company" name="company" tabindex="-1" autocomplete="off"></div>
+                <div class="hp" aria-hidden="true"><label for="company">Company</label><input id="company" name="company" tabindex="-1" autocomplete="off"></div>
         <p class="err" id="joinerr" role="alert"></p>
-        <button class="btn btn-green" id="joinbtn" type="submit">Join the waitlist</button>
-        <p class="fine">We only use your email for access (and updates, if you ticked the box). We never sell it.</p>
+        <button class="btn btn-ink" id="joinbtn" type="submit">Keep me posted</button>
+        <p class="fine">Only for the occasional Ownback update. No spam, unsubscribe any time, and we never sell it.</p>
       </form>
     </div>
 
@@ -162,7 +162,7 @@
       <details><summary>Is this real money?</summary><p>Yes. The app runs on mainnet. You hold USDC, and the shares you buy are tokenized and go to your own wallet.</p></details>
       <details><summary>Does Ownback buy anything on its own?</summary><p>No. Every buy needs your approval. You see the live price, the quantity and the fees in dollars before you sign.</p></details>
       <details><summary>Do I need crypto to start?</summary><p>You sign in with Google. You only ever hold USDC; network fees are shown in dollars and capped by your own limit.</p></details>
-      <details><summary>Why is there a waitlist?</summary><p>Because it's real money, we're opening slowly and adding people a few at a time.</p></details>
+      <details><summary>Is it free?</summary><p>Yes, for the first 1,000 people, wherever they are. Ownback takes nothing from those accounts. Each buy still has its market and network fees, which you see in dollars, capped by your own limit, before you approve.</p></details>
     </div>
   </div>
 </section>
@@ -182,6 +182,7 @@
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+<script src="/js/config.js"></script>
 <script src="/js/coin.js" defer></script>
 <script src="/js/split3d.js" defer></script>
 <script src="/js/vault3d.js" defer></script>
