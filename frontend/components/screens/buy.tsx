@@ -5,7 +5,9 @@ import { AlertTriangle, ArrowRight, Check, ChevronRight, ExternalLink, RefreshCw
 import { useApp } from "../app-context";
 import { Coin3D, ConfirmAction, GlassJar, Monogram, PriceTag, Ring, RouteStrip, Sheet, Spinner, StepIcon, haptic } from "../ui";
 import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
-import { api, ApiError, type BuyEntry, type BuyProgress, type Jar, type SignableAction } from "../../lib/api";
+import { api, ApiError, type BuyEntry, type BuyOption, type BuyProgress, type BuyRow, type Jar, type SignableAction } from "../../lib/api";
+import { fmtBps, fmtCompact } from "../../lib/markets";
+import { RouteTags, TagLegend } from "../venue-tags";
 import { useApi, refreshAll } from "../../lib/use-api";
 import { arcStepWhy, errorCopy, pipelineCopy } from "../../lib/copy";
 import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action";
@@ -132,6 +134,8 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
   const [arcPlan, setArcPlan] = useState<{ batchId: string; action: Extract<SignableAction, { kind: "evm_calls" }> } | null>(null);
   const [steps, setSteps] = useState<StepUpdate[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  // D46: the token each company jar buys, when the buyer picks another than the recommended one.
+  const [picks, setPicks] = useState<Record<string, string>>({});
   // Jar tap passes the jar balance; holdings "Buy more" falls back to $1.
   const seedAmt = amountUsd6 && bi(amountUsd6) >= MIN_BUY_USD6 ? amountUsd6 : "1000000";
   const seeded = assetId && !amounts[assetId] ? { [assetId]: seedAmt } : {};
@@ -150,7 +154,16 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
   }, [r.data]);
   const d = r.data;
   const rows = d?.rows ?? [];
-  const selectable = rows.filter(x => x.selectable);
+  /** The token a row will buy: the buyer's pick if it's still buyable, else the server's default. */
+  const chosen = (q: BuyRow): BuyRow | BuyOption => {
+    const pick = q.options?.find(o => o.assetId === picks[q.assetId] && o.selectable);
+    return pick ?? q;
+  };
+  const selectable = rows.filter(x => chosen(x).selectable);
+  // Totals follow the chosen tokens (the amounts don't change, only the fees).
+  const feeTotal = selectable.reduce((s, q) => s + bi(chosen(q).fees.totalUsd6), 0n);
+  const feePct = bi(d?.totalUsd6) > 0n ? Number((feeTotal * 10_000n) / bi(d?.totalUsd6)) : 0;
+  const tokenPicks = Object.fromEntries(rows.flatMap(q => { const c = chosen(q); return c !== q && "recommended" in c && c.assetId !== q.tokenAssetId ? [[q.assetId, c.assetId]] : []; }));
   const dirty = rows.some(q => { const v = dollarsToUsd6(inputs[q.assetId] ?? ""); return v !== null && v !== q.amountUsd6; });
   const applyAmounts = () => {
     const next: Record<string, string> = {};
@@ -171,6 +184,8 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
     setPhase("idle"); setArcPlan(null);
     // A half-done Arc run is rebuilt from chain state on the next start (vault `free` is reused), never re-sent as-is.
     if (code === "QUOTE_EXPIRED" || code === "TX_REVERTED" || code === "TX_NOT_FOUND") r.reload();
+    // D46: a picked token that's no longer offered: back to the recommended ones on fresh quotes.
+    if (code === "VALIDATION" && details?.reason === "token_not_offered") { setPicks({}); r.reload(); }
   };
   // Navigate first — refreshAll() remounts siblings and was racing the buy screen into the Next error page.
   const go = (batchId: string) => { navigate(`/buy/${batchId}`); refreshAll(); };
@@ -188,7 +203,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
     if (!d) return;
     setErr(null); setSteps([]); setPhase("starting");
     try {
-      const start = await api.buy(d.quoteId);
+      const start = await api.buy(d.quoteId, tokenPicks);
       if (start.action?.kind === "evm_calls" && !isNoopAction(start.action)) {
         setArcPlan({ batchId: start.batchId, action: start.action }); setPhase("review");
         return;
@@ -213,34 +228,36 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
     {r.loading && !d && <SkeletonList rows={3} />}
     {d && <div className="two-col">
       <div className="quotes">
-        {rows.map(q => { const name = assetName(q.assetId, q.name); return <article className={`card quote ${q.selectable ? "" : "off"}`} key={q.assetId}>
+        {rows.map(row => { const q = chosen(row); const name = assetName(row.assetId, row.name); return <article className={`card quote ${q.selectable ? "" : "off"}`} key={row.assetId}>
           <header className="quote-top">
-            <Monogram name={name} icon={q.icon} tone={toneFor(q.assetId)} />
-            <div className="row-main"><div className="row-title">{name} <PriceTag token={q.token} usd6={q.refPriceUsd6} /></div><div className="row-sub">{q.selectable ? "Jupiter on Solana · into your wallet" : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
-            <strong className="num">{fmtUsd6(q.amountUsd6)}</strong>
+            <Monogram name={name} icon={q.icon ?? row.icon} tone={toneFor(row.assetId)} />
+            <div className="row-main"><div className="row-title">{name} <PriceTag token={q.token} usd6={q.refPriceUsd6} /></div><div className="row-sub">{q.selectable ? <RouteTags issuer={q.issuer} venue={q.venue} chain={q.chain} /> : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
+            <strong className="num">{fmtUsd6(row.amountUsd6)}</strong>
           </header>
+          {(row.options?.length ?? 0) > 1 && <TokenOptions row={row} value={q.assetId} disabled={busy} onPick={id => { haptic(5); setPicks(p => ({ ...p, [row.assetId]: id })); }} />}
           {q.mint && <p className="fineprint mono">{q.issuer ?? "Token"} · mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
           {q.arkiv && <a className="fineprint" href={q.arkiv.url} target="_blank" rel="noreferrer"><ShieldCheck size={14} /> Token verified on Arkiv</a>}
           {bi(q.price?.usd6PerUnit) > 0n && <dl className="quote-grid">
             <div><dt>Your price</dt><dd>{fmtUsd6(q.price.usd6PerUnit)}{q.token ? ` / ${q.token}` : ""}</dd></div>
-            <div><dt>You get about</dt><dd>{q.estQty} {q.token}</dd></div>
-            <div><dt>Market price</dt><dd>{fmtUsd6(q.refPriceUsd6)}</dd></div>
+            <div><dt>You get</dt><dd>{q.estQty} {q.token}</dd></div>
+            <div><dt>At least</dt><dd>{q.minQty ?? q.estQty} {q.token}</dd></div>
             <div><dt>Route cost</dt><dd>{fmtUsd6(q.fees.totalUsd6)} ({((q.fees?.pctBps ?? 0) / 100).toFixed(2)}%)</dd></div>
           </dl>}
           {(q.mint || q.selectable) && <div className="quote-amount field">
-            <label htmlFor={`amt-${q.assetId}`}>Amount (USD)</label>
+            <label htmlFor={`amt-${row.assetId}`}>Amount (USD)</label>
             <div className="btn-row">
-              <input id={`amt-${q.assetId}`} inputMode="decimal" disabled={busy} value={inputs[q.assetId] ?? ""} onChange={e => setInputs(i => ({ ...i, [q.assetId]: e.target.value }))} aria-label={`Amount for ${name}`} />
-              {bi(q.suggestedUsd6) > 0n && <button type="button" className="chip" disabled={busy} onClick={() => setInputs(i => ({ ...i, [q.assetId]: usd6ToDollarsInput(q.suggestedUsd6) }))}>Suggested {fmtUsd6(q.suggestedUsd6)}</button>}
+              <input id={`amt-${row.assetId}`} inputMode="decimal" disabled={busy} value={inputs[row.assetId] ?? ""} onChange={e => setInputs(i => ({ ...i, [row.assetId]: e.target.value }))} aria-label={`Amount for ${name}`} />
+              {bi(row.suggestedUsd6) > 0n && <button type="button" className="chip" disabled={busy} onClick={() => setInputs(i => ({ ...i, [row.assetId]: usd6ToDollarsInput(row.suggestedUsd6) }))}>Suggested {fmtUsd6(row.suggestedUsd6)}</button>}
             </div>
           </div>}
         </article>; })}
+        {rows.some(q => (q.options?.length ?? 0) > 1) && <TagLegend />}
         {dirty && !busy && <button className="button secondary full" onClick={applyAmounts}>Update quotes</button>}
       </div>
       <div>
         <section className="card summary">
           <div className="summary-line"><span>Total</span><strong>{fmtUsd6(d.totalUsd6)}</strong></div>
-          <div className="summary-line"><span>Route costs</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({((d.fees?.pctBps ?? 0) / 100).toFixed(2)}%)</strong></div>
+          <div className="summary-line"><span>Route costs</span><strong>{fmtUsd6(feeTotal.toString())} ({(feePct / 100).toFixed(2)}%)</strong></div>
           {bi(d.funding?.solanaUsdc6) > 0n && <div className="summary-line"><span>From your Solana USDC</span><strong>{fmtUsd6((bi(d.totalUsd6) - bi(d.funding?.bridgeUsd6)).toString())}</strong></div>}
           {bi(d.funding?.bridgeUsd6) > 0n && <div className="summary-line"><span>Moved from Arc (CCTP)</span><strong>{fmtUsd6(d.funding.bridgeUsd6)}</strong></div>}
           <p className="sub">Arc balance {fmtUsd6(d.funding.arcUsdc6)} · Solana USDC {fmtUsd6(d.funding.solanaUsdc6)}. Price protection 1%.</p>
@@ -268,6 +285,32 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
         : <div className="dock"><button className="button primary full lg" disabled><Spinner /> {phase === "submitting" ? "Checking Arc receipt…" : `Step ${Math.min(arcDone + 1, arcLabels.length)} of ${arcLabels.length}…`}</button></div>}
       <p className="fineprint center"><ShieldCheck size={14} /> Only these steps, only this amount. Checked on your device before signing.</p>
     </Sheet>
+  </div>;
+}
+
+/**
+ * D46: the tokens a company jar can buy (AAPLx, AAPLon…), each quoted exactly at this amount. The cheapest
+ * buyable one is pre-selected and tagged Recommended; the buyer can pick any other buyable one.
+ */
+function TokenOptions({ row, value, disabled, onPick }: { row: BuyRow; value: string; disabled: boolean; onPick: (assetId: string) => void }) {
+  return <div className="tok-opts" role="radiogroup" aria-label={`Which ${row.name} token to buy`}>
+    {row.options!.map(o => { const on = o.assetId === value; return <button key={o.assetId} type="button" role="radio" aria-checked={on} className={`tok-opt${on ? " on" : ""}`} disabled={disabled || !o.selectable} onClick={() => { if (!on) onPick(o.assetId); }}>
+      <span className="tok-opt-top">
+        {on && <Check size={16} aria-hidden="true" />}
+        <b>{o.token ?? o.assetId}</b>
+        <RouteTags issuer={o.issuer} venue={o.venue} chain={o.chain} />
+        {o.recommended && <span className="tok-rec">Recommended</span>}
+        {o.selectable && <span className="num">{o.estQty} {o.token}</span>}
+      </span>
+      <span className="tok-opt-stats">
+        {o.selectable ? <span>Cost {fmtUsd6(o.fees.totalUsd6)} ({fmtBps(o.fees.pctBps)})</span> : <span>{o.reason === "fees_high" ? `Fees too high (${fmtBps(o.fees.pctBps)})` : "No route right now"}</span>}
+        {bi(o.price?.usd6PerUnit) > 0n && <span>{fmtUsd6(o.price.usd6PerUnit)} each</span>}
+        {o.liquidityUsd6 && <span>Liquidity {fmtCompact(o.liquidityUsd6)}</span>}
+        {o.volume24hUsd6 && <span>24h vol {fmtCompact(o.volume24hUsd6)}</span>}
+        {o.mcapUsd6 && <span>Market cap {fmtCompact(o.mcapUsd6)}</span>}
+        {o.gapBps != null && <span>{o.gapBps > 0 ? "+" : o.gapBps < 0 ? "−" : ""}{fmtBps(o.gapBps)} vs the share</span>}
+      </span>
+    </button>; })}
   </div>;
 }
 

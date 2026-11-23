@@ -13,6 +13,7 @@ import { signAction } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { centsOf, fmtLocal, fmtUsd, fmtUsd6, pct1 } from "../../lib/money";
 import { fmtBps, fmtCompact, fmtPrice } from "../../lib/markets";
+import { IssuerTag } from "../venue-tags";
 import { parseDollars, roundNice, spread, stepFor, sumOf, type Cents } from "../../lib/amounts";
 import { FlowHead } from "./home";
 
@@ -264,7 +265,7 @@ export function ReadError() {
 const roleLabel: Record<string, string> = { maker: "Maker", supplier: "Behind it", material: "Material", fallback: "Fallback" };
 
 /** D40 right column: the why for rows you can buy; everything not on-chain folds into one card. */
-const WhyThese = memo(function WhyThese({ a, allocs, onPick }: { a: NonNullable<Purchase["analysis"]>; allocs: Allocation[]; onPick?: (from: string, to: string) => void }) {
+const WhyThese = memo(function WhyThese({ a, allocs }: { a: NonNullable<Purchase["analysis"]>; allocs: Allocation[] }) {
   const ids = new Set(allocs.map(x => x.assetId));
   const rows: (JuryRow & { group: string })[] = [
     ...(a.parent ? [{ ...a.parent, group: "Parent company" }] : []),
@@ -281,7 +282,7 @@ const WhyThese = memo(function WhyThese({ a, allocs, onPick }: { a: NonNullable<
         <span className="row-main">
           <span className="row-title clip">{r.name}{r.symbol && <span className="ticker"> {r.symbol}</span>}</span>
           <span className="jury-why">{r.why}</span>
-          <Venues venues={r.venues} selected={r.assetId} onPick={onPick && r.assetId ? to => onPick(r.assetId!, to) : undefined} />
+          <Venues venues={r.venues} />
           <span className="jury-meta"><span className="jury-badge on">{r.group}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
         </span>
       </div>)}</div></section>}
@@ -313,18 +314,17 @@ const WhyThese = memo(function WhyThese({ a, allocs, onPick }: { a: NonNullable<
 const gapText = (bps: number) => `${bps > 0 ? "+" : bps < 0 ? "−" : ""}${fmtBps(bps)} vs the share`;
 
 /**
- * D43/D45: every token of this company, best first, with its market numbers (display only). Each token is its own
- * asset; on Confirm the user taps one to put this jar in it. The best tradable one is tagged Recommended.
+ * D46: every token of this company, best first, with its market numbers (display only). The jar is the company;
+ * which token to buy is chosen on the buy screen, where the best one is pre-selected.
  */
-function Venues({ venues, selected, onPick }: { venues?: VenueStat[]; selected?: string; onPick?: (assetId: string) => void }) {
+function Venues({ venues }: { venues?: VenueStat[] }) {
   if (!venues?.length) return null;
   const best = venues[0]?.tradable ? venues[0].assetId : undefined;
-  return <span className="venues" role={onPick ? "radiogroup" : undefined} aria-label={onPick ? "Which token to buy" : undefined}>{venues.map(v => {
-    const on = v.assetId === selected;
-    const body = <>
+  return <span className="venues">{venues.map(v =>
+    <span key={v.assetId} className={`venue${v.tradable ? "" : " off"}`}>
       <b>{v.symbol}</b>
-      <span>{v.issuer}</span>
-      {v.assetId === best && <span className="venue-tag">Recommended</span>}
+      <IssuerTag issuer={v.issuer} />
+      {v.assetId === best && venues.length > 1 && <span className="venue-tag">Best today</span>}
       {v.priceUsd6 && <span>{fmtPrice(v.priceUsd6)}</span>}
       {v.mcapUsd6 && <span>Market cap {fmtCompact(v.mcapUsd6)}</span>}
       {v.volume24hUsd6 && <span>24h vol {fmtCompact(v.volume24hUsd6)}</span>}
@@ -332,11 +332,8 @@ function Venues({ venues, selected, onPick }: { venues?: VenueStat[]; selected?:
       {v.gapBps != null && <span>{gapText(v.gapBps)}</span>}
       {v.tradable && v.feeBps != null && <span>Cost {fmtBps(v.feeBps)} on $5</span>}
       {!v.tradable && <span className="venue-why">{v.feeBps != null ? `Too thin: a $5 buy costs ${fmtBps(v.feeBps)}` : "No price right now"}</span>}
-    </>;
-    return onPick && v.tradable
-      ? <button key={v.assetId} type="button" role="radio" aria-checked={on} className={`venue pick${on ? " on" : ""}`} onClick={() => { if (!on) { haptic(); onPick(v.assetId); } }}>{on && <Check size={14} aria-hidden="true" />}{body}</button>
-      : <span key={v.assetId} className={`venue${v.tradable ? "" : " off"}`}>{body}</span>;
-  })}</span>;
+    </span>)}
+  </span>;
 }
 
 type Mix = "suggested" | "even" | "maker";
@@ -388,13 +385,6 @@ export function Confirm({ id }: { id: string }) {
     setAmt({ ...amt, [assetId]: cents });
   };
   const pickMix = (m: Mix) => { haptic(5); setMix(m); setLocked(new Set()); set(spread(ids, weights(m), total, new Set(), amt)); };
-
-  // D45: put a company's jar in another of its tokens (each token is its own asset).
-  const pickToken = async (from: string, to: string) => {
-    setErr(null);
-    try { await api.switchToken(id, from, to); p.reload(); }
-    catch (e) { setErr(errorCopy(e instanceof ApiError ? e.code : undefined)); }
-  };
 
   const confirm = async () => {
     if (inFlight.current) return; // a double tap must not send a second save
@@ -529,7 +519,7 @@ export function Confirm({ id }: { id: string }) {
       </div>
 
       <div className="confirm-side">
-        {data.analysis ? <WhyThese a={data.analysis} allocs={allocs} onPick={pickToken} /> : <section className="jury-section"><h3 className="micro">Why these</h3><div className="card list">
+        {data.analysis ? <WhyThese a={data.analysis} allocs={allocs} /> : <section className="jury-section"><h3 className="micro">Why these</h3><div className="card list">
           {allocs.map(a => <div key={a.assetId} className="row jury-row">
             <Monogram name={assetName(a.assetId, a.name)} icon={a.icon} tone={toneFor(a.assetId)} size={38} />
             <span className="row-main"><span className="row-title clip">{assetName(a.assetId, a.name)}</span>{a.why && <span className="jury-why">{a.why}</span>}<span className="jury-meta"><span className="jury-badge on">{roleLabel[a.role] ?? a.role}</span></span></span>

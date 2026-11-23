@@ -60,7 +60,7 @@ export type Balance = { totalUsd6: Usd6; byType: { stocksCommodities: Usd6; stab
 export type ReceiptStatus = "bought" | "in_jar" | "needs_review" | "fallback";
 export type ReceiptRow = { id: string; shop: string; item: string; local: { amount: string; currency: string }; amountUsd6: Usd6; date: string; status: ReceiptStatus; investUsd6: Usd6 };
 export type Price = { usd6PerUnit: Usd6; at: string; source: string };
-export type HoldingRow = { assetId: string; name: string; icon?: string; subtitle: string; qty?: string; token?: string; chain?: string; valueUsd6: Usd6; price?: Price };
+export type HoldingRow = { assetId: string; name: string; icon?: string; subtitle: string; qty?: string; token?: string; chain?: string; issuer?: string; valueUsd6: Usd6; price?: Price };
 export type Home = { balance: Balance; stats: { receipts: number; spendingUsd6: Usd6; inJarsUsd6: Usd6 }; topHoldings: HoldingRow[]; recentReceipts: ReceiptRow[]; nextBuy: { at: string; readyJars: number } };
 export type Holdings = { balance: Balance; sections: { key: string; totalUsd6: Usd6; rows: HoldingRow[] }[] };
 export type HoldingDetail = HoldingRow & { spentThisYearUsd6: Usd6; avgPriceUsd6: Usd6; paidTotalUsd6: Usd6; buys: { batchId: string; at: string; qty: string; priceUsd6: Usd6; amountUsd6: Usd6 }[]; proof: { batchId?: string; source?: "jar" | "market"; startedAt?: string; finishedAt?: string; qty?: string; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; receipts?: { count: number; lastAt?: string; lastId?: string }; arkiv?: { key: string; url: string }; arcTx?: string; venueTx?: string; links: Record<string, string> }; issuerNote: string };
@@ -72,7 +72,10 @@ export type SignableAction =
   | { kind: "evm_calls"; chain: string; calls: { to: string; data: string; value: "0" }[]; labels?: string[]; summary: string }
   | { kind: "sol_tx"; txBase64: string; feePayer: string; summary: string }
   | { kind: "typed_data"; typedData: unknown; summary: string };
-export type BuyRow = { assetId: string; name: string; icon?: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; token?: string; mint?: string; decimals?: number; issuer?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; minQty?: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string } };
+/** D46: one token a jar can buy, quoted exactly at the jar's amount. Stats are display only. */
+export type BuyOption = { assetId: string; token?: string; mint?: string; decimals?: number; issuer?: string; icon?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; minQty?: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string }; recommended: boolean; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6; gapBps?: number };
+/** A jar (company) or a Markets token. Top-level token fields are the default token (`tokenAssetId`). */
+export type BuyRow = Omit<BuyOption, "recommended"> & { name: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; tokenAssetId?: string; recommended?: string; options?: BuyOption[] };
 export type BuyReview = { quoteId: string; expiresAt: string; rows: BuyRow[]; totalUsd6: Usd6; fees: Fees; funding: { solanaUsdc6: Usd6; arcUsdc6: Usd6; bridgeUsd6: Usd6 }; network?: NetworkFees; destination: string };
 /** Paid on top of the amount: Arc gas from the user's Arc USDC when bridging (approx.); Solana fees by Ownback's relay. */
 export type NetworkFees = { arcUsd6?: Usd6; solanaPaidBy: "ownback" };
@@ -85,7 +88,7 @@ export type SellReview = { assetId: string; name: string; icon?: string; token: 
 /* Markets (docs/12-markets.md) */
 export type UsMarket = "open" | "closed" | "pre" | "post";
 export type MarketClass = "stock" | "index" | "commodity";
-export type MarketItem = { assetId: string; name: string; ticker: string; token: string; icon?: string; class: MarketClass; chain: "solana"; priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null; liquidityUsd6: Usd6 | null; spark: Usd6[]; held: boolean; positionUsd6?: Usd6 };
+export type MarketItem = { assetId: string; name: string; ticker: string; token: string; icon?: string; class: MarketClass; chain: "solana"; issuer?: string; venue?: string; priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null; liquidityUsd6: Usd6 | null; spark: Usd6[]; held: boolean; positionUsd6?: Usd6 };
 export type Markets = { pricesAt: string; usMarket: UsMarket; items: MarketItem[] };
 export type MarketPrices = { at: string; prices: Record<string, { priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null }> };
 export type MarketTrade = { kind: "buy" | "sell"; source: "jar" | "market" | "holding"; at: string; doneAt?: string; qty: string; amountUsd6: Usd6; priceUsd6?: Usd6; link: string; txs?: { arc?: string; solana?: string } };
@@ -138,7 +141,8 @@ export const api = {
     amounts && Object.keys(amounts).length
       ? send<BuyReview>("POST", "/buys/review", { include: all ? "all" : "ready", amounts }, true)
       : get<BuyReview>(`/buys/review${all ? "?include=all" : ""}`),
-  buy: (quoteId: string) => send<BuyStart>("POST", "/buys", { quoteId }, true),
+  /** D46: `tokens` = { jarId: tokenAssetId } where the buyer picked another token than the default. */
+  buy: (quoteId: string, tokens?: Record<string, string>) => send<BuyStart>("POST", "/buys", tokens && Object.keys(tokens).length ? { quoteId, tokens } : { quoteId }, true),
   buyArcSubmitted: (batchId: string, txHash: string) => send<{ status: BuyStatus }>("POST", `/buys/${batchId}/arc-submitted`, { txHash }),
   buySwap: (batchId: string, assetId: string) => send<{ action: SolAction; estQty: string; token: string }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}`, {}),
   buySwapSubmit: (batchId: string, assetId: string, signedTx: string) => send<{ status: "bought"; venueTx: string; explorerUrl: string; qty: string; spentUsd6: Usd6 }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}/submit`, { signedTx }),
@@ -174,8 +178,6 @@ export const api = {
   purchase: (id: string) => get<Purchase>(`/purchases/${id}`),
   saveDetails: (id: string, d: PurchaseDetails) => send<Purchase>("PUT", `/purchases/${id}/details`, d),
   deselect: (id: string, deselect: string[]) => send<Purchase>("PUT", `/purchases/${id}/assets`, { deselect }),
-  /** D45: switch a jar to another token of the same company (AAPLx ↔ AAPLon). */
-  switchToken: (id: string, from: string, to: string) => send<Purchase>("PUT", `/purchases/${id}/token`, { from, to }),
   makerOnly: (id: string, s: { maker: number; behind: number; materials: number }) => send<Purchase>("PUT", `/purchases/${id}/split`, { ...s, makerOnly: true, saveForFuture: false }),
   fallback: (id: string, choice: "fallback" | "skip") => send<Purchase>("PUT", `/purchases/${id}/fallback`, { choice }),
   confirm: (id: string, amounts?: { assetId: string; amountUsd6: Usd6 }[]) =>

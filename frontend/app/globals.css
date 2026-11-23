@@ -27,6 +27,8 @@
   --on-primary: #FFFFFF;
   --accent: #E9B949;         /* fill only, never text on light */
   --accent-soft: #FBF2D6;
+  /* D46 tags: tokenizer violet, trading venue teal, chain blue (text ≥ 6:1 on its fill) */
+  --tag-tok: #ECE4FA; --tag-tok-ink: #4B2A86; --tag-ven: #D9F1EE; --tag-ven-ink: #0E5149; --tag-chn: #DDEAF8; --tag-chn-ink: #1B4A78;
   --usdc: #2775CA; --usdc-soft: #E3F0FB; --usdc-edge: #8DBBE8; --usdc-glow: rgba(39, 117, 202, .32);
   --accent-ink: #7A5300;     /* 6.4:1 on accent-soft */
   --on-accent: #0E2A1F;
@@ -77,6 +79,7 @@
     --primary: #4CC38A; --primary-hover: #6BD8A3; --primary-text: #6FD6A2; --on-primary: #0B2219;
     --accent-soft: #3A3218; --accent-ink: #F2D27A;
     --usdc-soft: #12304A; --usdc-edge: #2F5F8A; --usdc-glow: rgba(80, 160, 230, .4);
+    --tag-tok: #33264D; --tag-tok-ink: #D9C8F7; --tag-ven: #173F3A; --tag-ven-ink: #A6E6DC; --tag-chn: #17324F; --tag-chn-ink: #B5D3F2;
     --good: #6FD6A2; --warn: #F2C55C; --warn-soft: #3A3218; --bad: #FF8A7E; --bad-soft: #3D1F1C;
     --line: #234A3B; --line-strong: #2F5C4A;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3); --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -10px rgba(0, 0, 0, .5); --shadow-lg: 0 30px 70px -20px rgba(0, 0, 0, .7);
@@ -92,6 +95,7 @@
   --primary: #4CC38A; --primary-hover: #6BD8A3; --primary-text: #6FD6A2; --on-primary: #0B2219;
   --accent-soft: #3A3218; --accent-ink: #F2D27A;
   --usdc-soft: #12304A; --usdc-edge: #2F5F8A; --usdc-glow: rgba(80, 160, 230, .4);
+  --tag-tok: #33264D; --tag-tok-ink: #D9C8F7; --tag-ven: #173F3A; --tag-ven-ink: #A6E6DC; --tag-chn: #17324F; --tag-chn-ink: #B5D3F2;
   --good: #6FD6A2; --warn: #F2C55C; --warn-soft: #3A3218; --bad: #FF8A7E; --bad-soft: #3D1F1C;
   --line: #234A3B; --line-strong: #2F5C4A;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3); --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -10px rgba(0, 0, 0, .5); --shadow-lg: 0 30px 70px -20px rgba(0, 0, 0, .7);
@@ -1185,3 +1189,29 @@ svg.spin { animation: spin .8s linear infinite; }
 .trade-top { display: flex; justify-content: space-between; gap: 12px; }
 .trade-links { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
 .trade-links a.fineprint { display: inline-flex; align-items: center; gap: 4px; }
+
+/* D46 tokenizer / venue / chain tags */
+.vtags { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+.vtag { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 600; line-height: 1; white-space: nowrap; }
+.vtag-tokenizer { background: var(--tag-tok); color: var(--tag-tok-ink); }
+.vtag-venue { background: var(--tag-ven); color: var(--tag-ven-ink); }
+.vtag-chain { background: var(--tag-chn); color: var(--tag-chn-ink); }
+.vtag-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; }
+.vtag-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.vtag-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.mk-issuers { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.mk-issuers .micro { margin: 0 4px 0 0; white-space: nowrap; }
+.chip.vtag-chip.on { background: var(--tag-tok); color: var(--tag-tok-ink); border-color: var(--tag-tok-ink); }
+.chip.soon { opacity: .55; }
+.link-button { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: var(--primary-text); text-decoration: underline; cursor: pointer; }
+/* D46 buy: choose the token a company jar buys */
+.tok-opts { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+.tok-opt { appearance: none; text-align: left; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; cursor: pointer; }
+.tok-opt.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.tok-opt:disabled { cursor: default; opacity: .65; }
+.tok-opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.tok-opt-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tok-opt-top b { font-size: 14.5px; }
+.tok-opt-top .num { margin-left: auto; }
+.tok-opt-stats { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tok-rec { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); }
