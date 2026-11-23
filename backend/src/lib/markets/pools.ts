@@ -133,5 +133,19 @@ export function routeExchanges(routePlan: unknown): string[] {
   return [...new Set(named)];
 }
 
+/**
+ * buy_entries.venue / sells.venue (D47): 'jupiter' = best price over every exchange; 'jupiter:<key>' = held to one
+ * exchange the user picked. Pure helpers, exported for tests.
+ */
+export const venueFor = (key?: string | null) => (!key || key === 'best' ? 'jupiter' : `jupiter:${key}`);
+export function dexesOfVenue(venue: string | null | undefined): string | undefined {
+  const key = venue?.startsWith('jupiter:') ? venue.slice(8) : null;
+  return key ? EXCHANGES[key]?.dexes : undefined;
+}
+export function venueLabel(venue: string | null | undefined): string | undefined {
+  const key = venue?.startsWith('jupiter:') ? venue.slice(8) : null;
+  return key ? EXCHANGES[key]?.label ?? key : undefined;
+}
+
 /** Test hook. */
 export function _setPoolIndex(mint: string, idx: PoolIndex | null) { if (idx) cache.set(mint, idx); else cache.delete(mint); }

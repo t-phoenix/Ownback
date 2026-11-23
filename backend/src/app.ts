@@ -10,6 +10,7 @@ import { activityRoutes } from './routes/activity.js';
 import { jobRoutes } from './routes/jobs.js';
 import { assetRoutes } from './routes/assets.js';
 import { marketRoutes } from './routes/markets.js';
+import { exchangeRoutes } from './routes/exchanges.js';
 import { mockChain } from './lib/env.js';
 
 export function createApp() {
@@ -38,6 +39,7 @@ export function createApp() {
   app.route('/', jobRoutes);
   app.route('/', assetRoutes);
   app.route('/', marketRoutes);
+  app.route('/', exchangeRoutes);
 
   return app;
 }
