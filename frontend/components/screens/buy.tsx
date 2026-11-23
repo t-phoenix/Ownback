@@ -242,7 +242,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
             <strong className="num">{fmtUsd6(row.amountUsd6)}</strong>
           </header>
           {(row.options?.length ?? 0) > 1 && <TokenOptions row={row} value={q.assetId} disabled={busy} onPick={id => { haptic(5); setPicks(p => ({ ...p, [row.assetId]: id })); setExch(x => { const n = { ...x }; delete n[row.assetId]; return n; }); }} />}
-          {q.selectable && q.mint && <ExchangeLine pick={exch[row.assetId] ?? BEST} route={q.route} unit={q.token} disabled={busy}
+          {q.selectable && q.mint && <ExchangeLine pick={exch[row.assetId] ?? BEST} route={q.route} unit={q.token} disabled={busy} prefetch={{ assetId: q.assetId, side: "buy", amount: row.amountUsd6 }}
             onOpen={() => setCompare({ jarId: row.assetId, assetId: q.assetId, amount: row.amountUsd6, token: q.token ?? "" })} />}
           {q.thin && <p className="fineprint"><AlertTriangle size={14} /> Thin market: under $10k of liquidity across all exchanges.</p>}
           {q.mint && <p className="fineprint mono">{q.issuer ?? "Token"} · mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
@@ -534,7 +534,7 @@ export function SellReview({ assetId }: { assetId: string }) {
         <div className="summary-line"><span>You get about</span><strong>{fmtUsd6(d.estUsdcUsd6)} USDC</strong></div>
         <div className="summary-line"><span>Route cost</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({(d.fees.pctBps / 100).toFixed(2)}%)</strong></div>
         <p className="fineprint mono">mint {d.mint.slice(0, 4)}…{d.mint.slice(-4)} · {d.decimals} decimals · market {fmtUsd6(d.priceUsd6)}</p>
-        <ExchangeLine pick={ex} unit="USDC" disabled={phase !== "idle" || dirty} onOpen={() => setComparing(true)} />
+        <ExchangeLine pick={ex} unit="USDC" disabled={phase !== "idle" || dirty} prefetch={{ assetId, side: "sell", amount: d.amountRaw, eager: true }} onOpen={() => setComparing(true)} />
       </section>
       <CompareExchanges open={comparing} onClose={() => setComparing(false)} assetId={assetId} side="sell" amount={d.amountRaw} token={d.token} value={ex.key} onPick={p => { haptic(5); setEx(p.key === "best" ? BEST : { ...p, out: p.out ? fmtUsd6(p.out).replace(/^\$/, "") : undefined }); }} />
       <Sheet open={routeChanged} onClose={() => setRouteChanged(false)} title="Route changed">

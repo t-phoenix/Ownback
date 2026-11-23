@@ -554,7 +554,7 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
         ? `${fmtUsd6((bi(review!.totalUsd6) - bi(review!.funding.bridgeUsd6)).toString())} Solana + ${fmtUsd6(review!.funding.bridgeUsd6)} from Arc` : "Your Solana USDC"}</dd></div>
       <div><dt>Lands in</dt><dd>Your Solana wallet</dd></div>
     </dl>}
-    {!local && row && fresh && row.selectable && <ExchangeLine pick={ex} route={row.route} unit={row.token ?? d.token} disabled={!idle} onOpen={() => setComparing(true)} />}
+    {!local && row && fresh && row.selectable && <ExchangeLine pick={ex} route={row.route} unit={row.token ?? d.token} disabled={!idle} prefetch={{ assetId: d.assetId, side: "buy", amount: usd6, eager: true }} onOpen={() => setComparing(true)} />}
     {usd6 && <CompareExchanges open={comparing} onClose={() => setComparing(false)} assetId={d.assetId} side="buy" amount={usd6} token={d.token} value={ex.key} onPick={p => { haptic(5); setEx(p); }} />}
     {feesHigh && <p className="error left" role="alert">{copy.feesOver(fmtBps(row!.fees.pctBps))} <button className="link-inline" onClick={() => navigate("/settings")}>Change fee limit</button></p>}
     {noVenue && <p className="error left" role="alert">{copy.noRoute}</p>}
@@ -678,7 +678,7 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
       <CostLines fee={review.fees.totalUsd6} amountUsd6={review.estUsdcUsd6} network={review.network} />
       {pnl && <div><dt>Return on this part</dt><dd className={`num ${pnl.cls}`}>{pnl.text}</dd></div>}
     </dl>}
-    {review && fresh && <ExchangeLine pick={ex} unit="USDC" disabled={phase !== "idle"} onOpen={() => setComparing(true)} />}
+    {review && fresh && <ExchangeLine pick={ex} unit="USDC" disabled={phase !== "idle"} prefetch={{ assetId: d.assetId, side: "sell", amount: review.amountRaw, eager: true }} onOpen={() => setComparing(true)} />}
     {review && <CompareExchanges open={comparing} onClose={() => setComparing(false)} assetId={d.assetId} side="sell" amount={review.amountRaw} token={d.token} value={ex.key} onPick={p => { haptic(5); setEx(p.key === "best" ? BEST : { ...p, out: p.out ? fmtUsd6(p.out).replace(/^\$/, "") : undefined }); }} />}
     <Sheet open={routeChanged} onClose={() => setRouteChanged(false)} title="Route changed">
       <p className="sub">{ex.label} can't fill this sell at a fair price any more. Nothing was sold.</p>

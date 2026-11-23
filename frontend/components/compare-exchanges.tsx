@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { AlertTriangle, Check, ChevronRight, RefreshCw } from "lucide-react";
 import { Sheet, Spinner } from "./ui";
 import { api, type ExchangeOption, type ExchangeQuotes } from "../lib/api";
@@ -14,47 +14,69 @@ export const BEST: ExchangePick = { key: "best", label: "Best price" };
 
 const codeOf = (e: unknown) => (e as { code?: string })?.code;
 
-// Last answer per asset, side and amount: reopening the sheet paints at once, then refreshes (server caches 15 s).
-const memo = new Map<string, { at: number; q: ExchangeQuotes }>();
-const FRESH_MS = 15_000;
-const MAX_POLLS = 12;
-
-/**
- * Loads the comparison and keeps polling while rows are still `pending` (the server answers what's ready within
- * about a second and finishes the rest in the background). Keeps the last answer on screen while refreshing.
+/*
+ * One shared store for every comparison (asset, side, amount), outside React: reopening the sheet, a parent re-render
+ * or a re-quote never refetches or resets what is on screen. The server caches each row too (15 s), so polls are cheap.
  */
-function useExchangeQuotes(open: boolean, assetId: string, side: "buy" | "sell", amount: string) {
-  const key = `${assetId}:${side}:${amount}`;
-  const [q, setQ] = useState<ExchangeQuotes | null>(() => memo.get(key)?.q ?? null);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const run = useRef(0);
-  const load = useCallback(async (retry = false) => {
-    const n = ++run.current;
-    setErr(null); setLoading(true);
-    try {
-      for (let i = 0; i < MAX_POLLS; i++) {
-        const r = await api.exchangeQuotes(assetId, side, amount, retry && i === 0);
-        if (n !== run.current) return;
-        setQ(r); memo.set(key, { at: Date.now(), q: r });
-        if (r.complete) break;
-        await new Promise(res => setTimeout(res, r.retryMs ?? 1_000));
-        if (n !== run.current) return;
-      }
-    } catch (e) {
-      if (n === run.current) setErr(errorCopy(codeOf(e)));
-    } finally {
-      if (n === run.current) setLoading(false);
+type Entry = { q: ExchangeQuotes | null; at: number; err: string | null; loading: boolean };
+const EMPTY: Entry = { q: null, at: 0, err: null, loading: false };
+const store = new Map<string, Entry>();
+const subs = new Set<() => void>();
+const busy = new Set<string>();
+const watching = new Map<string, number>(); // open sheets per key: polling stops when none is open
+const FRESH_MS = 15_000;
+const MAX_POLLS = 15;
+const keyOf = (assetId: string, side: string, amount: string) => `${assetId}:${side}:${amount}`;
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+function put(k: string, patch: Partial<Entry>) {
+  store.set(k, { ...(store.get(k) ?? EMPTY), ...patch });
+  if (store.size > 60) for (const [x, v] of store) if (Date.now() - v.at > 5 * 60_000 && !busy.has(x)) store.delete(x);
+  subs.forEach(f => f());
+}
+
+/** Fetches (once per key at a time) and keeps polling while rows are pending and a sheet is open. */
+async function load(assetId: string, side: "buy" | "sell", amount: string, retry = false) {
+  const k = keyOf(assetId, side, amount);
+  if (busy.has(k)) return;
+  busy.add(k); put(k, { loading: true });
+  try {
+    for (let i = 0; i < MAX_POLLS; i++) {
+      const r = await api.exchangeQuotes(assetId, side, amount, retry && i === 0);
+      put(k, { q: r, at: Date.now(), err: null });
+      if (r.complete || !watching.get(k)) break;
+      await sleep(r.retryMs ?? 1_000);
+      if (!watching.get(k)) break;
     }
-  }, [assetId, side, amount, key]);
+  } catch (e) {
+    put(k, { err: errorCopy(codeOf(e)) });
+  } finally {
+    busy.delete(k); put(k, { loading: false });
+  }
+}
+
+/** Starts the comparison before the sheet opens (one request; the server finishes the quotes in the background). */
+export function prefetchExchangeQuotes(assetId: string, side: "buy" | "sell", amount: string) {
+  if (!amount || amount === "0") return;
+  const hit = store.get(keyOf(assetId, side, amount));
+  if (hit?.q && Date.now() - hit.at < FRESH_MS) return;
+  void load(assetId, side, amount);
+}
+
+const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
+
+function useExchangeQuotes(open: boolean, assetId: string, side: "buy" | "sell", amount: string) {
+  const k = keyOf(assetId, side, amount);
+  const e = useSyncExternalStore(subscribe, () => store.get(k) ?? EMPTY, () => EMPTY);
   useEffect(() => {
     if (!open || !amount || amount === "0") return;
-    const hit = memo.get(key);
-    setQ(hit?.q ?? null);
-    if (!hit || Date.now() - hit.at > FRESH_MS || !hit.q.complete) void load();
-    return () => { run.current++; setLoading(false); }; // closing stops polling
-  }, [open, key, amount, load]);
-  return { q, err, loading, reload: load };
+    watching.set(k, (watching.get(k) ?? 0) + 1);
+    const hit = store.get(k);
+    // A prefetch still running picks up the open sheet and keeps polling by itself.
+    if (!hit?.q || Date.now() - hit.at > FRESH_MS || !hit.q.complete) void load(assetId, side, amount);
+    return () => { watching.set(k, Math.max(0, (watching.get(k) ?? 1) - 1)); };
+  }, [open, k, assetId, side, amount]);
+  return { ...e, reload: (retry = false) => load(assetId, side, amount, retry) };
 }
 
 function ago(iso?: string) {
@@ -76,21 +98,23 @@ export function CompareExchanges({ open, onClose, assetId, side, amount, token, 
   const pending = q?.options.filter(o => o.status === "pending").length ?? 0;
   const failed = q?.options.some(o => o.status === "error");
   const status = !q && loading ? "Getting live quotes…"
-    : pending ? `Getting ${pending} more quote${pending === 1 ? "" : "s"}…`
+    : q?.exchangesUnknown && loading ? "Finding the exchanges it trades on…"
+    : pending && loading ? `Getting ${pending} more quote${pending === 1 ? "" : "s"}…`
+    : pending ? `${pending} quote${pending === 1 ? " is" : "s are"} slow to answer`
     : loading ? "Refreshing…"
     : q ? `Updated ${ago(q.at)}` : "";
   return <Sheet open={open} onClose={onClose} title="Compare exchanges">
     <p className="sub">{side === "buy" ? `What ${fmtUsd6(amount)} buys` : `What selling gets you`} on each exchange right now{q?.feeIncluded ? ", Ownback fee included" : ""}. Prices are checked again when you sign.</p>
     <div className="exch-status" aria-live="polite">
-      <span>{(loading || pending > 0) && <Spinner />} {status}</span>
-      {q && !loading && <button type="button" className="link-button" onClick={() => void reload()}><RefreshCw size={13} aria-hidden="true" /> Refresh</button>}
+      <span><span className="exch-spin">{loading && <Spinner />}</span>{status}</span>
+      {q && <button type="button" className="link-button" disabled={loading} onClick={() => void reload()}><RefreshCw size={13} aria-hidden="true" /> Refresh</button>}
     </div>
-    {err && <p className="error" role="alert"><AlertTriangle size={14} /> {err} <button type="button" className="link-button" onClick={() => void reload(true)}>Try again</button></p>}
+    {err && !q && <p className="error" role="alert"><AlertTriangle size={14} /> {err} <button type="button" className="link-button" onClick={() => void reload(true)}>Try again</button></p>}
     {!q && loading && <div className="tok-opts" aria-hidden="true">{[0, 1, 2].map(i => <div key={i} className="tok-opt exch-skel"><span /><span /></div>)}</div>}
     {q && <div className="tok-opts" role="radiogroup" aria-label="Where to trade" aria-busy={pending > 0}>
       {q.options.map(o => {
         const on = o.key === value; const ok = o.status === "ok" && !!o.outRaw && !o.tooCostly;
-        const right = o.status === "pending" ? <span className="sub"><Spinner /> Getting quote…</span>
+        const right = o.status === "pending" ? <span className="sub">{loading ? "Getting quote…" : "Waiting…"}</span>
           : o.status === "no_route" ? <span className="sub">No route here right now</span>
           : o.status === "error" ? <span className="sub">Couldn't reach the exchange</span>
           : o.tooCostly ? <span className="sub">{unit(o)} · too costly</span>
@@ -115,15 +139,29 @@ export function CompareExchanges({ open, onClose, assetId, side, amount, token, 
         </button>;
       })}
     </div>}
+    {err && q && <p className="fineprint" role="alert">{err} Showing the last answer.</p>}
     {failed && !loading && <p className="fineprint">Some exchanges didn't answer. <button type="button" className="link-button" onClick={() => void reload(true)}>Try them again</button></p>}
-    {q?.exchangesUnknown && <p className="fineprint">The list of exchanges is still loading, so only the best price is shown. <button type="button" className="link-button" onClick={() => void reload()}>Check again</button></p>}
+    {q?.exchangesUnknown && !loading && <p className="fineprint">The list of exchanges is still loading, so only the best price is shown. <button type="button" className="link-button" onClick={() => void reload()}>Check again</button></p>}
     {q && q.others.length > 0 && <p className="fineprint">Also trades on {q.others.map(x => `${x.label} (${fmtCompact(x.liquidityUsd6)})`).join(", ")}: too shallow to quote on its own, but the best route can still use it.</p>}
   </Sheet>;
 }
 
-/** The one-line route summary under a quote, with the link that opens Compare exchanges. */
-export function ExchangeLine({ pick, route, unit, onOpen, disabled }: { pick: ExchangePick; route?: string[]; unit?: string; onOpen: () => void; disabled?: boolean }) {
-  return <button type="button" className="link-button exch-line" disabled={disabled} onClick={onOpen}>
+/**
+ * The one-line route summary under a quote, with the link that opens Compare exchanges. `prefetch` starts the
+ * comparison on hover, focus or touch; `eager` also starts it once the quote has settled (single-asset screens).
+ */
+export function ExchangeLine({ pick, route, unit, onOpen, disabled, prefetch }: {
+  pick: ExchangePick; route?: string[]; unit?: string; onOpen: () => void; disabled?: boolean;
+  prefetch?: { assetId: string; side: "buy" | "sell"; amount: string; eager?: boolean };
+}) {
+  const warm = () => { if (prefetch) prefetchExchangeQuotes(prefetch.assetId, prefetch.side, prefetch.amount); };
+  const { assetId, side, amount, eager } = prefetch ?? {};
+  useEffect(() => {
+    if (!eager || disabled || !assetId || !side || !amount) return;
+    const t = setTimeout(() => prefetchExchangeQuotes(assetId, side, amount), 800);
+    return () => clearTimeout(t);
+  }, [eager, disabled, assetId, side, amount]);
+  return <button type="button" className="link-button exch-line" disabled={disabled} onClick={onOpen} onPointerEnter={warm} onPointerDown={warm} onFocus={warm}>
     {pick.key === "best" ? <>Best price{route?.length ? ` · via ${route.join(" + ")}` : ""}</> : <>On {pick.label} only{pick.out ? ` · ≈ ${pick.out}${unit ? ` ${unit}` : ""}` : ""}</>}
     <span className="exch-cta">Compare exchanges <ChevronRight size={14} aria-hidden="true" /></span>
   </button>;
