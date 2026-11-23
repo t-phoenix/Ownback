@@ -14,3 +14,7 @@ business/intro-video/src/
 business/intro-video/*.wav
 business/demo-video/src/
 business/demo-video/ownback demo narration/
+
+# Raw voice recordings and generated deck exports stay local
+business/intro-video/*.m4a
+business/pitch-deck/export/
