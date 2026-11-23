@@ -1,0 +1,288 @@
+<title>Exchange Coverage Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: one reading column; audit tables full width; wireframes in a two-up phone grid. */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --fg:#17202b; --muted:#5b6675; --line:#d9dee5;
+  --accent:#0d7a6c; --accent-soft:#e2f3f0; --warn:#a35a00; --warn-soft:#fbefdc; --bad:#b4232a; --bad-soft:#fbe5e6; --ok:#1e7a35; --ok-soft:#e3f4e7;
+  --tok:#6d3fd1; --ven:#0d7a6c; --chn:#1f5fbf;
+  --display:"Space Grotesk",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f141a; --panel:#161d25; --fg:#e6ebf1; --muted:#97a3b3; --line:#2a3441;
+  --accent:#4cc3b1; --accent-soft:#12302c; --warn:#f0a94a; --warn-soft:#33260f; --bad:#f07178; --bad-soft:#3a1719; --ok:#5fcf7b; --ok-soft:#12301b;
+  --tok:#a98bff; --ven:#4cc3b1; --chn:#6fa5ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --panel:#161d25; --fg:#e6ebf1; --muted:#97a3b3; --line:#2a3441;
+  --accent:#4cc3b1; --accent-soft:#12302c; --warn:#f0a94a; --warn-soft:#33260f; --bad:#f07178; --bad-soft:#3a1719; --ok:#5fcf7b; --ok-soft:#12301b;
+  --tok:#a98bff; --ven:#4cc3b1; --chn:#6fa5ff; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--body)}
+.wrap{max-width:980px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.1rem} h2{font-size:1.45rem} h3{font-size:1.05rem}
+p{margin:0;max-width:68ch} section{display:flex;flex-direction:column;gap:14px}
+.eyebrow{font:500 .75rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:1.08rem;color:var(--muted)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 .75rem var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.n{text-align:right;white-space:nowrap}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font:500 .75rem var(--body);white-space:nowrap}
+.ok{background:var(--ok-soft);color:var(--ok)} .warn{background:var(--warn-soft);color:var(--warn)} .bad{background:var(--bad-soft);color:var(--bad)}
+.verdicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.verdict{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+ul,ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;max-width:70ch}
+.steps{display:flex;flex-direction:column;gap:12px}
+.step{display:grid;grid-template-columns:3.2rem 1fr;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.step b.k{font:600 .9rem var(--mono);color:var(--accent)}
+.step > div{min-width:0;display:flex;flex-direction:column;gap:6px}
+.wires{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.wire{display:flex;flex-direction:column;gap:8px;min-width:0}
+.wire figcaption{font-size:.85rem;color:var(--muted)}
+.wire figcaption b{color:var(--fg)}
+.phone{background:var(--panel);border:1.5px solid var(--line);border-radius:22px;padding:16px 14px;display:flex;flex-direction:column;gap:9px;font-size:.82rem;min-height:300px}
+.bar{display:flex;justify-content:space-between;align-items:center;font-weight:600}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--line);border-radius:8px}
+.row.sel{border-color:var(--accent);background:var(--accent-soft)}
+.row small{color:var(--muted)}
+.rad{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--muted);flex:none}
+.row.sel .rad{border-color:var(--accent);background:radial-gradient(var(--accent) 45%,transparent 50%)}
+.grow{flex:1;min-width:0}
+.vt{display:inline-block;font:500 .68rem var(--body);padding:0 6px;border-radius:4px;border:1px solid currentColor}
+.vt.t{color:var(--tok)} .vt.v{color:var(--ven)} .vt.c{color:var(--chn)}
+.btn{background:var(--fg);color:var(--panel);text-align:center;border-radius:10px;padding:8px;font-weight:600}
+.ghost{border:1px dashed var(--line);border-radius:8px;padding:8px;color:var(--muted);text-align:center}
+.new{color:var(--accent);font-weight:600}
+.hint{font-size:.72rem;color:var(--muted)}
+.chart{height:70px;border-radius:6px;background:linear-gradient(180deg,var(--accent-soft),transparent);border:1px solid var(--line);position:relative}
+.chart:after{content:"";position:absolute;left:6px;right:6px;top:30px;border-top:2px solid var(--accent);transform:skewY(-4deg)}
+.sheet{border-top:3px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.callout{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:12px 14px;color:var(--fg)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:10px">
+  <span class="eyebrow">Ownback · plan · 23 Nov 2026 · nothing built yet</span>
+  <h1>Exchange coverage: what we see, what we trade</h1>
+  <p class="lede">This page checks whether Ownback's market data, simulations and swaps take every Solana exchange into account. It then sets out the fix: one pool list per token, totals summed across exchanges, and a per-exchange quote and swap the user can pick. This comes before any other new feature.</p>
+</header>
+
+<section>
+  <span class="eyebrow">1 · Audit</span>
+  <h2>The three parts, checked live today</h2>
+  <div class="verdicts">
+    <div class="verdict"><span class="pill ok">Covers all exchanges</span><h3>Swaps</h3><p>Built by Jupiter's router, which reaches 112 Solana exchanges and can split one order across several. No quote setting restricts it: no <code>onlyDirectRoutes</code>, <code>dexes</code> or <code>maxAccounts</code>.</p></div>
+    <div class="verdict"><span class="pill ok">Covers all exchanges</span><h3>Simulation (token count)</h3><p>The buy review's figure comes from the same Jupiter quote that builds the swap, so it is the best across all exchanges. <b>But it only shows one number</b>, with no breakdown by exchange.</p></div>
+    <div class="verdict"><span class="pill bad">Does not</span><h3>Market data</h3><p>Liquidity and volume come from Jupiter's token summary, which is undercounted or computed differently. Charts come from <b>one pool</b> only. No screen lists the exchanges a token trades on.</p></div>
+  </div>
+</section>
+
+<section>
+  <h3>Evidence A · every pool vs the number we show</h3>
+  <p>Pools from DexScreener (all Solana exchanges) compared with Jupiter's token summary, which Ownback shows today.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Token</th><th>Liquidity we show</th><th>Sum of all pools</th><th>Volume we show</th><th>Sum of all pools</th><th>Biggest pools</th></tr></thead>
+    <tbody>
+      <tr><td>TSLAx</td><td class="n">$1.76M</td><td class="n"><b>$2.88M</b></td><td class="n">$8.81M</td><td class="n">$4.94M</td><td>Raydium CLMM $2.29M · Raydium CLMM $342k · Orca $78k · Raydium (SOL) $76k</td></tr>
+      <tr><td>NVDAx</td><td class="n">$3.79M</td><td class="n"><b>$4.49M</b></td><td class="n">$79.6M</td><td class="n">$37.3M</td><td>Raydium CLMM $2.70M · Meteora DLMM $446k · Raydium (SOL) $424k · Orca $278k</td></tr>
+      <tr><td>AAPLx</td><td class="n">$606k</td><td class="n"><b>$720k</b></td><td class="n">$826k</td><td class="n">$723k</td><td>Raydium CLMM $298k · Raydium CLMM $259k · Orca $17k</td></tr>
+      <tr><td>AAPLon</td><td class="n">$1.2k</td><td class="n">$1.7k</td><td class="n">$724</td><td class="n">$5</td><td>Meteora DLMM $1.7k (only pool)</td></tr>
+      <tr><td>TSLAon · NVDAon</td><td class="n">$0–1</td><td class="n">$0</td><td class="n">–</td><td class="n">$0</td><td>No Solana pool found</td></tr>
+    </tbody>
+  </table></div>
+  <p class="hint">The two volume sources count differently: Jupiter includes routed and meme-pair trades, while DexScreener counts each pool once. Neither is "wrong", so the fix shows both and says which is which.</p>
+</section>
+
+<section>
+  <h3>Evidence B · Jupiter's best vs each exchange on its own</h3>
+  <p>The same buy, quoted once with all exchanges and once restricted to a single exchange (Jupiter's <code>dexes</code> filter).</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Buy</th><th>Jupiter best (all exchanges)</th><th>Raydium only</th><th>Orca only</th><th>Meteora only</th><th>Hadron only</th><th>Manifest only</th></tr></thead>
+    <tbody>
+      <tr><td>TSLAx $5</td><td>0.012777 via Orca</td><td class="n">−0.01%</td><td class="n">+0.04%</td><td class="n">−0.19%</td><td class="n">+0.05%</td><td class="n">−24.7%</td></tr>
+      <tr><td>AAPLx $50</td><td>0.142837 via Orca</td><td class="n">−0.12%</td><td class="n">0.00%</td><td class="n">−0.87%</td><td class="n">−0.04%</td><td class="n">−0.53%</td></tr>
+      <tr><td>TSLAx $5,000</td><td>12.7812, split over 4 exchanges</td><td class="n">−0.10%</td><td class="n">−1.64%</td><td class="n">–</td><td class="n">−0.06%</td><td class="n">−96.9%</td></tr>
+    </tbody>
+  </table></div>
+  <p class="hint">The small "+" values at $5 come from quotes taken a second apart while the price moved; they are within noise. At size, splitting wins. Every exchange DexScreener listed for these tokens (Raydium, Orca, Meteora, PumpSwap, PancakeSwap, FluxBeam) is on Jupiter's list of 112.</p>
+</section>
+
+<section>
+  <h3>What this means</h3>
+  <ul>
+    <li><b>Prices and swaps are already best-of-all-exchanges.</b> A different exchange that showed bigger liquidity or volume doesn't give a better price, because Jupiter is already trading against that pool.</li>
+    <li><b>What the app shows is wrong or incomplete.</b> Liquidity is understated by up to 39% (TSLAx), charts use one pool, and the user can't see or choose exchanges. That is the real bug.</li>
+    <li><b>Ondo tokens have almost no Solana market at all.</b> No exchange on Solana fixes that. They stay listed with a clear "Thin market" warning; their deeper markets are on other chains (later phase, docs/15 P4).</li>
+  </ul>
+</section>
+
+<section>
+  <span class="eyebrow">2 · The fix</span>
+  <h2>One pool list per token, used everywhere</h2>
+  <p>A small server-side pool index becomes the one source for "where does this token trade". Market data is summed from it, and the per-exchange quotes are built from it. The swap itself keeps today's Jupiter connection, safety checks and fee; picking an exchange only narrows which pools Jupiter may use.</p>
+  <div class="steps">
+    <div class="step"><b class="k">F1</b><div><h3>Pool index</h3>
+      <p><code>lib/markets/pools.ts</code> fetches every pool per mint from DexScreener (<code>/token-pairs/v1/solana/:mint</code>, free, 300 calls/min). GeckoTerminal stays as a fallback.</p>
+      <ul>
+        <li>Keep pools quoted in USDC, USDT or SOL with at least $1,000 liquidity. Meme pairs and dust pools are dropped from totals and from the exchange list.</li>
+        <li>Group them by exchange: <code>raydium</code>, <code>orca</code>, <code>meteora</code>, <code>pumpswap</code>, <code>pancakeswap</code>, <code>fluxbeam</code>, and so on. A fixed map turns each one into Jupiter's labels: Raydium → <code>Raydium,Raydium CLMM,Raydium CP</code>; Orca → <code>Whirlpool</code>; Meteora → <code>Meteora DLMM,Meteora DAMM v2,Meteora</code>; PumpSwap → <code>Pump.fun Amm</code>.</li>
+        <li>Store one row per pool: migration <code>0012</code> changes <code>market_pools</code> to key on (mint, pool). Cached for 10 minutes and warmed by the markets worker for the top assets.</li>
+      </ul></div></div>
+    <div class="step"><b class="k">F2</b><div><h3>Market data from all exchanges</h3>
+      <ul>
+        <li><b>Liquidity</b> is the sum of the kept pools. <b>Volume 24h</b> is the sum of the kept pools, with Jupiter's routed volume shown on the detail page as a second line.</li>
+        <li><b>Price</b> stays Jupiter's (an executable, cross-exchange price). Each exchange row shows its own pool price.</li>
+        <li><b>Chart</b> uses the deepest USDC pool, labelled "Chart: Raydium CLMM pool" so it's clear which one.</li>
+        <li>Used by Markets, the asset page, the receipt token list and the buy review stats (<code>token-stats.ts</code> and <code>buyable.ts</code> read the index instead of Jupiter's token summary).</li>
+      </ul></div></div>
+    <div class="step"><b class="k">F3</b><div><h3>Per-exchange simulation</h3>
+      <ul>
+        <li>For each token, quote <b>"Best price"</b> (Jupiter over all exchanges, which may split) plus each exchange in the index with at least $10k liquidity, at most four. Each extra quote uses Jupiter's <code>dexes=</code> filter, the same <code>platformFeeBps</code> and the same slippage, so token counts are exact and include the fee.</li>
+        <li>Each row shows tokens you get, average price, price impact, cost against the share price, pool liquidity and volume.</li>
+        <li><b>Speed:</b> the review shows "Best price" straight away, as today. The exchange quotes load when the user opens "Compare exchanges", in parallel within a 1.5-second budget, and a slow one says "No quote right now". Cached for 15 seconds per token and amount.</li>
+      </ul></div></div>
+    <div class="step"><b class="k">F4</b><div><h3>Swap on the chosen exchange</h3>
+      <ul>
+        <li><code>POST /buys</code> and <code>POST /sells</code> take an optional <code>exchanges: {assetId: exchangeKey}</code>. The server checks it against the exchanges offered in that quote and rejects anything else (<code>exchange_not_offered</code>).</li>
+        <li><code>buildUserSwap</code> passes <code>dexes</code> to the quote it builds from. Every existing check stays: the relay pays, the user is the only other signer, tokens land in the user's own account, and the fee only applies to buys.</li>
+        <li>If the chosen exchange can't fill within slippage at signing time, return <code>ROUTE_CHANGED</code> with the new best. The app shows the "Route changed" sheet; there is never a silent switch.</li>
+        <li><code>buy_entries.venue</code> (already exists, NOT NULL) records <code>jupiter</code> or <code>jupiter:raydium</code>, and <code>sells</code> gets the same column, so history shows where each trade went.</li>
+      </ul></div></div>
+    <div class="step"><b class="k">F5</b><div><h3>Honesty on thin tokens</h3>
+      <ul>
+        <li>A token with under $10k total liquidity gets a <b>Thin market</b> tag in every list.</li>
+        <li>An exchange row whose price is more than 5% off the best gets a warning.</li>
+        <li>The registry field <code>venues: ["jupiter"]</code> becomes the list of exchanges from the index (display only; it never gates a buy).</li>
+      </ul></div></div>
+  </div>
+  <div class="callout"><b>Not changing:</b> the Jupiter connection, D43 tradability (live $5 quote within 5%), D44 fee, D46 company jars and token choice, and docs/15's DFlow and market-maker phases, which stay after this. This page replaces docs/15's P1 "Compare routes" with "Compare exchanges".</div>
+</section>
+
+<section>
+  <span class="eyebrow">3 · Screens</span>
+  <h2>Every page and sheet this touches</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Screen</th><th>File</th><th>Change</th><th>Step</th></tr></thead>
+    <tbody>
+      <tr><td>Markets list</td><td><code>screens/markets.tsx</code></td><td>Liquidity and volume summed across exchanges; exchange count; Thin market tag</td><td>F2 F5</td></tr>
+      <tr><td>Market asset page</td><td><code>screens/markets.tsx</code> (MarketAsset)</td><td>New <b>Exchanges</b> table; chart pool label; totals</td><td>F2</td></tr>
+      <tr><td>Market buy sheet</td><td><code>screens/markets.tsx</code></td><td>"Best price" default plus the "Compare exchanges" link</td><td>F3 F4</td></tr>
+      <tr><td>Buy review, token option cards</td><td><code>screens/buy.tsx</code> TokenOptions</td><td>Each card shows the exchange the best route uses and a "Compare exchanges" link</td><td>F3</td></tr>
+      <tr><td><b>Compare exchanges sheet</b> (new)</td><td><code>screens/buy.tsx</code></td><td>Best price plus up to four exchanges, each with full simulation figures</td><td>F3 F4</td></tr>
+      <tr><td><b>Route changed sheet</b> (new)</td><td><code>screens/buy.tsx</code>, sell</td><td>Shown on <code>ROUTE_CHANGED</code>; accept the new best or go back</td><td>F4</td></tr>
+      <tr><td>Sell screen</td><td><code>screens/holdings.tsx</code></td><td>The same exchange choice for selling</td><td>F3 F4</td></tr>
+      <tr><td>Buy and sell done, trade history</td><td><code>screens/buy.tsx</code>, <code>holdings.tsx</code>, <code>activity</code></td><td>"Bought on Raydium via Jupiter"</td><td>F4</td></tr>
+      <tr><td>Receipt token list</td><td><code>screens/add.tsx</code> Venues</td><td>Stats from the pool index; "Trades on 3 exchanges"</td><td>F2 F5</td></tr>
+      <tr><td>Holding detail</td><td><code>screens/holdings.tsx</code></td><td>Liquidity from all exchanges</td><td>F2</td></tr>
+      <tr><td>Tags</td><td><code>components/venue-tags.tsx</code></td><td>Add exchange tags (Raydium, Orca, Meteora…) under the venue colour, with Jupiter as the router</td><td>F2</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h3>Wireframes</h3>
+  <div class="wires">
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>Markets</span><span class="hint">Search</span></div>
+      <div class="row"><div class="grow"><b>Tesla</b> TSLAx <span class="vt t">xStocks</span><br><small>Liq <span class="new">$2.88M</span> · Vol <span class="new">$4.9M</span> · <span class="new">4 exchanges</span></small></div><span>$390.67</span></div>
+      <div class="row"><div class="grow"><b>Nvidia</b> NVDAx <span class="vt t">xStocks</span><br><small>Liq $4.49M · Vol $37.3M · 5 exchanges</small></div><span>$168.21</span></div>
+      <div class="row"><div class="grow"><b>Apple</b> AAPLon <span class="vt t">Ondo</span> <span class="pill warn">Thin market</span><br><small>Liq $1.7k · 1 exchange</small></div><span>$350.40</span></div>
+      <p class="hint">Liquidity and volume: all Solana exchanges.</p>
+    </div><figcaption><b>Markets list.</b> Totals across exchanges, exchange count, Thin market tag.</figcaption></figure>
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>‹ Tesla · TSLAx</span><span>$390.67</span></div>
+      <div class="chart"></div><p class="hint">Chart: Raydium CLMM TSLAx/USDC pool</p>
+      <b class="new">Exchanges</b>
+      <div class="row"><div class="grow"><span class="vt v">Raydium</span> 3 pools<br><small>Liq $2.71M · Vol $3.96M</small></div><span>$390.67</span></div>
+      <div class="row"><div class="grow"><span class="vt v">Orca</span> 2 pools<br><small>Liq $92k · Vol $818k</small></div><span>$390.99</span></div>
+      <div class="row"><div class="grow"><span class="vt v">Meteora</span> 1 pool<br><small>Liq $7.2k · Vol $91k</small></div><span>$390.93</span></div>
+      <p class="hint">Total $2.88M liquidity · Jupiter routed volume $8.8M</p>
+    </div><figcaption><b>Market asset page.</b> New Exchanges table; chart names its pool.</figcaption></figure>
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>Review buy</span><span>$25.00</span></div>
+      <b>Tesla jar · $25.00</b>
+      <div class="row sel"><span class="rad"></span><div class="grow">TSLAx <span class="vt t">xStocks</span> <span class="pill ok">Recommended</span><br><small>≈ 0.06391 TSLAx · fee 0.12% · best route: Orca</small></div></div>
+      <div class="row"><span class="rad"></span><div class="grow">TSLAon <span class="vt t">Ondo</span> <span class="pill warn">Thin</span><br><small>No quote within 5%</small></div></div>
+      <span class="new">Compare exchanges ›</span>
+      <div class="btn">Approve on Arc</div>
+    </div><figcaption><b>Buy review, token cards.</b> Unchanged choice of token; adds the best route's exchange and a link.</figcaption></figure>
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>Compare exchanges</span><span>✕</span></div>
+      <small class="hint">TSLAx · $25.00 · fee included · updated 3s ago</small>
+      <div class="sheet">
+        <div class="row sel"><span class="rad"></span><div class="grow"><b>Best price</b> <span class="pill ok">Recommended</span><br><small>Jupiter, any exchange · may split</small></div><span>0.063912</span></div>
+        <div class="row"><span class="rad"></span><div class="grow"><span class="vt v">Raydium</span><br><small>Impact 0.01% · Liq $2.71M</small></div><span>0.063905</span></div>
+        <div class="row"><span class="rad"></span><div class="grow"><span class="vt v">Orca</span><br><small>Impact 0.02% · Liq $92k</small></div><span>0.063912</span></div>
+        <div class="row"><span class="rad"></span><div class="grow"><span class="vt v">Meteora</span><br><small>Impact 0.4% · Liq $7.2k</small></div><span>0.063790</span></div>
+        <div class="ghost">PumpSwap: no quote right now</div>
+      </div>
+      <div class="btn">Use Best price</div>
+    </div><figcaption><b>Compare exchanges sheet (new).</b> Exact tokens after the fee for each exchange.</figcaption></figure>
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>Route changed</span><span></span></div>
+      <p>Meteora can't fill 0.063790 TSLAx any more. The best price now:</p>
+      <div class="row sel"><div class="grow"><b>Best price</b><br><small>0.063901 TSLAx · via Raydium</small></div></div>
+      <div class="btn">Buy at the new price</div>
+      <div class="ghost">Go back</div>
+      <p class="hint">Your Arc approval still stands. Nothing was bought.</p>
+    </div><figcaption><b>Route changed sheet (new).</b> Never switches without asking.</figcaption></figure>
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>‹ Sell TSLAx</span><span>0.0639</span></div>
+      <div class="row"><div class="grow">Amount<br><small>All · 0.063912 TSLAx</small></div><b>≈ $24.83</b></div>
+      <div class="row sel"><div class="grow"><b>Best price</b> <span class="pill ok">Recommended</span><br><small>Jupiter, any exchange</small></div><span>$24.83</span></div>
+      <span class="new">Compare exchanges ›</span>
+      <div class="btn">Sell</div>
+    </div><figcaption><b>Sell screen.</b> Same exchange choice; no Ownback fee on sells.</figcaption></figure>
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>Bought</span><span class="pill ok">Done</span></div>
+      <div class="row"><div class="grow"><b>0.063912 TSLAx</b><br><small>Bought on <span class="vt v">Orca</span> via <span class="vt v">Jupiter</span> · <span class="vt c">Solana</span></small></div><span>$25.00</span></div>
+      <div class="row"><div class="grow">Trade history<br><small>23 Nov · Buy · Raydium · 0.0213 TSLAx</small></div></div>
+    </div><figcaption><b>Done and trade history.</b> Records the exchange actually used.</figcaption></figure>
+
+    <figure class="wire" style="margin:0"><div class="phone">
+      <div class="bar"><span>Receipt · Tesla</span><span></span></div>
+      <div class="row"><div class="grow">TSLAx <span class="vt t">xStocks</span> <span class="pill ok">Best today</span><br><small>Liq $2.88M · Vol $4.9M · gap 0.1% · 4 exchanges</small></div></div>
+      <div class="row"><div class="grow">TSLAon <span class="vt t">Ondo</span> <span class="pill warn">Thin market</span><br><small>No Solana pool</small></div></div>
+    </div><figcaption><b>Receipt token list.</b> Same pool index numbers as Markets.</figcaption></figure>
+
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">4 · Order of work</span>
+  <h2>Commits, each one shippable</h2>
+  <ol>
+    <li><b>Pool index and migration 0012</b>, with a test on recorded DexScreener data (filters, grouping, label map). No screen change.</li>
+    <li><b>Market data from the index:</b> markets, asset page Exchanges table, receipt list, review stats, Thin market tag.</li>
+    <li><b>Per-exchange quotes</b> (<code>GET /api/quotes/exchanges?assetId&amp;amountUsd6</code>) and the Compare exchanges sheet, display only.</li>
+    <li><b>Swap on the chosen exchange:</b> the <code>exchanges</code> field, <code>dexes</code> in the swap, ROUTE_CHANGED, venue recorded on buys and sells. A $1 live buy on each of Raydium and Orca before release.</li>
+    <li>Docs: D47 in docs/03, api-contract, copy-and-errors, and docs/15 P1 pointing here.</li>
+  </ol>
+  <h3>Needs from you</h3>
+  <ul>
+    <li><b>A Jupiter API key</b> is strongly advised before step 3. Comparing four exchanges is five quotes per token, and the keyless API allows about one per second. Without a key, step 3 ships with Compare limited to two exchanges.</li>
+    <li>Nothing else: DexScreener needs no key.</li>
+  </ul>
+  <h3>Still open</h3>
+  <ul>
+    <li>Which exchanges you found with better liquidity. If it was a token or chain other than these, send the link and I'll add it to Evidence A.</li>
+    <li>DexScreener's free API has no service guarantee. GeckoTerminal is the fallback; a paid feed (Birdeye or CoinGecko Pro) is an option if both fail often.</li>
+  </ul>
+</section>
+
+</div>

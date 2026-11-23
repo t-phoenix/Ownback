@@ -38,6 +38,7 @@ The UI never shows the code itself.
 | `TX_NOT_FOUND` | after signing | (no message) keep showing "Saving… usually 2 s" and retry | — |
 | `QUOTE_EXPIRED` | Buy review | (no message) re-fetch quotes | — |
 | `PRICE_MOVED` | Buy review | "{asset} is now {price}, more than 1% above your quote. Buy at the new price or wait?" | Buy at {price} (signs again) · Wait |
+| `ROUTE_CHANGED` | Buy progress, Sell (D47) | Sheet *Route changed*: "{exchange} can't fill your {token} at a fair price any more. Nothing was bought, and your USDC is still in your Solana wallet." (sell: "…Nothing was sold.") | Buy (Sell) at the best price · Not now |
 | `FEES_TOO_HIGH` | Review, Withdraw, deposits | "Fees would be {fees} ({pct}% of {amount}). Your limit is {cap}%." | Wait · Change fee limit |
 | `BAD_SIGNATURE` / `APPROVAL_EXPIRED` | Buy review | "That approval didn't go through. Review the prices again." | Review again |
 | `KEEPER_DISABLED` | Jars, Buy | "Buys are paused while we check something. Your money is safe and you can withdraw any time." | — |
@@ -136,6 +137,8 @@ Strings live in `frontend/lib/copy.ts` → `marketCopy`. Up/down always carries 
 | Stale price | "Price from {n} min ago" · list row "{token} · {n} min ago" |
 | No price | "Price unavailable" · list row "No live price" |
 | Thin market (D39) | list row "{token} · Thin market" · preview and asset page: "Thin market. Very little trades in this pool, so this price can be far from the real share price. Your quote shows the real cost before you buy." |
+| Exchanges (D47) | asset page section *Exchanges*: one row per exchange "{exchange} · {n} pools · Liquidity {liq} · 24h vol {vol}" ("· best route only" when too shallow to quote alone); footnote "Liquidity and volume count pools paired with USDC, USDT or SOL holding at least $1,000. Buys use the best price across all of them unless you pick one." · list row "{token} · {n} exchanges" |
+| Compare exchanges (D47) | quote line "Best price · via {exchanges}" or "On {exchange} only · ≈ {amount}" + link "Compare exchanges" · sheet: "What {amount} buys on each exchange right now, Ownback fee included. Prices are checked again when you sign." · rows: Best price ("Any exchange · now via …"), each exchange with amount, "−{x}% vs best", price impact, liquidity, volume, pools; **Recommended** on the most out; over 5% worse: "{amount} · too costly" / "over the 5% limit, so it can't be picked" |
 | Browse count | "{n} with a live price · search to find all {total}" |
 | No match | "No asset called "{q}". Try the ticker, like AAPL, or the company name." |
 | Chart | "Not enough trading history yet" · "Longer history is unavailable right now" / "1D and 1W still work. Your trades aren't affected." · "Showing the last saved chart." |

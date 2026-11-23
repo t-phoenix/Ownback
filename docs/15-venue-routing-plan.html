@@ -1,0 +1,478 @@
+<title>Ownback Venue Routing</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column for the plan, wide wireframe boards that wrap phone frames; Ownback ledger greens. */
+:root {
+  --bg: #F4F7F4; --paper: #FFFFFF; --ink: #0E2A1F; --ink-2: #3E5A4C; --muted: #6B8577; --line: #D8E3DC; --line-2: #BFD0C5;
+  --brand: #0A7A4C; --brand-soft: #DDF1E6; --gold-soft: #FBF2D6; --gold-ink: #7A5300;
+  --tok: #ECE4FA; --tok-ink: #4B2A86; --ven: #D9F1EE; --ven-ink: #0E5149; --chn: #DDEAF8; --chn-ink: #1B4A78;
+  --new: #FFE7D6; --new-ink: #8A3A0B; --wf: #FBFCFB; --wf-line: #C9D6CE; --wf-fill: #E7EEE9;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0B2219; --paper: #13332A; --ink: #F2F6F3; --ink-2: #C9D9D0; --muted: #9CB3A6; --line: #234A3B; --line-2: #2F5C4A;
+  --brand: #4CC38A; --brand-soft: #1D4536; --gold-soft: #3A3218; --gold-ink: #F2D27A;
+  --tok: #33264D; --tok-ink: #D9C8F7; --ven: #173F3A; --ven-ink: #A6E6DC; --chn: #17324F; --chn-ink: #B5D3F2;
+  --new: #4A2A16; --new-ink: #FFC9A3; --wf: #102B22; --wf-line: #2C5444; --wf-fill: #1A3D31; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0B2219; --paper: #13332A; --ink: #F2F6F3; --ink-2: #C9D9D0; --muted: #9CB3A6; --line: #234A3B; --line-2: #2F5C4A;
+  --brand: #4CC38A; --brand-soft: #1D4536; --gold-soft: #3A3218; --gold-ink: #F2D27A;
+  --tok: #33264D; --tok-ink: #D9C8F7; --ven: #173F3A; --ven-ink: #A6E6DC; --chn: #17324F; --chn-ink: #B5D3F2;
+  --new: #4A2A16; --new-ink: #FFC9A3; --wf: #102B22; --wf-line: #2C5444; --wf-fill: #1A3D31; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--f-body); padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+.col { max-width: 760px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 44px); }
+h2 { font-size: 26px; margin-bottom: 12px; }
+h3 { font-size: 18px; margin-bottom: 6px; }
+p { margin: 0 0 10px; }
+.kicker { font: 600 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--brand); margin-bottom: 8px; }
+.lede { font-size: 19px; color: var(--ink-2); max-width: 70ch; }
+section { display: grid; gap: 14px; }
+.note { color: var(--muted); font-size: 14px; }
+code, .mono { font-family: var(--f-mono); font-size: .88em; }
+.callout { background: var(--brand-soft); border-radius: 12px; padding: 16px 18px; }
+.callout b { color: var(--ink); }
+.warn { background: var(--gold-soft); color: var(--ink); border-radius: 12px; padding: 14px 18px; }
+ul.clean { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 760px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--f-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--paper); }
+tr:last-child td { border-bottom: 0; }
+.y { color: var(--brand); font-weight: 700; } .n { color: #B4432F; font-weight: 700; } .q { color: var(--gold-ink); font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .n { color: #FF8A7E; } }
+:root[data-theme="dark"] .n { color: #FF8A7E; }
+
+.pill { display: inline-block; font: 600 11.5px var(--f-body); padding: 1px 8px; border-radius: 6px; white-space: nowrap; }
+.p-tok { background: var(--tok); color: var(--tok-ink); } .p-ven { background: var(--ven); color: var(--ven-ink); } .p-chn { background: var(--chn); color: var(--chn-ink); }
+.p-new { background: var(--new); color: var(--new-ink); } .p-rec { background: var(--gold-soft); color: var(--gold-ink); border-radius: 999px; }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.opt { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 6px; }
+.opt.pick { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.opt h3 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.phases { display: grid; gap: 12px; }
+.phase { display: grid; grid-template-columns: 74px 1fr; gap: 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.phase .tag { font: 700 13px var(--f-mono); color: var(--brand); }
+.phase .tag small { display: block; font-weight: 400; color: var(--muted); }
+@media (max-width: 520px) { .phase { grid-template-columns: 1fr; } }
+
+pre.code { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font: 13px/1.5 var(--f-mono); margin: 0; }
+
+/* Wireframes */
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 22px; }
+.frame { display: grid; gap: 8px; align-content: start; }
+.frame > figcaption { display: grid; gap: 2px; }
+.frame > figcaption b { font-family: var(--f-display); font-size: 16px; }
+.frame > figcaption span { font-size: 13px; color: var(--muted); }
+figure { margin: 0; }
+.phone { background: var(--wf); border: 1.5px solid var(--wf-line); border-radius: 22px; padding: 12px; display: grid; gap: 8px; font-size: 12.5px; line-height: 1.35; max-width: 100%; }
+.phone.wide { border-radius: 10px; }
+.wbar { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; }
+.wbar .back { width: 18px; height: 18px; border-radius: 50%; background: var(--wf-fill); flex: none; }
+.wcard { border: 1px solid var(--wf-line); border-radius: 12px; padding: 9px; display: grid; gap: 6px; background: var(--paper); }
+.wrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wrow .sp { margin-left: auto; font-family: var(--f-mono); font-weight: 600; }
+.ico { width: 22px; height: 22px; border-radius: 50%; background: var(--wf-fill); border: 1px solid var(--wf-line); flex: none; }
+.ln { height: 7px; border-radius: 4px; background: var(--wf-fill); }
+.w40 { width: 40%; } .w60 { width: 60%; } .w80 { width: 80%; }
+.wbtn { border-radius: 10px; padding: 8px; text-align: center; font-weight: 700; background: var(--ink); color: var(--paper); }
+.wbtn.sec { background: transparent; color: var(--ink); border: 1px solid var(--wf-line); }
+.wopt { border: 1px solid var(--wf-line); border-radius: 10px; padding: 7px 8px; display: grid; gap: 4px; background: var(--paper); }
+.wopt.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.wsmall { font-size: 11px; color: var(--muted); }
+.wdl { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; font-size: 11.5px; }
+.wdl span:nth-child(odd) { color: var(--muted); }
+.wdl span:nth-child(even) { font-family: var(--f-mono); }
+.chg { outline: 2px dashed var(--new-ink); outline-offset: 2px; border-radius: 10px; }
+.sheet { border-top: 1.5px solid var(--wf-line); border-radius: 16px 16px 12px 12px; padding: 10px; display: grid; gap: 7px; background: var(--paper); }
+.grab { width: 36px; height: 4px; border-radius: 2px; background: var(--wf-line); margin: 0 auto 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--ink-2); align-items: center; }
+.legend i { display: inline-block; width: 22px; height: 12px; border-radius: 4px; vertical-align: middle; margin-right: 6px; }
+.k-chg { outline: 2px dashed var(--new-ink); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+</style>
+
+<main>
+<header class="col">
+  <p class="kicker">Plan · 23 Nov 2026 · proposal, nothing built yet</p>
+  <h1>Best price across venues, without losing what works</h1>
+  <p class="lede">Ownback buys every token through one route today: Jupiter's free swap API, with our relay paying gas. This plan keeps that route as the default and fallback, adds a small adapter layer so any aggregator or DEX can be plugged in, quotes the enabled ones side by side, and shows the user which one wins and why.</p>
+</header>
+
+<section class="col">
+  <h2>The short answer</h2>
+  <div class="callout">
+    <p><b>An aggregator mostly suffices, but one is not enough.</b> On Solana, Jupiter already routes through Raydium, Orca, Meteora and the other pools where xStocks and Ondo tokens trade, so adding single DEXs one by one would add little. What it can't do for us is race the other big routers (DFlow, OKX) or the RFQ market makers while our relay pays the gas: Jupiter's meta-aggregator turns DFlow and OKX off whenever the fee payer isn't the trader.</p>
+    <p><b>So:</b> build a venue adapter layer; keep today's Jupiter connection as adapter #1; add Jupiter's new Router API and DFlow next (both let our relay pay gas and both support our fee); try Jupiter's RFQ path (JupiterZ) for larger orders; leave OKX until its docs and terms are confirmed.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>Research: who could quote a tokenized stock for us</h2>
+    <p>Our hard requirements come from how Ownback works today. The user signs every swap in their own wallet, the Ownback relay pays Solana gas and new token-account rent, the Ownback fee is collected in USDC, and xStocks are Token-2022 tokens.</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Venue</th><th>Kind</th><th>Relay can pay gas</th><th>Our fee</th><th>Returns a tx the user signs</th><th>Access</th><th>Fit</th></tr></thead>
+    <tbody>
+      <tr><td><b>Jupiter lite v1</b> <span class="pill p-rec">in use</span><br><span class="note mono">lite-api.jup.ag/swap/v1</span></td><td><span class="pill p-ven">Aggregator</span></td><td class="y">Yes (payer)</td><td class="y">platformFeeBps + feeAccount</td><td class="y">Yes</td><td>No key, shared limits (we see 429s)</td><td class="y">Keep as default and fallback</td></tr>
+      <tr><td><b>Jupiter Router</b> <span class="note mono">/swap/v2/build</span></td><td><span class="pill p-ven">Aggregator</span> Metis only</td><td class="y">Yes, payer replaces the fee payer</td><td class="y">platformFeeBps + feeAccount, no Jupiter fee</td><td class="y">Instructions; we assemble</td><td>Key recommended. Free key 1 RPS, Developer 10 RPS</td><td class="y">Phase 1: same liquidity, a supported API, higher limits</td></tr>
+      <tr><td><b>Jupiter Meta-Aggregator</b> <span class="note mono">/swap/v2/order</span></td><td><span class="pill p-ven">Meta-aggregator</span> Metis, JupiterZ RFQ, DFlow, OKX</td><td class="q">Yes, but then DFlow and OKX are switched off</td><td class="q">Referral fee 50–255 bps, Jupiter keeps 20%</td><td class="y">Yes; Jupiter executes it</td><td>Key recommended</td><td class="q">Phase 3: only for the RFQ quotes</td></tr>
+      <tr><td><b>DFlow</b> <span class="note mono">quote-api.dflow.net</span></td><td><span class="pill p-ven">Aggregator</span></td><td class="y">Yes ("sponsor")</td><td class="y">platformFeeBps, input or output mint, feeAccount</td><td class="y">Yes (v0 tx)</td><td>Key via form, 2–5 days. No protocol fee on spot</td><td class="y">Phase 2: a genuinely different router</td></tr>
+      <tr><td><b>OKX DEX API</b></td><td><span class="pill p-ven">Aggregator</span> multi-chain</td><td class="q">Unconfirmed</td><td class="q">Unconfirmed</td><td class="q">Unconfirmed</td><td>Docs returned 404 when read</td><td class="q">Later, after docs and terms</td></tr>
+      <tr><td><b>Titan, OpenOcean, Raptor</b></td><td><span class="pill p-ven">Aggregators</span></td><td colspan="3" class="q">Public integrator access unclear or whitelisted</td><td>Partnership</td><td class="q">Watch list</td></tr>
+      <tr><td><b>Raydium, Orca, Meteora</b></td><td><span class="pill p-ven">DEX</span></td><td colspan="3">Already reached through every aggregator above</td><td>SDKs</td><td class="n">Not worth a direct adapter</td></tr>
+      <tr><td><b>Kraken, Bybit (xStocks on CEX)</b></td><td>Exchange</td><td colspan="3" class="n">Custodial: money leaves the user's wallet</td><td>Accounts, KYC</td><td class="n">Doesn't fit self-custody</td></tr>
+      <tr><td><b>EVM: 1inch, 0x, LI.FI</b></td><td><span class="pill p-ven">Aggregators</span> <span class="pill p-chn">Ethereum, Base, BNB</span></td><td colspan="3">Different chain, needs a paymaster</td><td>Keys</td><td class="q">Separate plan (Ondo on EVM)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="col note">Sources: Jupiter developer docs (Swap V2: Order &amp; Execute, Router, gasless, fees), DFlow developer docs (endpoints, API keys, sponsored swaps, platform fees), and market coverage of Solana tokenized-stock volume, where Raydium is the main pool venue and Jupiter the main router. Rates and limits are from the providers' pages read on 23 Nov 2026; check them before signing up.</p>
+</section>
+
+<section class="col">
+  <h2>Three ways to grow</h2>
+  <div class="grid2" style="max-width:none">
+    <div class="opt"><h3>A · Switch to Jupiter's meta-aggregator</h3><p>One integration races four routers.</p><p class="note">But with our relay paying gas, DFlow and OKX drop out, the fee becomes a referral split, and Jupiter executes the trade, so our signer checks change. Gains less than it looks.</p></div>
+    <div class="opt pick"><h3>B · Venue adapters, best of N <span class="pill p-rec">Recommended</span></h3><p>A small interface every venue implements. Quote the enabled ones in parallel within a time budget, keep the best net tokens out, fall back to Jupiter.</p><p class="note">Keeps the relay, our fee and our transaction checks the same for every venue. Each new venue is one file plus a flag.</p></div>
+    <div class="opt"><h3>C · Third-party meta-aggregator</h3><p>Hand routing to OpenOcean or similar.</p><p class="note">Access is whitelisted, it adds a dependency between us and the user's trade, and gas sponsorship isn't documented. No.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>How it fits together</h2>
+    <p>One router picks the venue for each token buy or sell. Every adapter answers the same three questions: what would you give us, build me the transaction, and are you healthy. The rest of the app stays venue-blind.</p>
+  </div>
+<pre class="mermaid">
+flowchart LR
+  UI[Buy / sell screen] --> R[Venue router]
+  R -->|quote in parallel, 1.5 s budget| J1[Jupiter lite v1<br/>default + fallback]
+  R --> J2[Jupiter Router v2]
+  R --> DF[DFlow]
+  R -. phase 3 .-> JZ[JupiterZ RFQ]
+  R --> P[Pick best net tokens out]
+  P --> B[Build tx: relay pays gas,<br/>Ownback fee in USDC]
+  B --> V[Verify: signers, accounts,<br/>simulated tokens out ≥ minimum]
+  V --> W[User signs in own wallet]
+  W --> S[Submit, read real fill,<br/>record venue]
+</pre>
+  <div class="grid2">
+    <div class="opt"><h3>The adapter contract</h3>
+<pre class="code">type VenueId = 'jupiter_v1' | 'jupiter_v2' | 'dflow' | 'jupiter_rfq'
+
+interface Venue {
+  id: VenueId
+  label: string            // "Jupiter", "DFlow"
+  kind: 'aggregator' | 'dex' | 'rfq'
+  can: { payer: boolean; platformFee: boolean; token2022: boolean }
+  quote(q: { inMint; outMint; amountRaw; feeBps }): Promise&lt;VenueQuote | null&gt;
+  build(quote, { owner, payer, feeAccount }): Promise&lt;{ txBase64 }&gt;
+  health(): VenueHealth   // last ok, error rate, p50 ms
+}</pre></div>
+    <div class="opt"><h3>Rules that keep it safe</h3>
+      <ul class="clean">
+        <li>Rank by <b>net tokens out after every fee</b>, never by the venue's own price.</li>
+        <li>A venue is used only if its adapter supports a relay payer and our fee (<code>can</code>).</li>
+        <li>Every built transaction passes the same check as today: the relay is the fee payer, the user is the only other signer, and the output lands in the user's own account.</li>
+        <li>Simulate before asking for a signature: tokens out must be at least the minimum shown.</li>
+        <li>A venue that times out or errors is skipped for this quote and marked unhealthy for 60 s. Jupiter v1 is always tried.</li>
+        <li>Each venue has its own flag (<code>VENUE_DFLOW=1</code>), so one can be turned off without a deploy of code.</li>
+      </ul></div>
+  </div>
+  <div class="col">
+    <h3>What gets stored</h3>
+    <ul class="clean">
+      <li><code>buy_entries.venue</code> already exists (always <code>'jupiter'</code> today). It will hold the venue id that filled.</li>
+      <li>New: <code>sells.venue</code> (one migration, default <code>'jupiter_v1'</code> for old rows).</li>
+      <li>New: <code>venue_quotes</code> sample log (venue, mint, size bucket, tokens out, ms, won). It powers the comparison chip, the admin venue card and future routing decisions. No user ids.</li>
+      <li>Quote payloads carry the chosen venue per row, so the buy step builds on the venue the user saw.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col"><h2>Phases</h2></div>
+  <div class="phases">
+    <div class="phase"><div class="tag">P0<small>2–3 days</small></div><div><b>Adapter layer, no behaviour change.</b> Move today's quote and swap calls behind <code>Venue</code> as <code>jupiter_v1</code>. Record the venue on every buy and sell. UI shows "via Jupiter". Tests: same quotes and transactions as before for 20 sample tokens.</div></div>
+    <div class="phase"><div class="tag">P1<small>3–4 days</small></div><div><b>Jupiter Router v2 (/build) and the router.</b> With a Jupiter API key, quote v1 and v2 in parallel and keep the better one. Confirm that <code>payer</code> and <code>platformFeeBps</code> work together on /build with a $1 live buy before enabling. Buy and sell screens get the "Best of N" chip and the Compare routes sheet.</div></div>
+    <div class="phase"><div class="tag">P2<small>3–5 days</small></div><div><b>DFlow.</b> After the API key arrives: quote, sponsored build, our fee in USDC (input mint). Enable behind <code>VENUE_DFLOW</code> for 10% of quotes first, compare fills in <code>venue_quotes</code>, then turn it on fully.</div></div>
+    <div class="phase"><div class="tag">P3<small>investigate</small></div><div><b>JupiterZ RFQ for larger orders.</b> Test whether market makers quote xStocks and Ondo tokens, how the referral fee and relay payer behave, and what changes when Jupiter executes the trade. Only for orders above a size where RFQ beats pools.</div></div>
+    <div class="phase"><div class="tag">P4<small>later</small></div><div><b>OKX, then other chains.</b> OKX once docs and terms are confirmed. EVM venues (1inch, 0x, LI.FI) arrive with the Ondo-on-EVM plan: a paymaster, CCTP to that chain, then the same adapter contract.</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>Every screen and sheet this touches</h2>
+    <p>Found by tracing everywhere the app says "Jupiter", shows a quote, or records a trade.</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Where</th><th>File</th><th>Change</th><th>Phase</th></tr></thead>
+    <tbody>
+      <tr><td>Buy review (company jar)</td><td class="mono">screens/buy.tsx · BuyReview</td><td>Each token option shows its winning venue; "Best of 3 venues" chip; Compare routes opens a sheet</td><td>P1</td></tr>
+      <tr><td>Compare routes sheet <span class="pill p-new">new</span></td><td class="mono">screens/buy.tsx</td><td>Every venue's tokens out, cost and speed for this token and amount; Auto or a manual pick</td><td>P1</td></tr>
+      <tr><td>Arc approval sheet</td><td class="mono">screens/buy.tsx</td><td>Unchanged steps; the summary line names the venue that will swap on Solana</td><td>P1</td></tr>
+      <tr><td>Buy progress / done</td><td class="mono">screens/buy.tsx · BuyDone</td><td>Each line says "Bought via DFlow", with the fill vs the quote</td><td>P0</td></tr>
+      <tr><td>Route changed sheet <span class="pill p-new">new</span></td><td class="mono">screens/buy.tsx</td><td>When the chosen venue fails at signing, offer the next best with its new numbers; never switch silently</td><td>P1</td></tr>
+      <tr><td>Market asset · trade panel and mobile buy sheet</td><td class="mono">screens/markets.tsx</td><td>Quote line shows the winning venue and best-of-N; Compare routes link</td><td>P1</td></tr>
+      <tr><td>Market asset · details block</td><td class="mono">screens/markets.tsx</td><td>"Trades on" lists every live venue for this token</td><td>P1</td></tr>
+      <tr><td>Sell screen and sell sheet</td><td class="mono">screens/buy.tsx · Sell, markets.tsx</td><td>Same venue comparison for USDC out</td><td>P1</td></tr>
+      <tr><td>Sell progress / sold</td><td class="mono">screens/buy.tsx</td><td>"Sold via …"</td><td>P0</td></tr>
+      <tr><td>Your trades sheet</td><td class="mono">screens/markets.tsx</td><td>Venue on each trade row</td><td>P0</td></tr>
+      <tr><td>Holding detail · proof trail</td><td class="mono">screens/holdings.tsx</td><td>Venue and transaction link per buy</td><td>P0</td></tr>
+      <tr><td>Markets list and preview</td><td class="mono">screens/markets.tsx</td><td>Venue tag shows the best venue; "Trades on" filter row gains live venues</td><td>P2</td></tr>
+      <tr><td>Receipt confirm · token list</td><td class="mono">screens/add.tsx</td><td>"Cost on $5" uses the best venue; small "via" label</td><td>P1</td></tr>
+      <tr><td>Settings · Trading <span class="pill p-new">new section</span></td><td class="mono">screens/settings.tsx</td><td>Routing: Best price (default) or a preferred venue; venues on/off; price protection</td><td>P2</td></tr>
+      <tr><td>Admin desk · Venues card</td><td class="mono">docs/14-admin.md</td><td>Health, win rate, volume and errors per venue; links to each provider's portal</td><td>P2</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>Wireframes</h2>
+    <p>Phone widths unless marked. Dashed outlines mark what changes. Tag colours follow the app: <span class="pill p-tok">tokenizer</span> <span class="pill p-ven">trading venue</span> <span class="pill p-chn">chain</span>.</p>
+    <p class="legend"><span><i class="k-chg"></i>Changed or new</span><span><span class="pill p-rec">Recommended</span> the app's pick</span></p>
+  </div>
+
+  <div class="board">
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Buy 2 assets</div>
+        <div class="wcard">
+          <div class="wrow"><span class="ico"></span><b>Apple</b><span class="sp">$12.40</span></div>
+          <div class="wopt on chg">
+            <div class="wrow"><span class="ico"></span><b>AAPLx</b><span class="pill p-tok">xStocks</span><span class="pill p-rec">Recommended</span><span class="sp">0.03585</span></div>
+            <div class="wrow"><span class="pill p-ven">via DFlow</span><span class="wsmall">Best of 3 venues · +0.4% vs Jupiter</span></div>
+            <div class="wsmall">Cost $0.05 (0.42%) · Liquidity $584K</div>
+          </div>
+          <div class="wopt">
+            <div class="wrow"><span class="ico"></span><b>AAPLon</b><span class="pill p-tok">Ondo</span><span class="sp">0.03431</span></div>
+            <div class="wrow"><span class="pill p-ven">via Jupiter</span><span class="wsmall">Best of 2 venues</span></div>
+          </div>
+          <div class="wrow chg"><span class="wsmall">You get 0.03585 · at least 0.03549</span><span class="sp" style="font-size:11px;text-decoration:underline">Compare routes</span></div>
+        </div>
+        <div class="wcard"><div class="wdl"><span>Total</span><span>$17.40</span><span>Route costs</span><span>$0.07</span><span>Moved from Arc</span><span>$17.40</span></div></div>
+        <div class="wbtn">Buy now · $17.40</div>
+      </div>
+      <figcaption><b>Buy review (company jar)</b><span>Token choice stays as built. Each token now names its winning venue and how much better it is than our default.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Buy 2 assets</div>
+        <div class="wcard"><div class="ln w60"></div><div class="ln w80"></div></div>
+        <div class="sheet chg">
+          <div class="grab"></div>
+          <div class="wrow"><b>Routes for AAPLx · $12.40</b></div>
+          <div class="wopt on"><div class="wrow"><span class="pill p-ven">DFlow</span><span class="pill p-rec">Best</span><span class="sp">0.03585</span></div><div class="wsmall">Cost 0.42% · quoted in 310 ms</div></div>
+          <div class="wopt"><div class="wrow"><span class="pill p-ven">Jupiter Router</span><span class="sp">0.03571</span></div><div class="wsmall">Cost 0.81%</div></div>
+          <div class="wopt"><div class="wrow"><span class="pill p-ven">Jupiter</span><span class="sp">0.03569</span></div><div class="wsmall">Cost 0.86% · our default</div></div>
+          <div class="wopt" style="opacity:.6"><div class="wrow"><span class="pill p-ven">JupiterZ RFQ</span><span class="sp">—</span></div><div class="wsmall">No quote for this size</div></div>
+          <div class="wrow"><span class="wsmall">Ownback fee and gas are the same on every route.</span></div>
+          <div class="wbtn">Use DFlow</div>
+          <div class="wbtn sec">Always pick the best (Auto)</div>
+        </div>
+      </div>
+      <figcaption><b>Compare routes sheet</b> <span class="pill p-new">new</span><span>Opened from any quote. Auto is the default; a manual pick applies to this buy only.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Buy 2 assets</div>
+        <div class="sheet chg">
+          <div class="grab"></div>
+          <b>The DFlow route closed</b>
+          <p class="wsmall" style="margin:0">Prices moved before you signed. The next best route gives you slightly less.</p>
+          <div class="wcard"><div class="wdl"><span>Was (DFlow)</span><span>0.03585 AAPLx</span><span>Now (Jupiter)</span><span>0.03569 AAPLx</span><span>At least</span><span>0.03533 AAPLx</span></div></div>
+          <div class="wbtn">Buy via Jupiter</div>
+          <div class="wbtn sec">Get fresh quotes</div>
+        </div>
+      </div>
+      <figcaption><b>Route changed sheet</b> <span class="pill p-new">new</span><span>Shown instead of a silent fallback. Nothing is signed until the user agrees to the new numbers.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Approve 4 steps on Arc</div>
+        <div class="wcard"><div class="ln w80"></div><div class="ln w60"></div><div class="ln w80"></div><div class="ln w40"></div></div>
+        <div class="wcard chg"><div class="wsmall">Then on Solana: <b>AAPLx via DFlow</b>, <b>NVDAx via Jupiter</b>. You sign each swap.</div></div>
+        <div class="wbtn">Approve and start</div>
+      </div>
+      <figcaption><b>Arc approval sheet</b><span>Steps unchanged. One added line says which venue swaps each token on Solana.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar">Buy done</div>
+        <div class="wcard">
+          <div class="wrow"><span class="ico"></span><b>AAPLx</b><span class="sp">0.03587</span></div>
+          <div class="wrow chg"><span class="pill p-ven">via DFlow</span><span class="wsmall">filled 0.06% above quote</span></div>
+          <div class="wsmall">Solscan ↗</div>
+        </div>
+        <div class="wcard">
+          <div class="wrow"><span class="ico"></span><b>NVDAx</b><span class="sp">0.0371</span></div>
+          <div class="wrow chg"><span class="pill p-ven">via Jupiter</span><span class="wsmall">filled at quote</span></div>
+        </div>
+        <div class="wbtn sec">See holdings</div>
+      </div>
+      <figcaption><b>Buy progress and done</b><span>Each line says which venue filled it and how the real fill compares with the quote.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone wide">
+        <div class="wbar">Apple · AAPLx <span class="pill p-tok">xStocks</span></div>
+        <div class="wcard" style="grid-template-columns:1fr 1fr;display:grid">
+          <div class="wcard" style="border:0;padding:0"><div class="ln w80" style="height:60px"></div><div class="wdl chg"><span>Trades on</span><span><span class="pill p-ven">Jupiter</span> <span class="pill p-ven">DFlow</span></span><span>Chain</span><span><span class="pill p-chn">Solana</span></span></div></div>
+          <div class="wcard">
+            <div class="wrow"><b>Buy</b><span class="wsmall">Sell</span></div>
+            <div class="ln w60"></div>
+            <div class="wrow chg"><span class="wsmall">≈ 0.0288 AAPLx</span><span class="pill p-ven">via DFlow</span></div>
+            <div class="wsmall chg">Best of 3 · Compare routes</div>
+            <div class="wbtn">Buy $10</div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>Market asset page (laptop)</b><span>Details list every live venue for this token. The trade panel names the winning venue and links to the comparison.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Apple</div>
+        <div class="ln w80" style="height:46px"></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <b>Buy AAPLx</b>
+          <div class="wrow"><span class="chip"></span><span class="wsmall">$5 · $10 · $25 · $50</span></div>
+          <div class="wcard chg"><div class="wdl"><span>You get</span><span>0.0288 AAPLx</span><span>Venue</span><span>DFlow (best of 3)</span><span>Swap fee</span><span>0.42%</span></div></div>
+          <div class="wsmall chg" style="text-decoration:underline">Compare routes</div>
+          <div class="wbtn">Buy $10</div>
+        </div>
+      </div>
+      <figcaption><b>Market buy sheet (phone)</b><span>Same quote block as the laptop panel. The sell sheet mirrors it with USDC out.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Sell AAPLx</div>
+        <div class="wcard"><div class="wrow"><span class="wsmall">25% · 50% · Max</span></div><div class="ln w60"></div></div>
+        <div class="wcard chg">
+          <div class="wdl"><span>You receive</span><span>$4.97 USDC</span><span>Venue</span><span>Jupiter (best of 3)</span><span>At least</span><span>$4.92</span></div>
+          <div class="wsmall" style="text-decoration:underline">Compare routes</div>
+        </div>
+        <div class="wbtn">Sell for $4.97</div>
+        <div class="wsmall">After: "Sold via Jupiter" with the Solscan link.</div>
+      </div>
+      <figcaption><b>Sell screen and progress</b><span>Ranked by USDC received. The progress screen names the venue.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Apple · AAPLx</div>
+        <div class="wcard"><div class="wdl"><span>You own</span><span>0.0712</span><span>Value</span><span>$24.61</span></div></div>
+        <div class="wcard">
+          <b style="font-size:12px">Proof trail</b>
+          <div class="wrow"><span class="wsmall">22 Nov · Bought $12.40</span><span class="pill p-ven chg">DFlow</span><span class="sp" style="font-size:11px">tx ↗</span></div>
+          <div class="wrow"><span class="wsmall">14 Nov · Bought $5.00</span><span class="pill p-ven chg">Jupiter</span><span class="sp" style="font-size:11px">tx ↗</span></div>
+        </div>
+        <div class="wsmall">"Your trades" sheet in Markets gets the same venue tag per row.</div>
+      </div>
+      <figcaption><b>Holding detail and Your trades</b><span>Every past buy and sell shows the venue that filled it.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar">Markets</div>
+        <div class="wrow"><span class="wsmall">Tokenized by</span><span class="pill p-tok">All</span><span class="pill p-tok">xStocks</span><span class="pill p-tok">Ondo</span></div>
+        <div class="wrow chg"><span class="wsmall">Trades on</span><span class="pill p-ven">All</span><span class="pill p-ven">Jupiter</span><span class="pill p-ven">DFlow</span><span class="wsmall">Hyperliquid · Soon</span></div>
+        <div class="wcard">
+          <div class="wrow"><span class="ico"></span><b>Apple</b><span class="pill p-tok">xStocks</span><span class="sp">$345.88</span></div>
+          <div class="wrow"><span class="ico"></span><b>Apple</b><span class="pill p-tok">Ondo</span><span class="sp">$348.64</span></div>
+          <div class="wrow"><span class="ico"></span><b>Nvidia</b><span class="pill p-tok">xStocks</span><span class="sp">$134.64</span></div>
+        </div>
+        <div class="wsmall">Preview panel: "Best venue today: DFlow".</div>
+      </div>
+      <figcaption><b>Markets list and preview</b><span>A "Trades on" row appears once a second venue is live, coloured as a venue.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Confirm purchase</div>
+        <div class="wcard">
+          <div class="wrow"><span class="ico"></span><b>Apple</b><span class="wsmall">Parent company</span></div>
+          <div class="wrow"><span class="ico"></span><b>AAPLx</b><span class="pill p-tok">xStocks</span><span class="wsmall">Best today</span></div>
+          <div class="wsmall chg">$345.88 · Cost 0.42% on $5 via DFlow</div>
+          <div class="wrow"><span class="ico"></span><b>AAPLon</b><span class="pill p-tok">Ondo</span></div>
+          <div class="wsmall">Too thin: a $5 buy costs 9.80%</div>
+        </div>
+        <div class="wbtn">Save to jars</div>
+      </div>
+      <figcaption><b>Receipt confirm · token list</b><span>The $5 cost uses the best venue, so more tokens pass the fee check.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone">
+        <div class="wbar"><span class="back"></span>Settings</div>
+        <div class="wcard chg">
+          <b style="font-size:12.5px">Trading</b>
+          <div class="wopt on"><div class="wrow"><b>Best price</b><span class="pill p-rec">Default</span></div><div class="wsmall">Ownback compares every venue on each trade.</div></div>
+          <div class="wopt"><div class="wrow"><b>Prefer a venue</b></div><div class="wsmall">Use Jupiter / DFlow when it's within 0.25% of the best.</div></div>
+          <div class="wdl"><span>Jupiter</span><span>On</span><span>DFlow</span><span>On</span><span>Price protection</span><span>1%</span></div>
+        </div>
+        <div class="wcard"><div class="ln w60"></div><div class="ln w40"></div></div>
+      </div>
+      <figcaption><b>Settings · Trading</b> <span class="pill p-new">new section</span><span>Most people never open it. Saved in user rules, sent with each quote.</span></figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="phone wide">
+        <div class="wbar">Admin · Venues</div>
+        <div class="wcard chg">
+          <div class="wrow"><span class="pill p-ven">Jupiter</span><span class="wsmall">healthy · p50 280 ms · 429s 3%</span><span class="sp">won 41%</span></div>
+          <div class="wrow"><span class="pill p-ven">DFlow</span><span class="wsmall">healthy · p50 310 ms</span><span class="sp">won 52%</span></div>
+          <div class="wrow"><span class="pill p-ven">JupiterZ</span><span class="wsmall">testing · quotes on 12% of sizes</span><span class="sp">won 7%</span></div>
+          <div class="wrow"><span class="wsmall">Volume by venue (7 days) · errors · Ownback fee earned</span><span class="sp" style="font-size:11px">Open portal ↗</span></div>
+        </div>
+      </div>
+      <figcaption><b>Admin desk · Venues card</b><span>Joins the admin proposal. The data comes from the <code>venue_quotes</code> log.</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="col">
+  <h2>API and data changes</h2>
+  <ul class="clean">
+    <li><code>BuyOption</code> gains <code>route: { venue, label, kind, bestOf, deltaBps }</code> and <code>routes: RouteQuote[]</code> (each venue's tokens out, cost, quote ms, ok).</li>
+    <li><code>POST /buys</code> and <code>POST /sells</code> accept an optional <code>venues: { [jarId or assetId]: VenueId }</code>, checked against the venues offered in that review, the same way <code>tokens</code> is checked today.</li>
+    <li>New error <code>ROUTE_CHANGED</code> (added to the shared error list first) drives the Route changed sheet.</li>
+    <li>New env: <code>JUPITER_API_KEY</code>, <code>DFLOW_API_KEY</code>, <code>VENUE_JUPITER_V2</code>, <code>VENUE_DFLOW</code>, <code>VENUE_JUPITER_RFQ</code>, <code>VENUE_QUOTE_BUDGET_MS</code> (default 1500).</li>
+    <li>Rules gain <code>routing: 'best' | VenueId</code> and <code>disabledVenues: VenueId[]</code>.</li>
+    <li>One migration: <code>sells.venue</code>, the <code>venue_quotes</code> table and the two rules columns. No backfill needed: existing buys already say <code>'jupiter'</code>.</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2>Before building</h2>
+  <div class="warn">
+    <ul class="clean">
+      <li><b>You:</b> create a Jupiter developer account and API key (the free key allows 1 request a second, too few once several venues quote; the Developer plan allows 10).</li>
+      <li><b>You:</b> request a DFlow production key through their form (2–5 days).</li>
+      <li><b>Test first:</b> a $1 live buy on Jupiter /build with both our relay as payer and our platform fee, since the docs don't confirm the two together.</li>
+      <li><b>Unknown:</b> whether DFlow handles Token-2022 xStocks; its docs don't say. Quote 20 xStocks before enabling.</li>
+      <li><b>Unknown:</b> whether any RFQ market makers quote tokenized stocks at our order sizes.</li>
+      <li><b>Unknown:</b> OKX's current developer docs and terms.</li>
+    </ul>
+  </div>
+</section>
+</main>
