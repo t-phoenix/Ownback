@@ -1204,6 +1204,13 @@ svg.spin { animation: spin .8s linear infinite; }
 .chip.vtag-chip.on { background: var(--tag-tok); color: var(--tag-tok-ink); border-color: var(--tag-tok-ink); }
 .chip.soon { opacity: .55; }
 .link-button { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: var(--primary-text); text-decoration: underline; cursor: pointer; }
+/* D47: route line under a quote, opens Compare exchanges */
+.exch-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; width: 100%; margin: 8px 0 2px; text-decoration: none; color: var(--text-2, inherit); font-size: .9em; }
+.exch-line .exch-cta { display: inline-flex; align-items: center; gap: 2px; color: var(--primary-text); text-decoration: underline; }
+.exch-table { display: grid; gap: 6px; }
+.exch-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.exch-row:first-child { border-top: 0; }
+.exch-row .sub { grid-column: 1 / -1; }
 /* D46 buy: choose the token a company jar buys */
 .tok-opts { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
 .tok-opt { appearance: none; text-align: left; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; cursor: pointer; }

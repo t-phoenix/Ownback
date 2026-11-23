@@ -20,6 +20,7 @@ const errors: Record<string, string> = {
   INSUFFICIENT_FREE: "Not enough USDC for this amount. Add funds or buy a smaller amount.",
   TX_NOT_FOUND: "Still confirming. Try again in a moment.",
   QUOTE_EXPIRED: "Prices moved. We fetched fresh quotes; review and buy again.",
+  ROUTE_CHANGED: "That exchange can't fill this trade any more. Use the best price instead.",
   NOTHING_TO_BUY: "Nothing here can be bought on-chain yet.",
   VALIDATION: "Check the amount and try again. The smallest buy is $0.10.",
   UPSTREAM: "The swap route didn't build. Try again in a moment.",
@@ -34,6 +35,7 @@ export function pipelineCopy(raw?: string | null): string {
   if (!raw) return "";
   const s = raw.trim();
   if (/^INSUFFICIENT_FREE/i.test(s)) return "Not enough USDC on Solana for this amount. Add funds or buy a smaller amount.";
+  if (/^ROUTE_CHANGED/i.test(s)) return "The exchange you picked can't fill this any more. Tap Retry on that row to buy at the best price.";
   if (/^UPSTREAM:no_route|^UPSTREAM:swap_build/i.test(s)) return "The swap route didn't build. Tap Retry.";
   if (/tx_too_large|overruns Uint8Array/i.test(s)) return "Solana delivery hit a size limit. Tap Retry.";
   if (/^TX_REVERTED|^CHALLENGE_FAILED/i.test(s)) return "Nothing was moved. Tap Retry.";

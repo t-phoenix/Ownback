@@ -73,14 +73,14 @@ export type SignableAction =
   | { kind: "sol_tx"; txBase64: string; feePayer: string; summary: string }
   | { kind: "typed_data"; typedData: unknown; summary: string };
 /** D46: one token a jar can buy, quoted exactly at the jar's amount. Stats are display only. */
-export type BuyOption = { assetId: string; token?: string; mint?: string; decimals?: number; issuer?: string; icon?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; minQty?: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string }; recommended: boolean; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6; gapBps?: number };
+export type BuyOption = { assetId: string; token?: string; mint?: string; decimals?: number; issuer?: string; icon?: string; chain: string; venue: string; price: { usd6PerUnit: Usd6 }; refPriceUsd6: Usd6; estQty: string; minQty?: string; fees: Fees; selectable: boolean; reason?: "fees_high" | "no_venue"; arkiv?: { key: string; url: string }; recommended: boolean; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6; gapBps?: number; route?: string[]; exchanges?: number; thin?: boolean };
 /** A jar (company) or a Markets token. Top-level token fields are the default token (`tokenAssetId`). */
 export type BuyRow = Omit<BuyOption, "recommended"> & { name: string; amountUsd6: Usd6; jarAmountUsd6: Usd6; suggestedUsd6: Usd6; tokenAssetId?: string; recommended?: string; options?: BuyOption[] };
 export type BuyReview = { quoteId: string; expiresAt: string; rows: BuyRow[]; totalUsd6: Usd6; fees: Fees; funding: { solanaUsdc6: Usd6; arcUsdc6: Usd6; bridgeUsd6: Usd6 }; network?: NetworkFees; destination: string };
 /** Paid on top of the amount: Arc gas from the user's Arc USDC when bridging (approx.); Solana fees by Ownback's relay. */
 export type NetworkFees = { arcUsd6?: Usd6; solanaPaidBy: "ownback" };
 export type BuyStatus = "bridging" | "attesting" | "minting" | "swap_ready" | "swapping" | "done" | "done_partial" | "failed";
-export type BuyEntry = { assetId: string; name: string; icon?: string; token?: string; status: "quoted" | "waiting" | "sent" | "bought" | "paused"; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; error?: string; venueTx?: string; explorerUrl?: string };
+export type BuyEntry = { assetId: string; name: string; icon?: string; token?: string; status: "quoted" | "waiting" | "sent" | "bought" | "paused"; amountUsd6: Usd6; spentUsd6?: Usd6; fillPriceUsd6?: Usd6; qty?: string; error?: string; venueTx?: string; explorerUrl?: string; exchange?: string };
 export type BuyProgress = { batchId: string; status: BuyStatus; trigger?: "approval" | "user" | "market"; startedAt: string; totalUsd6: Usd6; bridgeUsd6: Usd6; error?: string; links: { arc?: string; mint?: string }; entries: BuyEntry[]; boughtUsd6: Usd6; destination: string };
 export type BuyStart = { batchId: string; action?: Extract<SignableAction, { kind: "evm_calls" }> };
 export type SolAction = Extract<SignableAction, { kind: "sol_tx" }>;
@@ -88,24 +88,30 @@ export type SellReview = { assetId: string; name: string; icon?: string; token: 
 /* Markets (docs/12-markets.md) */
 export type UsMarket = "open" | "closed" | "pre" | "post";
 export type MarketClass = "stock" | "index" | "commodity";
-export type MarketItem = { assetId: string; name: string; ticker: string; token: string; icon?: string; class: MarketClass; chain: "solana"; issuer?: string; venue?: string; priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null; liquidityUsd6: Usd6 | null; spark: Usd6[]; held: boolean; positionUsd6?: Usd6 };
+export type MarketItem = { assetId: string; name: string; ticker: string; token: string; icon?: string; class: MarketClass; chain: "solana"; issuer?: string; venue?: string; priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null; liquidityUsd6: Usd6 | null; volume24hUsd6?: Usd6; exchanges?: number; thin?: boolean; spark: Usd6[]; held: boolean; positionUsd6?: Usd6 };
 export type Markets = { pricesAt: string; usMarket: UsMarket; items: MarketItem[] };
 export type MarketPrices = { at: string; prices: Record<string, { priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null }> };
-export type MarketTrade = { kind: "buy" | "sell"; source: "jar" | "market" | "holding"; at: string; doneAt?: string; qty: string; amountUsd6: Usd6; priceUsd6?: Usd6; link: string; txs?: { arc?: string; solana?: string } };
+export type MarketTrade = { kind: "buy" | "sell"; source: "jar" | "market" | "holding"; at: string; doneAt?: string; qty: string; amountUsd6: Usd6; priceUsd6?: Usd6; link: string; exchange?: string; txs?: { arc?: string; solana?: string } };
 export type MarketDetail = {
   assetId: string; name: string; ticker: string; token: string; icon?: string; class: MarketClass; chain: "solana"; mint: string; decimals: number; issuer: string;
   links: { mint: string; issuer?: string }; priceUsd6: Usd6 | null; priceAt: string | null; change24hBps: number | null; liquidityUsd6: Usd6 | null; volume24hUsd6: Usd6 | null; usMarket: UsMarket;
+  /** D47: every exchange it trades on (pools of USDC/USDT/SOL ≥ $1k); `quotable` = Ownback can buy or sell there. */
+  exchanges?: ExchangeRow[]; thin?: boolean | null; chartPool?: { dex: string; url: string };
   position: { qty: string; valueUsd6: Usd6; avgCostUsd6: Usd6; pnlUsd6?: string; pnlBps?: number } | null;
   tradable: { buy: boolean; sell: boolean; reason?: "no_route" | "relay_off" | "feature_off" | "nothing_held" };
   funds: { solanaUsdcUsd6: Usd6; arcUsdcUsd6: Usd6; maxBuyUsd6: Usd6 };
   recent: MarketTrade[];
 };
+export type ExchangeRow = { key: string; label: string; pools: number; liquidityUsd6: Usd6; volume24hUsd6: Usd6; priceUsd6?: Usd6; quotable: boolean };
+/** D47 Compare exchanges: `key` is 'best' (Jupiter over every exchange) or an exchange. `out` = tokens (buy) or Usd6 (sell). */
+export type ExchangeOption = { key: string; label: string; outRaw: string | null; out?: string; minOut?: string; impactBps?: number; route?: string[]; liquidityUsd6?: Usd6; volume24hUsd6?: Usd6; pools?: number; recommended: boolean; diffBps: number | null; tooCostly?: boolean };
+export type ExchangeQuotes = { assetId: string; side: "buy" | "sell"; amount: string; token: string; decimals: number; at: string; feeIncluded: boolean; options: ExchangeOption[]; others: { key: string; label: string; liquidityUsd6: Usd6 }[] };
 export type ChartRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL";
 export type Candle = { t: number; o: Usd6; h: Usd6; l: Usd6; c: Usd6 };
 export type Candles = { range: ChartRange; interval: string; source: string; stale: boolean; candles: Candle[]; reason?: "not_enough_history" | "upstream" };
 export type MarketBuyReview = BuyReview & { row: BuyRow };
 export type SellSize = { qty?: string; usd6?: Usd6; pct?: 25 | 50 | 75 | 100 };
-export type SellProgress = { sellId: string; status: "signing" | "sent" | "done" | "failed"; assetId: string; qty: string; venueTx?: string; explorerUrl?: string; receivedUsd6?: Usd6; error?: string };
+export type SellProgress = { sellId: string; status: "signing" | "sent" | "done" | "failed"; assetId: string; qty: string; venueTx?: string; explorerUrl?: string; receivedUsd6?: Usd6; error?: string; exchange?: string };
 export type MoveProgress = { moveId: string; status: string; amountUsd6: Usd6; links: { sol?: string; arc?: string }; error?: string };
 export type Allocation = { assetId: string; name: string; icon?: string; role: "maker" | "supplier" | "material" | "fallback"; tokenized: boolean; amountUsd6: Usd6; selected: boolean; why?: string };
 export type PurchaseStatus = "reading" | "read_failed" | "needs_details" | "ready" | "needs_review" | "not_listed" | "skipped" | "confirming" | "saved" | "deleted";
@@ -116,7 +122,7 @@ export type PurchaseDetails = { merchant?: string | null; date?: string | null; 
 export type DetailField = "merchant" | "date" | "currency" | "total" | "items";
 /** D30 jury row: only `buyable` rows can get money. */
 /** D43/D45: one token of a company; each token is its own asset. Stats are display only. */
-export type VenueStat = { assetId: string; symbol: string; issuer: string; icon?: string; tradable: boolean; feeBps: number | null; priceUsd6?: Usd6; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6; gapBps?: number };
+export type VenueStat = { assetId: string; symbol: string; issuer: string; icon?: string; tradable: boolean; feeBps: number | null; priceUsd6?: Usd6; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6; gapBps?: number; exchanges?: number; thin?: boolean };
 export type JuryRow = { name: string; ticker?: string; role?: string; why: string; agree: number; of: number; status: "buyable" | "tokenized_unverified" | "not_onchain" | "private"; assetId?: string; symbol?: string; venues?: VenueStat[] };
 export type Analysis = { productType: "physical" | "digital" | "service" | "cpg" | null; category: string | null; parent: JuryRow | null; enablers: JuryRow[]; commodities: JuryRow[]; jurors: { model: string; persona: string; ok: boolean }[]; cached: boolean };
 export type Purchase = { id: string; status: PurchaseStatus; source: string; steps: ReadStep[]; receipt?: { shop: string; place?: string; date: string; items: string[]; local: { amount: string; currency: string }; fxRate: string; amountUsd6: Usd6 }; details?: Partial<PurchaseDetails> & { missing?: DetailField[] }; analysis?: Analysis; investUsd6?: Usd6; rateBps?: number; split?: { maker: number; behind: number; materials: number }; allocations: Allocation[]; ogRequestIds: string[]; readError?: ReadError; limit?: { usedUsd6: Usd6; capUsd6: Usd6; leftUsd6: Usd6 } };
@@ -142,9 +148,15 @@ export const api = {
       ? send<BuyReview>("POST", "/buys/review", { include: all ? "all" : "ready", amounts }, true)
       : get<BuyReview>(`/buys/review${all ? "?include=all" : ""}`),
   /** D46: `tokens` = { jarId: tokenAssetId } where the buyer picked another token than the default. */
-  buy: (quoteId: string, tokens?: Record<string, string>) => send<BuyStart>("POST", "/buys", tokens && Object.keys(tokens).length ? { quoteId, tokens } : { quoteId }, true),
+  /** D47: `exchanges` = { jarId: exchangeKey } where the buyer held a token to one exchange. */
+  buy: (quoteId: string, tokens?: Record<string, string>, exchanges?: Record<string, string>) => send<BuyStart>("POST", "/buys", {
+    quoteId, ...(tokens && Object.keys(tokens).length ? { tokens } : {}), ...(exchanges && Object.keys(exchanges).length ? { exchanges } : {}),
+  }, true),
+  exchangeQuotes: (assetId: string, side: "buy" | "sell", amount: string) =>
+    get<ExchangeQuotes>(`/quotes/exchanges?assetId=${encodeURIComponent(assetId)}&side=${side}&${side === "buy" ? "amountUsd6" : "amountRaw"}=${amount}`),
   buyArcSubmitted: (batchId: string, txHash: string) => send<{ status: BuyStatus }>("POST", `/buys/${batchId}/arc-submitted`, { txHash }),
-  buySwap: (batchId: string, assetId: string) => send<{ action: SolAction; estQty: string; token: string }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}`, {}),
+  /** `best` after ROUTE_CHANGED: continue on the best route over every exchange. */
+  buySwap: (batchId: string, assetId: string, best = false) => send<{ action: SolAction; estQty: string; token: string; route?: string[] }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}`, best ? { route: "best" } : {}),
   buySwapSubmit: (batchId: string, assetId: string, signedTx: string) => send<{ status: "bought"; venueTx: string; explorerUrl: string; qty: string; spentUsd6: Usd6 }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}/submit`, { signedTx }),
   buyRetry: (batchId: string) => send<{ status: BuyStatus }>("POST", `/buys/${batchId}/retry`, {}),
   arcTx: (hash: string) => get<{ status: "pending" | "success" | "reverted"; explorerUrl: string }>(`/chain/arc/tx/${hash}`),
@@ -154,7 +166,8 @@ export const api = {
     const q = s.pct ? `&pct=${s.pct}` : s.usd6 ? `&usd6=${s.usd6}` : s.qty ? `&qty=${encodeURIComponent(s.qty)}` : "";
     return get<SellReview>(`/sells/review?assetId=${encodeURIComponent(assetId)}${q}`);
   },
-  sell: (assetId: string, qty?: string, source: "holding" | "market" = "holding") => send<{ sellId: string; action?: SolAction; estUsdcUsd6?: Usd6 }>("POST", "/sells", { assetId, source, ...(qty ? { qty } : {}) }),
+  sell: (assetId: string, qty?: string, source: "holding" | "market" = "holding", exchange?: string) =>
+    send<{ sellId: string; action?: SolAction; estUsdcUsd6?: Usd6; route?: string[] }>("POST", "/sells", { assetId, source, ...(qty ? { qty } : {}), ...(exchange && exchange !== "best" ? { exchange } : {}) }),
   markets: () => get<Markets>("/markets"),
   marketPrices: (ids: string[]) => get<MarketPrices>(`/markets/prices?ids=${ids.map(encodeURIComponent).join(",")}`),
   market: (id: string) => get<MarketDetail>(`/markets/${encodeURIComponent(id)}`),

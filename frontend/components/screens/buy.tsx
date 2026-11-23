@@ -8,6 +8,7 @@ import { Empty, ErrorState, Skeleton, SkeletonList } from "../states";
 import { api, ApiError, type BuyEntry, type BuyOption, type BuyProgress, type BuyRow, type Jar, type SignableAction } from "../../lib/api";
 import { fmtBps, fmtCompact } from "../../lib/markets";
 import { RouteTags, TagLegend } from "../venue-tags";
+import { BEST, CompareExchanges, ExchangeLine, type ExchangePick } from "../compare-exchanges";
 import { useApi, refreshAll } from "../../lib/use-api";
 import { arcStepWhy, errorCopy, pipelineCopy } from "../../lib/copy";
 import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action";
@@ -136,6 +137,9 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
   const [err, setErr] = useState<string | null>(null);
   // D46: the token each company jar buys, when the buyer picks another than the recommended one.
   const [picks, setPicks] = useState<Record<string, string>>({});
+  // D47: the exchange each row is held to (absent = best price over every exchange), and the open Compare sheet.
+  const [exch, setExch] = useState<Record<string, ExchangePick>>({});
+  const [compare, setCompare] = useState<{ jarId: string; assetId: string; amount: string; token: string } | null>(null);
   // Jar tap passes the jar balance; holdings "Buy more" falls back to $1.
   const seedAmt = amountUsd6 && bi(amountUsd6) >= MIN_BUY_USD6 ? amountUsd6 : "1000000";
   const seeded = assetId && !amounts[assetId] ? { [assetId]: seedAmt } : {};
@@ -164,6 +168,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
   const feeTotal = selectable.reduce((s, q) => s + bi(chosen(q).fees.totalUsd6), 0n);
   const feePct = bi(d?.totalUsd6) > 0n ? Number((feeTotal * 10_000n) / bi(d?.totalUsd6)) : 0;
   const tokenPicks = Object.fromEntries(rows.flatMap(q => { const c = chosen(q); return c !== q && "recommended" in c && c.assetId !== q.tokenAssetId ? [[q.assetId, c.assetId]] : []; }));
+  const exchangePicks = Object.fromEntries(Object.entries(exch).filter(([, p]) => p.key !== "best").map(([k, p]) => [k, p.key]));
   const dirty = rows.some(q => { const v = dollarsToUsd6(inputs[q.assetId] ?? ""); return v !== null && v !== q.amountUsd6; });
   const applyAmounts = () => {
     const next: Record<string, string> = {};
@@ -186,6 +191,8 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
     if (code === "QUOTE_EXPIRED" || code === "TX_REVERTED" || code === "TX_NOT_FOUND") r.reload();
     // D46: a picked token that's no longer offered: back to the recommended ones on fresh quotes.
     if (code === "VALIDATION" && details?.reason === "token_not_offered") { setPicks({}); r.reload(); }
+    // D47: an exchange that no longer qualifies: back to the best route.
+    if (code === "VALIDATION" && details?.reason === "exchange_not_offered") { setExch({}); r.reload(); }
   };
   // Navigate first — refreshAll() remounts siblings and was racing the buy screen into the Next error page.
   const go = (batchId: string) => { navigate(`/buy/${batchId}`); refreshAll(); };
@@ -203,7 +210,7 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
     if (!d) return;
     setErr(null); setSteps([]); setPhase("starting");
     try {
-      const start = await api.buy(d.quoteId, tokenPicks);
+      const start = await api.buy(d.quoteId, tokenPicks, exchangePicks);
       if (start.action?.kind === "evm_calls" && !isNoopAction(start.action)) {
         setArcPlan({ batchId: start.batchId, action: start.action }); setPhase("review");
         return;
@@ -234,7 +241,10 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
             <div className="row-main"><div className="row-title">{name} <PriceTag token={q.token} usd6={q.refPriceUsd6} /></div><div className="row-sub">{q.selectable ? <RouteTags issuer={q.issuer} venue={q.venue} chain={q.chain} /> : q.reason === "fees_high" ? `Fees too high (${(q.fees.pctBps / 100).toFixed(2)}%)` : "Not on-chain yet"}</div></div>
             <strong className="num">{fmtUsd6(row.amountUsd6)}</strong>
           </header>
-          {(row.options?.length ?? 0) > 1 && <TokenOptions row={row} value={q.assetId} disabled={busy} onPick={id => { haptic(5); setPicks(p => ({ ...p, [row.assetId]: id })); }} />}
+          {(row.options?.length ?? 0) > 1 && <TokenOptions row={row} value={q.assetId} disabled={busy} onPick={id => { haptic(5); setPicks(p => ({ ...p, [row.assetId]: id })); setExch(x => { const n = { ...x }; delete n[row.assetId]; return n; }); }} />}
+          {q.selectable && q.mint && <ExchangeLine pick={exch[row.assetId] ?? BEST} route={q.route} unit={q.token} disabled={busy}
+            onOpen={() => setCompare({ jarId: row.assetId, assetId: q.assetId, amount: row.amountUsd6, token: q.token ?? "" })} />}
+          {q.thin && <p className="fineprint"><AlertTriangle size={14} /> Thin market: under $10k of liquidity across all exchanges.</p>}
           {q.mint && <p className="fineprint mono">{q.issuer ?? "Token"} · mint {q.mint.slice(0, 4)}…{q.mint.slice(-4)} · {q.decimals} decimals</p>}
           {q.arkiv && <a className="fineprint" href={q.arkiv.url} target="_blank" rel="noreferrer"><ShieldCheck size={14} /> Token verified on Arkiv</a>}
           {bi(q.price?.usd6PerUnit) > 0n && <dl className="quote-grid">
@@ -273,6 +283,8 @@ export function BuyReview({ all = false, assetId, amountUsd6 }: { all?: boolean;
         </div>
       </div>
     </div>}
+    {compare && <CompareExchanges open onClose={() => setCompare(null)} assetId={compare.assetId} side="buy" amount={compare.amount} token={compare.token}
+      value={(exch[compare.jarId] ?? BEST).key} onPick={p => { haptic(5); setExch(x => ({ ...x, [compare.jarId]: p })); }} />}
     <Sheet open={!!arcPlan} onClose={() => { if (phase === "review") { setArcPlan(null); setPhase("idle"); } }} title={`Approve ${arcLabels.length} step${arcLabels.length > 1 ? "s" : ""} on Arc`}>
       <RouteStrip running={phase !== "review"} done={arcDone === arcLabels.length && arcLabels.length > 0} />
       <p className="sub">Moves {fmtUsd6(d?.funding.bridgeUsd6)} of your Arc USDC to your own Solana wallet, where each share is bought. You approve once here; your wallet then signs each step in order.</p>
@@ -335,14 +347,17 @@ export function BuyDone({ batchId }: { batchId: string }) {
   useEffect(() => { if (finished) { refreshAll(); haptic([12, 60, 12, 60, 24]); } }, [finished]);
   useEffect(() => { if (finished) return; const t = setInterval(() => tick(x => x + 1), 1000); return () => clearInterval(t); }, [finished]);
 
-  const swapOne = useCallback(async (e: BuyEntry) => {
+  // D47: the exchange this token was held to can't fill it any more; the buyer decides, never a silent switch.
+  const [routeChanged, setRouteChanged] = useState<BuyEntry | null>(null);
+  const swapOne = useCallback(async (e: BuyEntry, best = false) => {
     setSigning(e.assetId); setErr(null);
     try {
-      const { action } = await api.buySwap(batchId, e.assetId);
+      const { action } = await api.buySwap(batchId, e.assetId, best);
       const signed = await signAction(action);
       if (!signed.signedTx) throw Object.assign(new Error("CHALLENGE_FAILED"), { code: "CHALLENGE_FAILED" });
       await api.buySwapSubmit(batchId, e.assetId, signed.signedTx);
     } catch (x) {
+      if (codeOf(x) === "ROUTE_CHANGED") { setRouteChanged(e); return; }
       const details = detailsOf(x);
       const msg = codeOf(x) === "INSUFFICIENT_FREE" && details?.availableUsd6
         ? `You have ${fmtUsd6(details.availableUsd6)} on Solana. Add funds or buy a smaller amount.`
@@ -423,10 +438,11 @@ export function BuyDone({ batchId }: { batchId: string }) {
         const name = assetName(e.assetId, e.name);
         const busy = signing === e.assetId || e.status === "sent";
         const entryErr = pipelineCopy(e.error);
-        const sub = e.status === "bought" ? `${e.qty} ${e.token ?? ""} at ${fmtUsd6(e.fillPriceUsd6 ?? "0")}`
+        const on = e.exchange ? ` · on ${e.exchange}` : "";
+        const sub = e.status === "bought" ? `${e.qty} ${e.token ?? ""} at ${fmtUsd6(e.fillPriceUsd6 ?? "0")}${on}`
           : busy ? "Approve in wallet, then confirming on Solana…"
           : e.status === "paused" ? (entryErr || "Didn't go through")
-          : canSwap ? "Ready to sign"
+          : canSwap ? `Ready to sign${on}`
           : "Waits for USDC on Solana";
         return <li className="row" key={e.assetId}>
           <Monogram name={name} icon={e.icon} tone={toneFor(e.assetId)}>{e.status === "bought" ? <Check size={18} strokeWidth={2.6} /> : busy ? <Spinner /> : e.icon ? undefined : name.slice(0, 2).toUpperCase()}</Monogram>
@@ -438,7 +454,7 @@ export function BuyDone({ batchId }: { batchId: string }) {
             <span className="row-value">{fmtUsd6(e.spentUsd6 ?? e.amountUsd6)}</span>
             {e.explorerUrl && <a className="fineprint" href={e.explorerUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Solscan</a>}
             {canSwap && !busy && e.status !== "bought" && (
-              <button className="button secondary sm" disabled={!!signing || retrying} onClick={() => swapOne(e)}>
+              <button className="button secondary sm" disabled={!!signing || retrying} onClick={() => (e.error?.startsWith("ROUTE_CHANGED") ? setRouteChanged(e) : swapOne(e))}>
                 {e.status === "quoted" && !e.error ? "Sign and buy" : "Retry"}
               </button>
             )}
@@ -446,6 +462,14 @@ export function BuyDone({ batchId }: { batchId: string }) {
         </li>;
       })}
     </ol>}
+    <Sheet open={!!routeChanged} onClose={() => setRouteChanged(null)} title="Route changed">
+      <p className="sub">{routeChanged?.exchange ?? "The exchange you picked"} can't fill your {routeChanged?.token ?? "buy"} at a fair price any more. Nothing was bought, and your USDC is still in your Solana wallet.</p>
+      <div className="dock">
+        <button className="button primary full lg" onClick={() => { const e = routeChanged!; setRouteChanged(null); void swapOne(e, true); }}>Buy at the best price <ArrowRight size={18} /></button>
+        <button className="button quiet full" onClick={() => setRouteChanged(null)}>Not now</button>
+      </div>
+      <p className="fineprint center">The best price can use any exchange. You still sign the swap.</p>
+    </Sheet>
     {!d && !b.error && <Skeleton h={180} mt={28} />}
     {d && d.status !== "done" && <p className="fineprint center">You can leave this screen; the transfer keeps going. Come back from Activity to sign the swaps.</p>}
     {market && (d?.status === "failed" || market.status === "paused") && bi(d?.bridgeUsd6) > 0n && <p className="callout">Your {fmtUsd6(d!.bridgeUsd6)} is safe as USDC in your Solana wallet. Retry the swap, or keep it for your next trade.</p>}
@@ -472,14 +496,18 @@ export function SellReview({ assetId }: { assetId: string }) {
   const r = useApi(`sell:${assetId}:${qtyApplied ?? "all"}`, () => api.sellsReview(assetId, qtyApplied));
   const [phase, setPhase] = useState<"idle" | "building" | "signing" | "submitting">("idle");
   const [err, setErr] = useState<string | null>(null);
+  // D47: where to sell (best price over every exchange by default), and the Compare / Route changed sheets.
+  const [ex, setEx] = useState<ExchangePick>(BEST);
+  const [comparing, setComparing] = useState(false);
+  const [routeChanged, setRouteChanged] = useState(false);
   useEffect(() => { if (r.data && !qty) setQty(r.data.qty); }, [r.data, qty]);
   const d = r.data;
   const dirty = !!d && qty.trim() !== "" && qty.trim() !== d.qty;
-  const sell = async () => {
+  const sell = async (pick = ex) => {
     if (!d) return;
     setErr(null); setPhase("building");
     try {
-      const start = await api.sell(assetId, d.qty);
+      const start = await api.sell(assetId, d.qty, "holding", pick.key);
       if (start.action) {
         setPhase("signing");
         const signed = await signAction(start.action);
@@ -487,7 +515,12 @@ export function SellReview({ assetId }: { assetId: string }) {
         await api.sellSubmit(start.sellId, signed.signedTx!);
       }
       refreshAll(); navigate(`/sell/${start.sellId}`);
-    } catch (e) { setErr(errorCopy(codeOf(e))); setPhase("idle"); r.reload(); }
+    } catch (e) {
+      setPhase("idle");
+      if (codeOf(e) === "ROUTE_CHANGED") { setRouteChanged(true); return; }
+      if (codeOf(e) === "VALIDATION" && detailsOf(e)?.reason === "exchange_not_offered") setEx(BEST);
+      setErr(errorCopy(codeOf(e))); r.reload();
+    }
   };
   const label = phase === "building" ? "Getting the best route…" : phase === "signing" ? "Approve in wallet…" : phase === "submitting" ? "Confirming on Solana…" : null;
   return <div className="page flow narrow">
@@ -501,7 +534,16 @@ export function SellReview({ assetId }: { assetId: string }) {
         <div className="summary-line"><span>You get about</span><strong>{fmtUsd6(d.estUsdcUsd6)} USDC</strong></div>
         <div className="summary-line"><span>Route cost</span><strong>{fmtUsd6(d.fees.totalUsd6)} ({(d.fees.pctBps / 100).toFixed(2)}%)</strong></div>
         <p className="fineprint mono">mint {d.mint.slice(0, 4)}…{d.mint.slice(-4)} · {d.decimals} decimals · market {fmtUsd6(d.priceUsd6)}</p>
+        <ExchangeLine pick={ex} unit="USDC" disabled={phase !== "idle" || dirty} onOpen={() => setComparing(true)} />
       </section>
+      <CompareExchanges open={comparing} onClose={() => setComparing(false)} assetId={assetId} side="sell" amount={d.amountRaw} token={d.token} value={ex.key} onPick={p => { haptic(5); setEx(p.key === "best" ? BEST : { ...p, out: p.out ? fmtUsd6(p.out).replace(/^\$/, "") : undefined }); }} />
+      <Sheet open={routeChanged} onClose={() => setRouteChanged(false)} title="Route changed">
+        <p className="sub">{ex.label} can't fill this sell at a fair price any more. Nothing was sold.</p>
+        <div className="dock">
+          <button className="button primary full lg" onClick={() => { setRouteChanged(false); setEx(BEST); void sell(BEST); }}>Sell at the best price <ArrowRight size={18} /></button>
+          <button className="button quiet full" onClick={() => setRouteChanged(false)}>Not now</button>
+        </div>
+      </Sheet>
       <label className="field" htmlFor="sell-qty">Quantity to sell
         <div className="btn-row">
           <input id="sell-qty" inputMode="decimal" value={qty} disabled={phase !== "idle"} onChange={e => setQty(e.target.value)} />
@@ -513,7 +555,7 @@ export function SellReview({ assetId }: { assetId: string }) {
       <div className="dock">
         {label ? <button className="button primary full lg" disabled><Spinner /> {label}</button>
           : dirty ? <button className="button primary full lg" onClick={() => { setQtyApplied(qty.trim()); setErr(null); }}>Update quote</button>
-          : <ConfirmAction label={`Sell · ${fmtUsd6(d.estUsdcUsd6)}`} onConfirm={sell} />}
+          : <ConfirmAction label={`Sell · ${fmtUsd6(d.estUsdcUsd6)}`} onConfirm={() => sell()} />}
       </div>
     </>}
   </div>;
@@ -533,6 +575,7 @@ export function SellDone({ sellId }: { sellId: string }) {
       <p className="kicker">{d?.status === "failed" ? "Nothing was sold" : done ? "USDC in your Solana wallet" : "Confirming on Solana"}</p>
       <h1 className="h-hero">{d?.receivedUsd6 ? <>Sold for<br />{fmtUsd6(d.receivedUsd6)}</> : d?.status === "failed" ? "Try again" : "Selling…"}</h1>
       {d?.error && <p className="error">{d.error}</p>}
+      {d?.exchange && d.status === "done" && <p className="sub">Sold on {d.exchange}</p>}
       {d?.explorerUrl && <a className="button secondary" href={d.explorerUrl} target="_blank" rel="noreferrer"><ExternalLink size={16} /> View on Solscan</a>}
     </div>
     <div className="dock">
