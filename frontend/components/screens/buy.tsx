@@ -297,6 +297,7 @@ function TokenOptions({ row, value, disabled, onPick }: { row: BuyRow; value: st
     {row.options!.map(o => { const on = o.assetId === value; return <button key={o.assetId} type="button" role="radio" aria-checked={on} className={`tok-opt${on ? " on" : ""}`} disabled={disabled || !o.selectable} onClick={() => { if (!on) onPick(o.assetId); }}>
       <span className="tok-opt-top">
         {on && <Check size={16} aria-hidden="true" />}
+        <Monogram name={o.token ?? o.assetId} icon={o.icon} tone={toneFor(o.assetId)} size={24} />
         <b>{o.token ?? o.assetId}</b>
         <RouteTags issuer={o.issuer} venue={o.venue} chain={o.chain} />
         {o.recommended && <span className="tok-rec">Recommended</span>}

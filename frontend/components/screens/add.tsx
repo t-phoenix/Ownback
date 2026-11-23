@@ -322,6 +322,7 @@ function Venues({ venues }: { venues?: VenueStat[] }) {
   const best = venues[0]?.tradable ? venues[0].assetId : undefined;
   return <span className="venues">{venues.map(v =>
     <span key={v.assetId} className={`venue${v.tradable ? "" : " off"}`}>
+      <Monogram name={v.symbol} icon={v.icon} tone={toneFor(v.assetId)} size={18} />
       <b>{v.symbol}</b>
       <IssuerTag issuer={v.issuer} />
       {v.assetId === best && venues.length > 1 && <span className="venue-tag">Best today</span>}

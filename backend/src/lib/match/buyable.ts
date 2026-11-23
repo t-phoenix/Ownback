@@ -10,6 +10,8 @@ export type VenueStat = {
   assetId: string;
   symbol: string;
   issuer: string;
+  /** Token logo (https, from the registry); display only. */
+  icon?: string;
   tradable: boolean;
   /** Cost of a jar-sized ($5) buy right now, in bps of the amount; null when it couldn't be measured. */
   feeBps: number | null;
@@ -74,7 +76,7 @@ export async function checkBuyable(companyId: string): Promise<Buyable> {
     const s = stats.get(m.mint);
     const gap = gapBps(s?.priceUsd6 ?? null, ref);
     const v: VenueStat = {
-      assetId: a.assetId, symbol: m.symbol, issuer: m.issuer, tradable: probes[i]!.ok, feeBps: probes[i]!.feeBps,
+      assetId: a.assetId, symbol: m.symbol, issuer: m.issuer, ...(m.icon ? { icon: m.icon } : {}), tradable: probes[i]!.ok, feeBps: probes[i]!.feeBps,
       ...(s?.priceUsd6 ? { priceUsd6: toUsd6(s.priceUsd6) } : {}),
       ...(s?.mcapUsd6 ? { mcapUsd6: toUsd6(s.mcapUsd6) } : {}),
       ...(s?.volume24hUsd6 ? { volume24hUsd6: toUsd6(s.volume24hUsd6) } : {}),
