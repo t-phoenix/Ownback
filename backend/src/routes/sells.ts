@@ -15,6 +15,7 @@ import { newId } from '../lib/ids.js';
 import { assetDisplayName } from '../lib/asset-name.js';
 import { iconField, verifiedMint } from '../shared/assets.js';
 import { jupiterPriceUsd6, jupiterSellQuote, rawToQty, routeFeeUsd6, sellSwapCostUsd6, sizeSellForUsd6, valueUsd6 } from '../lib/jupiter-price.js';
+import { dexesOfVenue, poolIndex, routeExchanges, venueFor, venueLabel } from '../lib/markets/pools.js';
 import { buildUserSwap, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import { buildSolanaBurnToArc } from '../lib/cctp.js';
 import { advanceMove, logEvent } from '../lib/buy-pipeline.js';
@@ -125,9 +126,18 @@ sellsRoutes.post('/sells', async (c) => {
   try {
     requireCsrf(c);
     const user = await requireUser(c);
-    const body = z.object({ assetId: z.string().min(1), qty: z.string().optional(), source: z.enum(['holding', 'market']).default('holding') }).parse(await c.req.json());
+    const body = z.object({
+      assetId: z.string().min(1), qty: z.string().optional(), source: z.enum(['holding', 'market']).default('holding'),
+      // D47: hold the sell to one exchange from Compare exchanges; 'best' or absent = Jupiter over every exchange.
+      exchange: z.string().max(40).optional(),
+    }).parse(await c.req.json());
     const mint = verifiedMint(body.assetId, 'solana');
     if (!mint) throw new ApiError('FEATURE_OFF');
+    if (body.exchange && body.exchange !== 'best' && !(await poolIndex(mint.mint))?.exchanges.some((e) => e.key === body.exchange && e.quotable)) {
+      throw new ApiError('VALIDATION', { reason: 'exchange_not_offered' });
+    }
+    const venue = venueFor(body.exchange);
+    const dexes = dexesOfVenue(venue);
     const held = await heldRaw(user, body.assetId);
     if (held <= 0n) throw new ApiError('NOT_FOUND', { reason: 'nothing_held' });
     const amountRaw = pickAmount(held, body.qty, mint.decimals);
@@ -137,18 +147,19 @@ sellsRoutes.post('/sells', async (c) => {
     const cost = valueUsd6(amountRaw, mint.decimals, await avgCostUsd6(user.id, body.assetId, mint.decimals));
     if (mockChain()) {
       const q = await jupiterSellQuote(mint.mint, amountRaw);
-      await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, received_usd6, source, cost_basis_usd6, created_at, finished_at)
-        VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'done', ${amountRaw.toString()}, ${qty}, ${q?.outAmount ?? '0'}::bigint, ${body.source}, ${cost.toString()}::bigint, now(), now())`;
+      await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, received_usd6, source, cost_basis_usd6, venue, created_at, finished_at)
+        VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'done', ${amountRaw.toString()}, ${qty}, ${q?.outAmount ?? '0'}::bigint, ${body.source}, ${cost.toString()}::bigint, ${venue}, now(), now())`;
       await logEvent(user.id, 'sell_done', { amountUsd6: q?.outAmount ?? '0', assetId: body.assetId }, `/holdings/${body.assetId}`);
       return c.json({ sellId });
     }
     if (!user.solAddress) throw new ApiError('NO_SOLANA_RECIPIENT', { reason: 'no_solana_wallet' });
-    const built = await buildUserSwap({ owner: user.solAddress, inputMint: mint.mint, outputMint: SOL_USDC, amountRaw });
-    await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, swap_msg_hash, source, cost_basis_usd6, created_at)
-      VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'signing', ${amountRaw.toString()}, ${qty}, ${built.msgHash}, ${body.source}, ${cost.toString()}::bigint, now())`;
+    const built = await buildUserSwap({ owner: user.solAddress, inputMint: mint.mint, outputMint: SOL_USDC, amountRaw, ...(dexes ? { dexes } : {}) });
+    await sql`INSERT INTO sells (id, user_id, asset_id, status, amount_raw, qty, swap_msg_hash, source, cost_basis_usd6, venue, created_at)
+      VALUES (${sellId}::uuid, ${user.id}::uuid, ${body.assetId}, 'signing', ${amountRaw.toString()}, ${qty}, ${built.msgHash}, ${body.source}, ${cost.toString()}::bigint, ${venue}, now())`;
     return c.json({
       sellId,
       estUsdcUsd6: toUsd6(BigInt(built.quote.outAmount)),
+      route: routeExchanges(built.quote.routePlan),
       action: { kind: 'sol_tx' as const, txBase64: built.txBase64, feePayer: built.feePayer, summary: `Sell ${qty} ${mint.symbol} for USDC` },
     });
   } catch (e) {
@@ -186,8 +197,8 @@ sellsRoutes.post('/sells/:sellId/submit', async (c) => {
 sellsRoutes.get('/sells/:sellId', async (c) => {
   try {
     const user = await requireUser(c);
-    const [s] = await getSql()<{ id: string; status: string; venue_tx: string | null; received_usd6: bigint | null; error: string | null; qty: string; asset_id: string }[]>`
-      SELECT id, status, venue_tx, received_usd6, error, qty, asset_id FROM sells WHERE id = ${c.req.param('sellId')}::uuid AND user_id = ${user.id}::uuid`;
+    const [s] = await getSql()<{ id: string; status: string; venue: string | null; venue_tx: string | null; received_usd6: bigint | null; error: string | null; qty: string; asset_id: string }[]>`
+      SELECT id, status, venue, venue_tx, received_usd6, error, qty, asset_id FROM sells WHERE id = ${c.req.param('sellId')}::uuid AND user_id = ${user.id}::uuid`;
     if (!s) throw new ApiError('NOT_FOUND');
     return c.json({
       sellId: s.id,
@@ -195,6 +206,7 @@ sellsRoutes.get('/sells/:sellId', async (c) => {
       assetId: s.asset_id,
       qty: s.qty,
       ...(s.venue_tx ? { venueTx: s.venue_tx, explorerUrl: EXPLORER.solTx(s.venue_tx) } : {}),
+      ...(venueLabel(s.venue) ? { exchange: venueLabel(s.venue) } : {}),
       ...(s.received_usd6 != null ? { receivedUsd6: toUsd6(s.received_usd6) } : {}),
       ...(s.error ? { error: s.error } : {}),
     });

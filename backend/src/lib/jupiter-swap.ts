@@ -105,11 +105,13 @@ export async function buildUserSwap(opts: {
   slippageBps?: number;
   /** Charge the Ownback fee (D44) when it is configured. Only USDC-in swaps (buys) can carry it. */
   ownbackFee?: boolean;
+  /** D47: hold the swap to the exchange the user picked (Jupiter DEX labels). No route there = ROUTE_CHANGED, never a silent switch. */
+  dexes?: string;
 }): Promise<BuiltSwap> {
   const relay = requireRelay();
   const fee = opts.ownbackFee && opts.inputMint === SOL_USDC ? ownbackFee() : null;
   const quote = await jupiterQuote({ ...opts, slippageBps: opts.slippageBps ?? 100, ...(fee ? { platformFeeBps: fee.bps } : {}) });
-  if (!quote) throw new ApiError('UPSTREAM', { reason: 'no_route' });
+  if (!quote) throw new ApiError(opts.dexes ? 'ROUTE_CHANGED' : 'UPSTREAM', { reason: 'no_route' });
   // Pre-create the Token-2022 ATA; Jupiter's create-ATA ix often sims as InvalidTokenAccount (0x1789).
   const destinationTokenAccount = await ensureAta(opts.owner, opts.outputMint);
   const b64 = await jupiterBuildSwap({

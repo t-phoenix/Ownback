@@ -16,7 +16,7 @@ import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
 import { companyOf, iconField, tokenAssetsOf, verifiedMint } from '../shared/assets.js';
 import { getCatalogCompany } from '../lib/registry/catalog.js';
 import { gapBps, refPrices, tokenStats } from '../lib/token-stats.js';
-import { routeExchanges } from '../lib/markets/pools.js';
+import { dexesOfVenue, poolIndex, routeExchanges, venueFor, venueLabel } from '../lib/markets/pools.js';
 import { buySwapCostUsd6, jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
 import { buildUserSwap, relayConfigured, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import {
@@ -312,6 +312,23 @@ export function pickTokens(
   return out;
 }
 
+/**
+ * D47: the exchange each bought token is held to. 'best' (or nothing) = Jupiter over every exchange. Any other key
+ * must be an exchange the pool index can quote for that token; otherwise the request is refused, never re-routed.
+ */
+export async function pickVenues(rows: { assetId: string; jarId: string }[], exchanges: Record<string, string> = {}): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  for (const r of rows) {
+    const key = exchanges[r.jarId];
+    if (!key || key === 'best') { out.set(r.assetId, 'jupiter'); continue; }
+    const mint = verifiedMint(r.assetId, 'solana');
+    const idx = mint ? await poolIndex(mint.mint) : null;
+    if (!idx?.exchanges.some((e) => e.key === key && e.quotable)) throw new ApiError('VALIDATION', { reason: 'exchange_not_offered', assetId: r.jarId });
+    out.set(r.assetId, venueFor(key));
+  }
+  return out;
+}
+
 function parseAmountMap(obj: Record<string, string> | undefined): Map<string, bigint> {
   const out = new Map<string, bigint>();
   for (const [k, v] of Object.entries(obj ?? {})) {
@@ -355,7 +372,8 @@ jarsBuysRoutes.post('/buys', async (c) => {
     const user = await requireUser(c);
     const key = assertIdempotencyKey(c);
     // D46: `tokens` = { jarId: tokenAssetId } for jars where the buyer picked another token than the default.
-    const body = z.object({ quoteId: z.string().uuid(), tokens: z.record(z.string()).optional() }).parse(await c.req.json());
+    // D47: `exchanges` = { jarId: exchangeKey | 'best' } when the buyer held a token to one exchange.
+    const body = z.object({ quoteId: z.string().uuid(), tokens: z.record(z.string()).optional(), exchanges: z.record(z.string().max(40)).optional() }).parse(await c.req.json());
     const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
     const out = await withIdempotency(user.id, key, hash, async () => {
       const sql = getSql();
@@ -366,6 +384,7 @@ jarsBuysRoutes.post('/buys', async (c) => {
       if (q[0].expires_at.getTime() < Date.now()) throw new ApiError('QUOTE_EXPIRED');
       const rows = pickTokens(q[0].payload.rows.filter((r) => BigInt(r.amountUsd6) > 0n), body.tokens);
       if (!rows.length) throw new ApiError('NOTHING_TO_BUY');
+      const venues = await pickVenues(rows, body.exchanges);
       const total = rows.reduce((s, r) => s + BigInt(r.amountUsd6), 0n);
       const batchId = newId();
       const trigger = q[0].payload.source === 'market' ? 'market' : 'user';
@@ -377,7 +396,7 @@ jarsBuysRoutes.post('/buys', async (c) => {
           const quote = mint ? await jupiterBuyQuote(mint.mint, BigInt(r.amountUsd6)) : null;
           const qty = mint && quote ? rawToQty(BigInt(quote.outAmount), mint.decimals) : '0';
           await sql`INSERT INTO buy_entries (id, batch_id, user_id, asset_id, status, amount_usd6, spent_usd6, item_index, venue, qty)
-            VALUES (${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${r.assetId}, 'bought', ${r.amountUsd6}::bigint, ${r.amountUsd6}::bigint, 0, 'jupiter', ${qty}::numeric)`;
+            VALUES (${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${r.assetId}, 'bought', ${r.amountUsd6}::bigint, ${r.amountUsd6}::bigint, 0, ${venues.get(r.assetId) ?? 'jupiter'}, ${qty}::numeric)`;
           if (trigger !== 'market') await debitJars(user.id, r.assetId, BigInt(r.amountUsd6));
           await logEvent(user.id, 'buy_done', { amountUsd6: r.amountUsd6, assetId: r.assetId, qty, token: mint?.symbol }, `/holdings/${r.assetId}`);
         }
@@ -400,7 +419,7 @@ jarsBuysRoutes.post('/buys', async (c) => {
       let i = 0;
       for (const r of rows) {
         await sql`INSERT INTO buy_entries (id, batch_id, user_id, asset_id, status, amount_usd6, item_index, venue)
-          VALUES (${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${r.assetId}, 'quoted', ${r.amountUsd6}::bigint, ${i++}, 'jupiter')`;
+          VALUES (${newId()}::uuid, ${batchId}::uuid, ${user.id}::uuid, ${r.assetId}, 'quoted', ${r.amountUsd6}::bigint, ${i++}, ${venues.get(r.assetId) ?? 'jupiter'})`;
       }
       return {
         batchId,
@@ -450,7 +469,7 @@ jarsBuysRoutes.post('/buys/:batchId/arc-submitted', async (c) => {
   }
 });
 
-type Entry = { id: string; asset_id: string; status: string; amount_usd6: bigint; spent_usd6: bigint | null; fill_price_usd6: bigint | null; qty: string | null; venue_tx: string | null; error: string | null; swap_msg_hash: string | null };
+type Entry = { id: string; asset_id: string; status: string; amount_usd6: bigint; spent_usd6: bigint | null; fill_price_usd6: bigint | null; qty: string | null; venue: string | null; venue_tx: string | null; error: string | null; swap_msg_hash: string | null };
 
 async function loadEntry(batchId: string, assetId: string): Promise<Entry> {
   const [e] = await getSql()<Entry[]>`SELECT * FROM buy_entries WHERE batch_id = ${batchId}::uuid AND asset_id = ${assetId}`;
@@ -467,12 +486,19 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId', async (c) => {
     if (b.status !== 'swap_ready' && b.status !== 'swapping') throw new ApiError('DEPOSIT_NOT_READY', { status: b.status });
     const e = await loadEntry(b.id, c.req.param('assetId'));
     if (e.status === 'bought') throw new ApiError('VALIDATION', { reason: 'already_bought' });
+    // D47: after ROUTE_CHANGED the buyer can switch this token to the best route over every exchange.
+    const body = z.object({ route: z.literal('best').optional() }).parse(await c.req.json().catch(() => ({})));
+    if (body.route === 'best' && e.venue !== 'jupiter') {
+      await getSql()`UPDATE buy_entries SET venue = 'jupiter' WHERE id = ${e.id}::uuid`;
+      e.venue = 'jupiter';
+    }
     const amount = BigInt(e.amount_usd6);
     const mint = verifiedMint(e.asset_id, 'solana');
     if (!mint) throw new ApiError('NOTHING_TO_BUY', { reason: 'no_venue' });
     const have = await tokenBalanceRaw(user.solAddress!, SOL_USDC);
     if (have < amount) throw new ApiError('INSUFFICIENT_FREE', { availableUsd6: have.toString(), where: 'solana' });
-    const built = await buildUserSwap({ owner: user.solAddress!, inputMint: SOL_USDC, outputMint: mint.mint, amountRaw: amount, ownbackFee: true });
+    const dexes = dexesOfVenue(e.venue);
+    const built = await buildUserSwap({ owner: user.solAddress!, inputMint: SOL_USDC, outputMint: mint.mint, amountRaw: amount, ownbackFee: true, ...(dexes ? { dexes } : {}) });
     // Stay `quoted` until the signed tx lands — `waiting` left entries stuck when Privy/sign failed mid-flight.
     await getSql()`UPDATE buy_entries SET status = 'quoted', swap_msg_hash = ${built.msgHash}, error = NULL,
       quote_price_usd6 = ${priceUsd6FromBuyQuote(amount, BigInt(built.quote.outAmount), mint.decimals).toString()}::bigint
@@ -482,6 +508,7 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId', async (c) => {
       action: { kind: 'sol_tx' as const, txBase64: built.txBase64, feePayer: built.feePayer, summary: `Buy ${toUsd6(amount)} of ${mint.symbol}` },
       estQty: rawToQty(BigInt(built.quote.outAmount), mint.decimals),
       token: mint.symbol,
+      route: routeExchanges(built.quote.routePlan),
     });
   } catch (err) {
     const msg = pipelineError(err);
@@ -631,6 +658,8 @@ jarsBuysRoutes.get('/buys/:batchId', async (c) => {
           ...(e.qty ? { qty: String(e.qty).replace(/\.?0+$/, '') } : {}),
           ...(e.error ? { error: e.error } : {}),
           ...(e.venue_tx ? { venueTx: e.venue_tx, explorerUrl: EXPLORER.solTx(e.venue_tx) } : {}),
+          // D47: the exchange the buyer held this token to; absent = best route over every exchange.
+          ...(venueLabel(e.venue) ? { exchange: venueLabel(e.venue) } : {}),
         };
       }),
       boughtUsd6: toUsd6(bought),
