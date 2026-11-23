@@ -124,7 +124,8 @@ exchangeRoutes.get('/quotes/exchanges', async (c) => {
       shape('best', 'Best price', results[0]!),
       ...picks.map((e, i) => shape(e.key, e.label, results[i + 1]!, e)),
     ]);
-    const pending = options.filter((o) => o.status === 'pending').length;
+    // No exchange list yet (cold pool index): keep the app polling; the index call is shared and lands in a second or two.
+    const pending = options.filter((o) => o.status === 'pending').length + (idx ? 0 : 1);
     c.header('Cache-Control', 'no-store');
     return c.json({
       assetId, side, amount, token: mint.symbol, decimals: mint.decimals, at: new Date().toISOString(),
