@@ -104,8 +104,8 @@ export type MarketDetail = {
 };
 export type ExchangeRow = { key: string; label: string; pools: number; liquidityUsd6: Usd6; volume24hUsd6: Usd6; priceUsd6?: Usd6; quotable: boolean };
 /** D47 Compare exchanges: `key` is 'best' (Jupiter over every exchange) or an exchange. `out` = tokens (buy) or Usd6 (sell). */
-export type ExchangeOption = { key: string; label: string; outRaw: string | null; out?: string; minOut?: string; impactBps?: number; route?: string[]; liquidityUsd6?: Usd6; volume24hUsd6?: Usd6; pools?: number; recommended: boolean; diffBps: number | null; tooCostly?: boolean };
-export type ExchangeQuotes = { assetId: string; side: "buy" | "sell"; amount: string; token: string; decimals: number; at: string; feeIncluded: boolean; options: ExchangeOption[]; others: { key: string; label: string; liquidityUsd6: Usd6 }[] };
+export type ExchangeOption = { key: string; label: string; status: "ok" | "pending" | "no_route" | "error"; quotedAt?: string; outRaw: string | null; out?: string; minOut?: string; impactBps?: number; route?: string[]; liquidityUsd6?: Usd6; volume24hUsd6?: Usd6; pools?: number; recommended: boolean; diffBps: number | null; tooCostly?: boolean };
+export type ExchangeQuotes = { assetId: string; side: "buy" | "sell"; amount: string; token: string; decimals: number; at: string; feeIncluded: boolean; complete: boolean; retryMs?: number; exchangesUnknown?: boolean; options: ExchangeOption[]; others: { key: string; label: string; liquidityUsd6: Usd6 }[] };
 export type ChartRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL";
 export type Candle = { t: number; o: Usd6; h: Usd6; l: Usd6; c: Usd6 };
 export type Candles = { range: ChartRange; interval: string; source: string; stale: boolean; candles: Candle[]; reason?: "not_enough_history" | "upstream" };
@@ -152,8 +152,9 @@ export const api = {
   buy: (quoteId: string, tokens?: Record<string, string>, exchanges?: Record<string, string>) => send<BuyStart>("POST", "/buys", {
     quoteId, ...(tokens && Object.keys(tokens).length ? { tokens } : {}), ...(exchanges && Object.keys(exchanges).length ? { exchanges } : {}),
   }, true),
-  exchangeQuotes: (assetId: string, side: "buy" | "sell", amount: string) =>
-    get<ExchangeQuotes>(`/quotes/exchanges?assetId=${encodeURIComponent(assetId)}&side=${side}&${side === "buy" ? "amountUsd6" : "amountRaw"}=${amount}`),
+  /** `retry` asks again for exchanges that errored (the sheet's Try again). Poll while `complete` is false. */
+  exchangeQuotes: (assetId: string, side: "buy" | "sell", amount: string, retry = false) =>
+    get<ExchangeQuotes>(`/quotes/exchanges?assetId=${encodeURIComponent(assetId)}&side=${side}&${side === "buy" ? "amountUsd6" : "amountRaw"}=${amount}${retry ? "&retry=1" : ""}`),
   buyArcSubmitted: (batchId: string, txHash: string) => send<{ status: BuyStatus }>("POST", `/buys/${batchId}/arc-submitted`, { txHash }),
   /** `best` after ROUTE_CHANGED: continue on the best route over every exchange. */
   buySwap: (batchId: string, assetId: string, best = false) => send<{ action: SolAction; estQty: string; token: string; route?: string[] }>("POST", `/buys/${batchId}/swaps/${encodeURIComponent(assetId)}`, best ? { route: "best" } : {}),

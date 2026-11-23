@@ -1207,6 +1207,15 @@ svg.spin { animation: spin .8s linear infinite; }
 /* D47: route line under a quote, opens Compare exchanges */
 .exch-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; width: 100%; margin: 8px 0 2px; text-decoration: none; color: var(--text-2, inherit); font-size: .9em; }
 .exch-line .exch-cta { display: inline-flex; align-items: center; gap: 2px; color: var(--primary-text); text-decoration: underline; }
+.exch-status { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 22px; font-size: .85em; color: var(--text-2, inherit); }
+.exch-status span { display: inline-flex; align-items: center; gap: 6px; }
+.exch-pending { opacity: .85; }
+.exch-skel { cursor: default; }
+.exch-skel span { display: block; height: 12px; border-radius: 6px; background: var(--line); animation: exch-pulse 1.2s ease-in-out infinite; }
+.exch-skel span:first-child { width: 55%; }
+.exch-skel span:last-child { width: 80%; height: 10px; }
+@keyframes exch-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .exch-skel span { animation: none; } }
 .exch-table { display: grid; gap: 6px; }
 .exch-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
 .exch-row:first-child { border-top: 0; }
