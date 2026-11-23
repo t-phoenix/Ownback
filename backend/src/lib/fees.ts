@@ -54,3 +54,26 @@ export function buildFees(
     parts: parts.map((p) => ({ label: p.label, usd6: toUsd6(p.usd6) })),
   };
 }
+
+/**
+ * D44 Ownback buy fee: a Jupiter platform fee paid in USDC into OWNBACK_FEE_ACCOUNT (an Ownback-owned Solana USDC
+ * token account). Off unless both OWNBACK_FEE_BPS (1–100) and OWNBACK_FEE_ACCOUNT are set. Buys only; sells are free.
+ */
+export function ownbackFee(): { bps: number; account: string } | null {
+  const bps = Number(process.env.OWNBACK_FEE_BPS ?? 0);
+  const account = process.env.OWNBACK_FEE_ACCOUNT?.trim();
+  if (!account || !Number.isInteger(bps) || bps < 1 || bps > 100) return null;
+  return { bps, account };
+}
+
+/** Ownback fee on a buy of `spendUsd6` (0 when off). */
+export function ownbackFeeUsd6(spendUsd6: bigint): bigint {
+  const f = ownbackFee();
+  return f ? (spendUsd6 * BigInt(f.bps)) / 10_000n : 0n;
+}
+
+/** Tokens out once our fee is taken from the USDC going in (quotes are fetched without it). */
+export function afterOwnbackFee(outRaw: bigint): bigint {
+  const f = ownbackFee();
+  return f ? (outRaw * BigInt(10_000 - f.bps)) / 10_000n : outRaw;
+}

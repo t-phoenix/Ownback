@@ -11,7 +11,8 @@ import {
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import { ApiError } from '../shared/errors.js';
-import { jupiterBuildSwap, jupiterQuote, type JupiterQuote } from './jupiter-price.js';
+import { ownbackFee } from './fees.js';
+import { jupiterBuildSwap, jupiterQuote, SOL_USDC, type JupiterQuote } from './jupiter-price.js';
 
 export function loadRelay(): Keypair | null {
   const raw = process.env.RELAY_SOL_KEY;
@@ -102,9 +103,12 @@ export async function buildUserSwap(opts: {
   outputMint: string;
   amountRaw: bigint;
   slippageBps?: number;
+  /** Charge the Ownback fee (D44) when it is configured. Only USDC-in swaps (buys) can carry it. */
+  ownbackFee?: boolean;
 }): Promise<BuiltSwap> {
   const relay = requireRelay();
-  const quote = await jupiterQuote({ ...opts, slippageBps: opts.slippageBps ?? 100 });
+  const fee = opts.ownbackFee && opts.inputMint === SOL_USDC ? ownbackFee() : null;
+  const quote = await jupiterQuote({ ...opts, slippageBps: opts.slippageBps ?? 100, ...(fee ? { platformFeeBps: fee.bps } : {}) });
   if (!quote) throw new ApiError('UPSTREAM', { reason: 'no_route' });
   // Pre-create the Token-2022 ATA; Jupiter's create-ATA ix often sims as InvalidTokenAccount (0x1789).
   const destinationTokenAccount = await ensureAta(opts.owner, opts.outputMint);
@@ -113,6 +117,7 @@ export async function buildUserSwap(opts: {
     userPublicKey: opts.owner,
     payer: relay.publicKey.toBase58(),
     destinationTokenAccount,
+    ...(fee ? { feeAccount: fee.account } : {}),
   });
   if (!b64) throw new ApiError('UPSTREAM', { reason: 'swap_build_failed' });
   const tx = VersionedTransaction.deserialize(Buffer.from(b64, 'base64'));
