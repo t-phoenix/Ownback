@@ -11,6 +11,7 @@ import {
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import { ApiError } from '../shared/errors.js';
+import { DEFAULT_MAX_FEE_BPS } from '../shared/timing.js';
 import { ownbackFee } from './fees.js';
 import { jupiterBuildSwap, jupiterQuote, SOL_USDC, type JupiterQuote } from './jupiter-price.js';
 
@@ -93,6 +94,9 @@ export async function ensureAta(owner: string, mint: string): Promise<string> {
   return ata.toBase58();
 }
 
+/** D47: `picked` gives more than DEFAULT_MAX_FEE_BPS less than `best`. Pure; exported for tests. */
+export const tooCostly = (picked: bigint, best: bigint) => best > 0n && (best - picked) * 10_000n > best * BigInt(DEFAULT_MAX_FEE_BPS);
+
 /**
  * Jupiter swap where `owner` spends its own `inputMint`. Relay is fee payer and signs first;
  * the returned tx still needs the owner's signature (Privy).
@@ -112,6 +116,12 @@ export async function buildUserSwap(opts: {
   const fee = opts.ownbackFee && opts.inputMint === SOL_USDC ? ownbackFee() : null;
   const quote = await jupiterQuote({ ...opts, slippageBps: opts.slippageBps ?? 100, ...(fee ? { platformFeeBps: fee.bps } : {}) });
   if (!quote) throw new ApiError(opts.dexes ? 'ROUTE_CHANGED' : 'UPSTREAM', { reason: 'no_route' });
+  // D47: a picked exchange may never cost more than 5% versus the best route right now (thin or mispriced pools).
+  if (opts.dexes) {
+    const { dexes: _d, ...open } = opts;
+    const best = await jupiterQuote({ ...open, slippageBps: opts.slippageBps ?? 100, ...(fee ? { platformFeeBps: fee.bps } : {}) });
+    if (best && tooCostly(BigInt(quote.outAmount), BigInt(best.outAmount))) throw new ApiError('ROUTE_CHANGED', { reason: 'too_costly' });
+  }
   // Pre-create the Token-2022 ATA; Jupiter's create-ATA ix often sims as InvalidTokenAccount (0x1789).
   const destinationTokenAccount = await ensureAta(opts.owner, opts.outputMint);
   const b64 = await jupiterBuildSwap({

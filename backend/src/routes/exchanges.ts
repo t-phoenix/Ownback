@@ -11,6 +11,7 @@ import { jsonError, requireUser } from '../lib/http.js';
 import { ownbackFee } from '../lib/fees.js';
 import { jupiterBuyQuote, jupiterSellQuote, rawToQty, type JupiterQuote } from '../lib/jupiter-price.js';
 import { EXCHANGES, poolIndex, routeExchanges } from '../lib/markets/pools.js';
+import { DEFAULT_MAX_FEE_BPS } from '../shared/timing.js';
 
 export const exchangeRoutes = new Hono();
 
@@ -39,15 +40,19 @@ async function quoteOnce(key: string, run: () => Promise<JupiterQuote | null>): 
   return q;
 }
 
-/** Pure: options ranked by tokens (buy) or USDC (sell) out; the most out is Recommended. Exported for tests. */
-export function rankOptions<T extends { outRaw: string | null }>(opts: T[]): (T & { recommended: boolean; diffBps: number | null })[] {
+/**
+ * Pure: the most out (tokens for a buy, USDC for a sell) is Recommended. An exchange that gives more than 5% less
+ * than the best is `tooCostly` and can't be picked (the swap refuses it too). Exported for tests.
+ */
+export function rankOptions<T extends { outRaw: string | null }>(opts: T[]): (T & { recommended: boolean; diffBps: number | null; tooCostly: boolean })[] {
   const best = opts.reduce((m, o) => (o.outRaw && BigInt(o.outRaw) > m ? BigInt(o.outRaw) : m), 0n);
   let marked = false;
   return opts.map((o) => {
     const out = o.outRaw ? BigInt(o.outRaw) : null;
     const recommended = !marked && out != null && out === best && best > 0n;
     if (recommended) marked = true;
-    return { ...o, recommended, diffBps: out != null && best > 0n ? Number(((out - best) * 10_000n) / best) : null };
+    const diffBps = out != null && best > 0n ? Number(((out - best) * 10_000n) / best) : null;
+    return { ...o, recommended, diffBps, tooCostly: diffBps != null && diffBps < -DEFAULT_MAX_FEE_BPS };
   });
 }
 

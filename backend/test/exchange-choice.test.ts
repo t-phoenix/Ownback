@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pickVenues } from '../src/routes/jars-buys.js';
 import { rankOptions } from '../src/routes/exchanges.js';
+import { tooCostly } from '../src/lib/jupiter-swap.js';
 import { _setPoolIndex, dexesOfVenue, routeExchanges, summarize, venueFor, venueLabel } from '../src/lib/markets/pools.js';
 
 const TSLAX = 'XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB';
@@ -27,6 +28,15 @@ describe('D47 exchange choice', () => {
   it('ranks by most out; Recommended once; diff in bps against the best', () => {
     const r = rankOptions([{ key: 'best', outRaw: '1000' }, { key: 'raydium', outRaw: '999' }, { key: 'orca', outRaw: '1000' }, { key: 'meteora', outRaw: null }]);
     expect(r.map((o) => [o.key, o.recommended, o.diffBps])).toEqual([['best', true, 0], ['raydium', false, -10], ['orca', false, 0], ['meteora', false, null]]);
+  });
+
+  it('refuses an exchange more than 5% worse than the best (PancakeSwap gave 97% less on $25 TSLAx)', () => {
+    const r = rankOptions([{ key: 'best', outRaw: '6406771' }, { key: 'pancakeswap', outRaw: '189709' }, { key: 'meteora', outRaw: '6377963' }]);
+    expect(r.map((o) => [o.key, o.tooCostly])).toEqual([['best', false], ['pancakeswap', true], ['meteora', false]]);
+    expect(tooCostly(189_709n, 6_406_771n)).toBe(true);
+    expect(tooCostly(6_377_963n, 6_406_771n)).toBe(false);
+    expect(tooCostly(9_499n, 10_000n)).toBe(true);
+    expect(tooCostly(9_500n, 10_000n)).toBe(false);
   });
 
   it('accepts only an exchange the pool index can quote for that token; never re-routes', async () => {
