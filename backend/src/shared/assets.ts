@@ -7,7 +7,7 @@
  * - Discovery (long list): database/registry/catalog-{companies,tokens}.json
  */
 import { getCatalogCompany } from '../lib/registry/catalog.js';
-import { listVerifiedAssets, getVerifiedAsset as storeGet } from '../lib/registry/store.js';
+import { assetsOfCompany, listVerifiedAssets, getVerifiedAsset as storeGet } from '../lib/registry/store.js';
 import type { CuratedAsset } from '../lib/registry/types.js';
 
 export type AssetId = string;
@@ -38,14 +38,14 @@ export function verifiedMint(assetId: string, chain: string) {
   return m;
 }
 
-/** Every verified mint of an asset on a chain (several issuers/venues), primary first. */
-export function verifiedMints(assetId: string, chain: string) {
-  return getAsset(assetId)?.mints.filter((x) => x.chain === chain && x.verified) ?? [];
+/** D45: the company an asset tracks. A company's first token uses the company id; other tokens point back. */
+export function companyOf(assetId: string): string {
+  return getAsset(assetId)?.companyId ?? assetId;
 }
 
-/** The verified mint with this address, if it belongs to the asset. */
-export function verifiedMintByAddress(assetId: string, chain: string, mint: string) {
-  return verifiedMints(assetId, chain).find((m) => m.mint === mint);
+/** D45: every asset (one token each) of a company with a verified mint on `chain`. */
+export function tokenAssetsOf(companyId: string, chain: string): AssetDef[] {
+  return assetsOfCompany(companyId).filter((a) => a.mints.some((m) => m.chain === chain && m.verified));
 }
 
 /** `{ icon }` for an asset's verified Solana token logo, or `{}` (spread into API rows). Display only. */

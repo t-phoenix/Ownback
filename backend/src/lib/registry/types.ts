@@ -27,6 +27,9 @@ export type CuratedAsset = {
   assetId: string;
   name: string;
   class: 'stock' | 'commodity' | 'index' | 'crypto' | 'yield';
+  /** D45: the company this token tracks, when the asset id isn't the company's own (`tok:aaplon` → `co:apple`). */
+  companyId?: string;
+  /** D45: one verified token per asset. */
   mints: AssetMintRow[];
 };
 

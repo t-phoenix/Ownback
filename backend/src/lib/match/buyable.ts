@@ -1,12 +1,13 @@
-import { verifiedMints } from '../../shared/assets.js';
+import { companyOf, tokenAssetsOf, verifiedMint } from '../../shared/assets.js';
 import { DEFAULT_MAX_FEE_BPS, JAR_READY_USD6 } from '../../shared/timing.js';
 import { toUsd6, type Usd6 } from '../../shared/money.js';
 import { getCatalogCompany } from '../registry/catalog.js';
 import { jupiterBuyQuote, jupiterPriceUsd6, routeFeeUsd6, valueUsd6 } from '../jupiter-price.js';
 import { gapBps, refPrices, tokenStats } from '../token-stats.js';
 
-/** One token of an asset, as a suggestion shows it. Stats are display only. */
+/** One token (its own asset, D45) of a company, as a suggestion shows it. Stats are display only. */
 export type VenueStat = {
+  assetId: string;
   symbol: string;
   issuer: string;
   tradable: boolean;
@@ -21,6 +22,7 @@ export type VenueStat = {
 };
 
 export type Buyable = {
+  /** The best token's asset id (what a jar for this company uses by default). */
   assetId: string;
   buyable: boolean;
   mint?: string;
@@ -57,22 +59,22 @@ async function probe(mint: string, decimals: number): Promise<Probe> {
   return p;
 }
 
-/** Best tradable token of an asset across venues, with display stats for each. Never invents mints. */
-export async function checkBuyable(assetId: string): Promise<Buyable> {
-  const mints = verifiedMints(assetId, 'solana');
-  if (!mints.length) return { assetId, buyable: false };
-  const ticker = getCatalogCompany(assetId)?.ticker ?? null;
+/** Best tradable token of a company across its token assets, with display stats for each. Never invents mints. */
+export async function checkBuyable(companyId: string): Promise<Buyable> {
+  const tokens = tokenAssetsOf(companyOf(companyId), 'solana').map((a) => ({ a, m: verifiedMint(a.assetId, 'solana')! }));
+  if (!tokens.length) return { assetId: companyId, buyable: false };
+  const ticker = getCatalogCompany(companyOf(companyId))?.ticker ?? null;
   const [probes, stats, refs] = await Promise.all([
-    Promise.all(mints.map((m) => probe(m.mint, m.decimals))),
-    tokenStats(mints.map((m) => m.mint)),
+    Promise.all(tokens.map(({ m }) => probe(m.mint, m.decimals))),
+    tokenStats(tokens.map(({ m }) => m.mint)),
     ticker ? refPrices([ticker]) : Promise.resolve(new Map<string, bigint>()),
   ]);
   const ref = ticker ? refs.get(ticker) : undefined;
-  const rows = mints.map((m, i) => {
+  const rows = tokens.map(({ a, m }, i) => {
     const s = stats.get(m.mint);
     const gap = gapBps(s?.priceUsd6 ?? null, ref);
     const v: VenueStat = {
-      symbol: m.symbol, issuer: m.issuer, tradable: probes[i]!.ok, feeBps: probes[i]!.feeBps,
+      assetId: a.assetId, symbol: m.symbol, issuer: m.issuer, tradable: probes[i]!.ok, feeBps: probes[i]!.feeBps,
       ...(s?.priceUsd6 ? { priceUsd6: toUsd6(s.priceUsd6) } : {}),
       ...(s?.mcapUsd6 ? { mcapUsd6: toUsd6(s.mcapUsd6) } : {}),
       ...(s?.volume24hUsd6 ? { volume24hUsd6: toUsd6(s.volume24hUsd6) } : {}),
@@ -84,7 +86,7 @@ export async function checkBuyable(assetId: string): Promise<Buyable> {
   rows.sort((a, b) => Number(b.v.tradable) - Number(a.v.tradable) || (a.v.feeBps ?? 1e9) - (b.v.feeBps ?? 1e9));
   const best = rows[0]!;
   return {
-    assetId,
+    assetId: best.v.assetId,
     buyable: best.v.tradable,
     mint: best.m.mint,
     decimals: best.m.decimals,

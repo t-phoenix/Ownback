@@ -1,7 +1,8 @@
 /**
  * D43 lighter gate: approve every issuer-listed Solana stock token in the catalog whose mint reads on-chain as an
  * SPL / Token-2022 mint. Tradability is checked live per buy (quote + fee cap), not here.
- * Appends mints after existing ones, so an asset's first (primary) mint never changes.
+ * D45: one token per asset. A company's first token keeps the company id (`co:apple` = AAPLx); every other token
+ * is its own asset `tok:<symbol>` with `companyId` pointing back. Also splits any older multi-token asset.
  * Usage: npx tsx scripts/promote-catalog.ts [--dry]
  */
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -15,8 +16,9 @@ const RAW: Record<string, string> = { xStocks: 'raw/xstocks-solana.csv', Ondo: '
 
 type Tok = { assetId: string; issuer: string; symbol: string; name: string; class: string; chain: string; mint: string | null }
 type MintRow = { chain: 'solana'; symbol: string; mint: string; decimals: number; issuer: string; venues: string[]; verified: boolean; evidence: { kind: string; url: string; note: string; checkedAt: string }[] }
-type Asset = { assetId: string; name: string; class: string; mints: MintRow[] }
+type Asset = { assetId: string; name: string; class: string; companyId?: string; mints: MintRow[] }
 
+const tokenId = (symbol: string) => `tok:${symbol.toLowerCase()}`
 const read = <T>(f: string): T => JSON.parse(readFileSync(resolve(REG, f), 'utf8')) as T
 
 async function mintInfo(mints: string[]): Promise<Map<string, { owner: string; decimals: number }>> {
@@ -53,13 +55,14 @@ async function main() {
   for (const t of todo) {
     const oc = info.get(t.mint!)
     if (!oc) { skipped.push(`${t.symbol}:not_a_mint`); continue }
-    let a = byId.get(t.assetId)
-    if (!a) {
-      const c = companies.get(t.assetId)
-      a = { assetId: t.assetId, name: c?.name ?? t.name, class: CLASS[c?.class ?? t.class] ?? 'stock', mints: [] }
-      curated.assets.push(a)
-      byId.set(a.assetId, a)
-    }
+    const c = companies.get(t.assetId)
+    const base = { name: c?.name ?? t.name, class: CLASS[c?.class ?? t.class] ?? 'stock' }
+    // The company id is taken by its first token: this one becomes its own asset.
+    const own = byId.has(t.assetId) ? tokenId(t.symbol) : t.assetId
+    if (byId.has(own)) { skipped.push(`${t.symbol}:id_taken`); continue }
+    const a: Asset = { assetId: own, ...base, ...(own === t.assetId ? {} : { companyId: t.assetId }), mints: [] }
+    curated.assets.push(a)
+    byId.set(a.assetId, a)
     a.mints.push({
       chain: 'solana', symbol: t.symbol, mint: t.mint!, decimals: oc.decimals, issuer: t.issuer, venues: ['jupiter'], verified: true,
       evidence: [
@@ -69,8 +72,20 @@ async function main() {
     })
     added[t.issuer] = (added[t.issuer] ?? 0) + 1
   }
+  // Split older multi-token assets: the first token keeps the id, each other one becomes `tok:<symbol>`.
+  let split = 0
+  for (const a of [...curated.assets]) {
+    for (const m of a.mints.splice(1)) {
+      const id = tokenId(m.symbol)
+      if (byId.has(id)) throw new Error(`id taken: ${id}`)
+      const t: Asset = { assetId: id, name: a.name, class: a.class, companyId: a.companyId ?? a.assetId, mints: [m] }
+      curated.assets.push(t)
+      byId.set(id, t)
+      split++
+    }
+  }
   curated.assets.sort((x, y) => x.assetId.localeCompare(y.assetId))
-  console.log(JSON.stringify({ candidates: todo.length, added, skipped: skipped.length, sample: skipped.slice(0, 10), assets: curated.assets.length }))
+  console.log(JSON.stringify({ candidates: todo.length, added, split, skipped: skipped.length, sample: skipped.slice(0, 10), assets: curated.assets.length }))
   if (!dry) {
     curated.updatedAt = today
     writeFileSync(resolve(REG, 'assets-curated.json'), `${JSON.stringify(curated, null, 2)}\n`)

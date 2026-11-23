@@ -6,14 +6,19 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-let curatedCache: { mtimeMs: number; file: CuratedFile; byId: Map<string, CuratedAsset> } | null = null;
+let curatedCache: { mtimeMs: number; file: CuratedFile; byId: Map<string, CuratedAsset>; byCompany: Map<string, CuratedAsset[]> } | null = null;
 
 /** Parsed once per file change: verifiedMint() runs on every request and the file holds every verified xStock. */
 function curatedCached() {
   const mtimeMs = statSync(curatedPath()).mtimeMs;
   if (!curatedCache || curatedCache.mtimeMs !== mtimeMs) {
     const file = JSON.parse(readFileSync(curatedPath(), 'utf8')) as CuratedFile;
-    curatedCache = { mtimeMs, file, byId: new Map(file.assets.map((a) => [a.assetId, a])) };
+    const byCompany = new Map<string, CuratedAsset[]>();
+    for (const a of file.assets) {
+      const k = a.companyId ?? a.assetId;
+      byCompany.set(k, [...(byCompany.get(k) ?? []), a]);
+    }
+    curatedCache = { mtimeMs, file, byId: new Map(file.assets.map((a) => [a.assetId, a])), byCompany };
   }
   return curatedCache;
 }
@@ -40,6 +45,11 @@ export function saveCandidates(file: CandidatesFile) {
 
 export function getVerifiedAsset(assetId: string): CuratedAsset | undefined {
   return curatedCached().byId.get(assetId);
+}
+
+/** D45: every token asset of a company (its own id first if it has one). */
+export function assetsOfCompany(companyId: string): CuratedAsset[] {
+  return curatedCached().byCompany.get(companyId) ?? [];
 }
 
 export function listVerifiedAssets(): CuratedAsset[] {

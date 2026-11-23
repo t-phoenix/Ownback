@@ -18,7 +18,7 @@ export type JuryRow = {
   status: JuryRowStatus;
   assetId?: string;
   symbol?: string;
-  /** D43: every verified token of the asset, best first, with display stats. */
+  /** D45: every token asset of the company, best first, with display stats. */
   venues?: VenueStat[];
 };
 
@@ -171,7 +171,8 @@ export async function resolveRow(
   const named = { ...base, name: kind === 'company' ? hit.name : row.name, assetId: hit.assetId, ...(hit.ticker ? { ticker: hit.ticker } : {}) };
   const b = await check(hit.assetId);
   const venues = b.venues?.length ? { venues: b.venues } : {};
-  if (b.buyable && b.symbol) return { ...named, status: 'buyable', symbol: b.symbol, ...venues };
+  // D45: a buyable row points at the best token's own asset (the jar's default); the user can pick another on Confirm.
+  if (b.buyable && b.symbol) return { ...named, assetId: b.assetId, status: 'buyable', symbol: b.symbol, ...venues };
   return { ...named, status: hit.tokenized || b.mint ? 'tokenized_unverified' : 'not_onchain', ...venues };
 }
 

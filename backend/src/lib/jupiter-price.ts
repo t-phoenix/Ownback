@@ -191,13 +191,15 @@ export async function jupiterQuote(opts: {
   }
 }
 
-export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippageBps = 100, retries?: number) {
+/** `platformFeeBps` (D44) makes outAmount the exact tokens out after the Ownback fee. */
+export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippageBps = 100, retries?: number, platformFeeBps?: number) {
   return jupiterQuote({
     inputMint: SOL_USDC,
     outputMint: mint,
     amountRaw: usdcRawFromUsd6(amountUsd6),
     slippageBps,
     retries,
+    ...(platformFeeBps ? { platformFeeBps } : {}),
   });
 }
 

@@ -7,15 +7,14 @@ import { ApiError } from '../shared/errors.js';
 import { asUsd6, toUsd6 } from '../shared/money.js';
 import { CENT_USD6, QUOTE_REFRESH_MS } from '../shared/timing.js';
 import { EXPLORER, USDC } from '../shared/chains.js';
-import { afterOwnbackFee, buildFees, feeWithinCap, ownbackFeeUsd6 } from '../lib/fees.js';
+import { buildFees, feeWithinCap, ownbackFee, ownbackFeeUsd6 } from '../lib/fees.js';
 import { jarState } from '../lib/limits.js';
 import { mockChain } from '../lib/env.js';
 import { assertIdempotencyKey, jsonError, mockEvmAction, requireCsrf, requireUser, withIdempotency } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
-import { iconField, verifiedMint, verifiedMintByAddress } from '../shared/assets.js';
-import { pickBuyVenue, venueMint, venueTag } from '../lib/venues.js';
-import { jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty } from '../lib/jupiter-price.js';
+import { iconField, verifiedMint } from '../shared/assets.js';
+import { buySwapCostUsd6, jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
 import { buildUserSwap, relayConfigured, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import {
   advanceBatch,
@@ -165,22 +164,24 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
     ids.map(async (assetId) => {
       const jarAmt = asUsd6(jars.get(assetId) ?? 0n);
       const spend = asUsd6(amounts.get(assetId) ?? jarAmt);
-      // D43: the token the user already holds, else the cheapest venue (measured round trip, docs/05).
-      const owner = mockChain() ? null : user.solAddress;
-      const [venue, arkiv] = await Promise.all([
-        pickBuyVenue(assetId, spend, owner),
+      // D45: one token per asset. Everything a row needs starts at once (speed); only the round-trip cost waits.
+      const mint = verifiedMint(assetId, 'solana');
+      const fee = ownbackFee();
+      const own = ownbackFeeUsd6(spend);
+      const [quote, oracle, arkiv] = await Promise.all([
+        // Quoted with our fee (D44) so tokens out and the minimum are exactly what the swap gives.
+        mint ? jupiterBuyQuote(mint.mint, spend, 100, undefined, fee?.bps) : null,
+        mint ? jupiterPriceUsd6(mint.mint) : null,
         readAssetFromArkiv(assetId, 'solana').catch(() => null),
       ]);
-      const mint = venue?.mint;
-      const quote = venue?.quote ?? null;
-      const oracle = mint ? await jupiterPriceUsd6(mint.mint) : null;
-      const own = ownbackFeeUsd6(spend);
-      // Our fee comes out of the USDC going in, so the user gets proportionally fewer tokens.
-      const outRaw = quote ? afterOwnbackFee(BigInt(quote.outAmount)) : 0n;
+      const outRaw = quote ? BigInt(quote.outAmount) : 0n;
       const priceUsd6 = mint && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
-      const fee = venue?.feeUsd6 ?? 0n;
-      const fees = buildFees([{ label: 'Jupiter route', usd6: fee }, ...(own > 0n ? [{ label: 'Ownback fee', usd6: own }] : [])], spend, maxFeeBps, false);
-      const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(fee + own, spend, maxFeeBps);
+      // Measured round trip on what actually reaches the pool (docs/05); the reference-price gap only as a fallback.
+      const swapped = spend - own;
+      const measured = mint && outRaw > 0n ? await buySwapCostUsd6(mint.mint, swapped, outRaw) : null;
+      const routeFee = measured ?? (mint && oracle ? routeFeeUsd6(swapped, valueUsd6(outRaw, mint.decimals, asUsd6(oracle))) : 0n);
+      const fees = buildFees([{ label: 'Jupiter route', usd6: routeFee }, ...(own > 0n ? [{ label: 'Ownback fee', usd6: own }] : [])], spend, maxFeeBps, false);
+      const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(routeFee + own, spend, maxFeeBps);
       return {
         assetId,
         name: assetDisplayName(assetId),
@@ -195,7 +196,7 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
         refPriceUsd6: toUsd6(oracle ?? 0n),
         estQty: mint && outRaw > 0n ? rawToQty(outRaw, mint.decimals) : '0',
         // Worst case after slippage protection: the swap fails rather than give less.
-        minQty: mint && quote ? rawToQty(afterOwnbackFee(BigInt(quote.otherAmountThreshold)), mint.decimals) : '0',
+        minQty: mint && quote ? rawToQty(BigInt(quote.otherAmountThreshold), mint.decimals) : '0',
         fees,
         selectable,
         ...(selectable ? {} : { reason: (mint ? 'fees_high' : 'no_venue') as 'fees_high' | 'no_venue' }),
@@ -368,7 +369,7 @@ jarsBuysRoutes.post('/buys/:batchId/arc-submitted', async (c) => {
   }
 });
 
-type Entry = { id: string; asset_id: string; status: string; venue: string | null; amount_usd6: bigint; spent_usd6: bigint | null; fill_price_usd6: bigint | null; qty: string | null; venue_tx: string | null; error: string | null; swap_msg_hash: string | null };
+type Entry = { id: string; asset_id: string; status: string; amount_usd6: bigint; spent_usd6: bigint | null; fill_price_usd6: bigint | null; qty: string | null; venue_tx: string | null; error: string | null; swap_msg_hash: string | null };
 
 async function loadEntry(batchId: string, assetId: string): Promise<Entry> {
   const [e] = await getSql()<Entry[]>`SELECT * FROM buy_entries WHERE batch_id = ${batchId}::uuid AND asset_id = ${assetId}`;
@@ -386,14 +387,13 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId', async (c) => {
     const e = await loadEntry(b.id, c.req.param('assetId'));
     if (e.status === 'bought') throw new ApiError('VALIDATION', { reason: 'already_bought' });
     const amount = BigInt(e.amount_usd6);
-    const mint = (await pickBuyVenue(e.asset_id, amount, user.solAddress))?.mint;
+    const mint = verifiedMint(e.asset_id, 'solana');
     if (!mint) throw new ApiError('NOTHING_TO_BUY', { reason: 'no_venue' });
     const have = await tokenBalanceRaw(user.solAddress!, SOL_USDC);
     if (have < amount) throw new ApiError('INSUFFICIENT_FREE', { availableUsd6: have.toString(), where: 'solana' });
     const built = await buildUserSwap({ owner: user.solAddress!, inputMint: SOL_USDC, outputMint: mint.mint, amountRaw: amount, ownbackFee: true });
     // Stay `quoted` until the signed tx lands — `waiting` left entries stuck when Privy/sign failed mid-flight.
-    // venue records the token swapped, so submit books that token (D43).
-    await getSql()`UPDATE buy_entries SET status = 'quoted', swap_msg_hash = ${built.msgHash}, error = NULL, venue = ${venueTag(mint.mint)},
+    await getSql()`UPDATE buy_entries SET status = 'quoted', swap_msg_hash = ${built.msgHash}, error = NULL,
       quote_price_usd6 = ${priceUsd6FromBuyQuote(amount, BigInt(built.quote.outAmount), mint.decimals).toString()}::bigint
       WHERE id = ${e.id}::uuid`;
     await getSql()`UPDATE buy_batches SET status = 'swapping', updated_at = now() WHERE id = ${b.id}::uuid`;
@@ -427,8 +427,7 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId/submit', async (c) => {
       throw new ApiError('VALIDATION', { reason: 'not_ready_to_submit' });
     }
     entryId = e.id;
-    const tagged = venueMint(e.venue);
-    const mint = (tagged ? verifiedMintByAddress(e.asset_id, 'solana', tagged) : undefined) ?? verifiedMint(e.asset_id, 'solana')!;
+    const mint = verifiedMint(e.asset_id, 'solana')!;
     const sig = await submitSigned(signedTx, e.swap_msg_hash);
     await sql`UPDATE buy_entries SET status = 'sent', venue_tx = ${sig} WHERE id = ${e.id}::uuid`;
     const [outRaw, usdcDelta] = await Promise.all([
@@ -538,8 +537,7 @@ jarsBuysRoutes.get('/buys/:batchId', async (c) => {
         ...(b.mint_tx ? { mint: EXPLORER.solTx(b.mint_tx) } : {}),
       },
       entries: entries.map((e) => {
-        const tagged = venueMint(e.venue);
-        const mint = (tagged ? verifiedMintByAddress(e.asset_id, 'solana', tagged) : undefined) ?? verifiedMint(e.asset_id, 'solana');
+        const mint = verifiedMint(e.asset_id, 'solana');
         return {
           assetId: e.asset_id,
           name: assetDisplayName(e.asset_id),

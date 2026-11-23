@@ -71,9 +71,3 @@ export function ownbackFeeUsd6(spendUsd6: bigint): bigint {
   const f = ownbackFee();
   return f ? (spendUsd6 * BigInt(f.bps)) / 10_000n : 0n;
 }
-
-/** Tokens out once our fee is taken from the USDC going in (quotes are fetched without it). */
-export function afterOwnbackFee(outRaw: bigint): bigint {
-  const f = ownbackFee();
-  return f ? (outRaw * BigInt(10_000 - f.bps)) / 10_000n : outRaw;
-}
