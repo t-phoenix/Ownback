@@ -170,7 +170,15 @@ export async function jupiterQuote(opts: {
   /** D47: only these Jupiter DEX labels (comma-separated), e.g. one exchange the user picked. Omitted = every exchange. */
   dexes?: string;
 }): Promise<JupiterQuote | null> {
-  if (opts.amountRaw <= 0n) return null;
+  return (await jupiterQuoteTry(opts)).q;
+}
+
+/** Why a quote is missing: Jupiter found no route, or it rate-limited / failed (worth asking again). */
+export type QuoteMiss = 'no_route' | 'rate_limited' | 'upstream';
+
+/** Same as jupiterQuote, but says why there is no quote (D47 Compare exchanges shows the difference). */
+export async function jupiterQuoteTry(opts: Parameters<typeof jupiterQuote>[0]): Promise<{ q: JupiterQuote | null; miss?: QuoteMiss }> {
+  if (opts.amountRaw <= 0n) return { q: null, miss: 'no_route' };
   try {
     const url =
       `${JUP_QUOTE}?inputMint=${encodeURIComponent(opts.inputMint)}` +
@@ -180,10 +188,15 @@ export async function jupiterQuote(opts: {
       (opts.platformFeeBps ? `&platformFeeBps=${opts.platformFeeBps}` : '') +
       (opts.dexes ? `&dexes=${encodeURIComponent(opts.dexes)}` : '');
     const res = await jupFetch(url, { retries: opts.retries });
-    if (!res.ok) return null;
+    if (res.status === 429) return { q: null, miss: 'rate_limited' };
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { errorCode?: string; error?: string };
+      const noRoute = res.status === 400 && /ROUTE|NO_ROUTES|TOKEN_NOT_TRADABLE/i.test(`${err.errorCode ?? ''} ${err.error ?? ''}`);
+      return { q: null, miss: noRoute ? 'no_route' : 'upstream' };
+    }
     const body = (await res.json()) as Record<string, unknown>;
-    if (!body.outAmount || !body.inAmount) return null;
-    return {
+    if (!body.outAmount || !body.inAmount) return { q: null, miss: 'no_route' };
+    return { q: {
       inputMint: String(body.inputMint ?? opts.inputMint),
       outputMint: String(body.outputMint ?? opts.outputMint),
       inAmount: String(body.inAmount),
@@ -192,9 +205,9 @@ export async function jupiterQuote(opts: {
       priceImpactPct: String(body.priceImpactPct ?? '0'),
       routePlan: body.routePlan,
       raw: body,
-    };
+    } };
   } catch {
-    return null;
+    return { q: null, miss: 'upstream' };
   }
 }
 
