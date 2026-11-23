@@ -18,7 +18,7 @@ function build(): MarketAsset[] {
     if (!m) continue;
     const cls: MarketClass = a.class === 'index' ? 'index' : a.class === 'commodity' ? 'commodity' : 'stock';
     out.push({
-      assetId: a.assetId, name: assetDisplayName(a.assetId), ticker: m.symbol.replace(/x$/, ''), token: m.symbol,
+      assetId: a.assetId, name: assetDisplayName(a.assetId), ticker: m.symbol.replace(/(x|on)$/, ''), token: m.symbol,
       ...(m.icon ? { icon: m.icon } : {}), class: cls, chain: 'solana', mint: m.mint, decimals: m.decimals, issuer: m.issuer,
     });
   }

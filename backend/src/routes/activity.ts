@@ -20,7 +20,7 @@ import { EXPLORER, isDepositChain } from '../shared/chains.js';
 import { portfolio, type Held } from '../lib/portfolio.js';
 import { qtyToRaw } from '../lib/qty.js';
 import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
-import { iconField, verifiedMint } from '../shared/assets.js';
+import { iconField, verifiedMint, verifiedMintByAddress } from '../shared/assets.js';
 
 export const activityRoutes = new Hono();
 
@@ -259,7 +259,7 @@ activityRoutes.get('/holdings/:assetId', async (c) => {
         ORDER BY b.started_at DESC NULLS LAST`,
     ]);
     const h = p.held.find((x) => x.assetId === assetId);
-    const mint = verifiedMint(assetId, 'solana');
+    const mint = (h ? verifiedMintByAddress(assetId, 'solana', h.mint) : undefined) ?? verifiedMint(assetId, 'solana');
     const paid = rows.reduce((s, r) => s + BigInt(r.spent ?? 0), 0n);
     const yearStart = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
     const paidYear = rows.filter((r) => (r.started_at ?? new Date()) >= yearStart).reduce((s, r) => s + BigInt(r.spent ?? 0), 0n);

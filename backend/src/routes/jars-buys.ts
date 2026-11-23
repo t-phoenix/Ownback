@@ -7,14 +7,15 @@ import { ApiError } from '../shared/errors.js';
 import { asUsd6, toUsd6 } from '../shared/money.js';
 import { CENT_USD6, QUOTE_REFRESH_MS } from '../shared/timing.js';
 import { EXPLORER, USDC } from '../shared/chains.js';
-import { buildFees, feeWithinCap } from '../lib/fees.js';
+import { afterOwnbackFee, buildFees, feeWithinCap, ownbackFeeUsd6 } from '../lib/fees.js';
 import { jarState } from '../lib/limits.js';
 import { mockChain } from '../lib/env.js';
 import { assertIdempotencyKey, jsonError, mockEvmAction, requireCsrf, requireUser, withIdempotency } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
-import { iconField, verifiedMint } from '../shared/assets.js';
-import { buySwapCostUsd6, jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
+import { iconField, verifiedMint, verifiedMintByAddress } from '../shared/assets.js';
+import { pickBuyVenue, venueMint, venueTag } from '../lib/venues.js';
+import { jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty } from '../lib/jupiter-price.js';
 import { buildUserSwap, relayConfigured, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import {
   advanceBatch,
@@ -164,19 +165,22 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
     ids.map(async (assetId) => {
       const jarAmt = asUsd6(jars.get(assetId) ?? 0n);
       const spend = asUsd6(amounts.get(assetId) ?? jarAmt);
-      const mint = verifiedMint(assetId, 'solana');
-      const [quote, oracle, arkiv] = await Promise.all([
-        mint ? jupiterBuyQuote(mint.mint, spend) : null,
-        mint ? jupiterPriceUsd6(mint.mint) : null,
+      // D43: the token the user already holds, else the cheapest venue (measured round trip, docs/05).
+      const owner = mockChain() ? null : user.solAddress;
+      const [venue, arkiv] = await Promise.all([
+        pickBuyVenue(assetId, spend, owner),
         readAssetFromArkiv(assetId, 'solana').catch(() => null),
       ]);
-      const outRaw = quote ? BigInt(quote.outAmount) : 0n;
+      const mint = venue?.mint;
+      const quote = venue?.quote ?? null;
+      const oracle = mint ? await jupiterPriceUsd6(mint.mint) : null;
+      const own = ownbackFeeUsd6(spend);
+      // Our fee comes out of the USDC going in, so the user gets proportionally fewer tokens.
+      const outRaw = quote ? afterOwnbackFee(BigInt(quote.outAmount)) : 0n;
       const priceUsd6 = mint && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
-      // Measured round trip first (docs/05); the reference-price gap only when the reverse quote fails.
-      const measured = mint && outRaw > 0n ? await buySwapCostUsd6(mint.mint, spend, outRaw) : null;
-      const fee = measured ?? (mint && oracle ? routeFeeUsd6(spend, valueUsd6(outRaw, mint.decimals, asUsd6(oracle))) : 0n);
-      const fees = buildFees([{ label: 'Jupiter route', usd6: fee }], spend, maxFeeBps, false);
-      const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(fee, spend, maxFeeBps);
+      const fee = venue?.feeUsd6 ?? 0n;
+      const fees = buildFees([{ label: 'Jupiter route', usd6: fee }, ...(own > 0n ? [{ label: 'Ownback fee', usd6: own }] : [])], spend, maxFeeBps, false);
+      const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(fee + own, spend, maxFeeBps);
       return {
         assetId,
         name: assetDisplayName(assetId),
@@ -191,7 +195,7 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
         refPriceUsd6: toUsd6(oracle ?? 0n),
         estQty: mint && outRaw > 0n ? rawToQty(outRaw, mint.decimals) : '0',
         // Worst case after slippage protection: the swap fails rather than give less.
-        minQty: mint && quote ? rawToQty(BigInt(quote.otherAmountThreshold), mint.decimals) : '0',
+        minQty: mint && quote ? rawToQty(afterOwnbackFee(BigInt(quote.otherAmountThreshold)), mint.decimals) : '0',
         fees,
         selectable,
         ...(selectable ? {} : { reason: (mint ? 'fees_high' : 'no_venue') as 'fees_high' | 'no_venue' }),
@@ -202,7 +206,9 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
 
   const picked = rows.filter((r) => r.selectable);
   const total = picked.reduce((a, r) => a + BigInt(r.amountUsd6), 0n);
-  const totalFee = picked.reduce((a, r) => a + BigInt(r.fees.totalUsd6), 0n);
+  // Sum each fee line (Jupiter route, Ownback fee) across the picked rows.
+  const feeParts = new Map<string, bigint>();
+  for (const r of picked) for (const p of r.fees.parts) feeParts.set(p.label, (feeParts.get(p.label) ?? 0n) + BigInt(p.usd6));
   const [onSolana, onArc] = await funding;
   const bridge = total > onSolana ? total - onSolana : 0n;
   const arcGas = bridge > 0n ? await arcBridgeGasUsd6() : 0n;
@@ -217,7 +223,7 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
     expiresAt,
     rows,
     totalUsd6: toUsd6(total),
-    fees: buildFees([{ label: 'Jupiter route', usd6: totalFee }], total > 0n ? total : 1n, maxFeeBps, false),
+    fees: buildFees(feeParts.size ? [...feeParts].map(([label, usd6]) => ({ label, usd6 })) : [{ label: 'Jupiter route', usd6: 0n }], total > 0n ? total : 1n, maxFeeBps, false),
     funding: { solanaUsdc6: toUsd6(onSolana), arcUsdc6: toUsd6(onArc), bridgeUsd6: toUsd6(bridge) },
     // Paid on top of the amount: Arc gas from the user's Arc USDC when bridging (approx.); Solana fees by the relay.
     network: { ...(arcGas != null ? { arcUsd6: toUsd6(arcGas) } : {}), solanaPaidBy: 'ownback' as const },
@@ -362,7 +368,7 @@ jarsBuysRoutes.post('/buys/:batchId/arc-submitted', async (c) => {
   }
 });
 
-type Entry = { id: string; asset_id: string; status: string; amount_usd6: bigint; spent_usd6: bigint | null; fill_price_usd6: bigint | null; qty: string | null; venue_tx: string | null; error: string | null; swap_msg_hash: string | null };
+type Entry = { id: string; asset_id: string; status: string; venue: string | null; amount_usd6: bigint; spent_usd6: bigint | null; fill_price_usd6: bigint | null; qty: string | null; venue_tx: string | null; error: string | null; swap_msg_hash: string | null };
 
 async function loadEntry(batchId: string, assetId: string): Promise<Entry> {
   const [e] = await getSql()<Entry[]>`SELECT * FROM buy_entries WHERE batch_id = ${batchId}::uuid AND asset_id = ${assetId}`;
@@ -379,14 +385,15 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId', async (c) => {
     if (b.status !== 'swap_ready' && b.status !== 'swapping') throw new ApiError('DEPOSIT_NOT_READY', { status: b.status });
     const e = await loadEntry(b.id, c.req.param('assetId'));
     if (e.status === 'bought') throw new ApiError('VALIDATION', { reason: 'already_bought' });
-    const mint = verifiedMint(e.asset_id, 'solana');
-    if (!mint) throw new ApiError('NOTHING_TO_BUY', { reason: 'no_venue' });
     const amount = BigInt(e.amount_usd6);
+    const mint = (await pickBuyVenue(e.asset_id, amount, user.solAddress))?.mint;
+    if (!mint) throw new ApiError('NOTHING_TO_BUY', { reason: 'no_venue' });
     const have = await tokenBalanceRaw(user.solAddress!, SOL_USDC);
     if (have < amount) throw new ApiError('INSUFFICIENT_FREE', { availableUsd6: have.toString(), where: 'solana' });
-    const built = await buildUserSwap({ owner: user.solAddress!, inputMint: SOL_USDC, outputMint: mint.mint, amountRaw: amount });
+    const built = await buildUserSwap({ owner: user.solAddress!, inputMint: SOL_USDC, outputMint: mint.mint, amountRaw: amount, ownbackFee: true });
     // Stay `quoted` until the signed tx lands — `waiting` left entries stuck when Privy/sign failed mid-flight.
-    await getSql()`UPDATE buy_entries SET status = 'quoted', swap_msg_hash = ${built.msgHash}, error = NULL,
+    // venue records the token swapped, so submit books that token (D43).
+    await getSql()`UPDATE buy_entries SET status = 'quoted', swap_msg_hash = ${built.msgHash}, error = NULL, venue = ${venueTag(mint.mint)},
       quote_price_usd6 = ${priceUsd6FromBuyQuote(amount, BigInt(built.quote.outAmount), mint.decimals).toString()}::bigint
       WHERE id = ${e.id}::uuid`;
     await getSql()`UPDATE buy_batches SET status = 'swapping', updated_at = now() WHERE id = ${b.id}::uuid`;
@@ -420,7 +427,8 @@ jarsBuysRoutes.post('/buys/:batchId/swaps/:assetId/submit', async (c) => {
       throw new ApiError('VALIDATION', { reason: 'not_ready_to_submit' });
     }
     entryId = e.id;
-    const mint = verifiedMint(e.asset_id, 'solana')!;
+    const tagged = venueMint(e.venue);
+    const mint = (tagged ? verifiedMintByAddress(e.asset_id, 'solana', tagged) : undefined) ?? verifiedMint(e.asset_id, 'solana')!;
     const sig = await submitSigned(signedTx, e.swap_msg_hash);
     await sql`UPDATE buy_entries SET status = 'sent', venue_tx = ${sig} WHERE id = ${e.id}::uuid`;
     const [outRaw, usdcDelta] = await Promise.all([
@@ -530,7 +538,8 @@ jarsBuysRoutes.get('/buys/:batchId', async (c) => {
         ...(b.mint_tx ? { mint: EXPLORER.solTx(b.mint_tx) } : {}),
       },
       entries: entries.map((e) => {
-        const mint = verifiedMint(e.asset_id, 'solana');
+        const tagged = venueMint(e.venue);
+        const mint = (tagged ? verifiedMintByAddress(e.asset_id, 'solana', tagged) : undefined) ?? verifiedMint(e.asset_id, 'solana');
         return {
           assetId: e.asset_id,
           name: assetDisplayName(e.asset_id),

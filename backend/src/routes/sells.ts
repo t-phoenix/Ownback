@@ -18,6 +18,7 @@ import { jupiterPriceUsd6, jupiterSellQuote, rawToQty, routeFeeUsd6, sellSwapCos
 import { buildUserSwap, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import { buildSolanaBurnToArc } from '../lib/cctp.js';
 import { advanceMove, logEvent } from '../lib/buy-pipeline.js';
+import { heldMint } from '../lib/venues.js';
 import { qtyToRaw } from '../lib/qty.js';
 
 export const sellsRoutes = new Hono();
@@ -25,9 +26,15 @@ const SOL_USDC = USDC.solana.value;
 
 type User = Awaited<ReturnType<typeof requireUser>>;
 
+/** The token a sale uses: the one of this asset the user holds (D43: xStocks or Ondo), else the primary. */
+async function sellMint(user: User, assetId: string) {
+  const held = !mockChain() && user.solAddress ? await heldMint(user.solAddress, assetId) : undefined;
+  return held ?? verifiedMint(assetId, 'solana');
+}
+
 /** What the user holds right now. On-chain in real mode; the book (buys − sells) under MOCK_CHAIN. */
 export async function heldRaw(user: User, assetId: string): Promise<bigint> {
-  const mint = verifiedMint(assetId, 'solana');
+  const mint = await sellMint(user, assetId);
   if (!mint) return 0n;
   if (!mockChain()) return user.solAddress ? tokenBalanceRaw(user.solAddress, mint.mint) : 0n;
   const sql = getSql();
@@ -74,7 +81,7 @@ sellsRoutes.get('/sells/review', async (c) => {
   try {
     const user = await requireUser(c);
     const assetId = c.req.query('assetId') ?? '';
-    const mint = verifiedMint(assetId, 'solana');
+    const mint = await sellMint(user, assetId);
     if (!mint) throw new ApiError('FEATURE_OFF');
     // Speed: everything that doesn't need the sell size starts at once; only the swap quote waits for it.
     const priceP = jupiterPriceUsd6(mint.mint);
@@ -126,7 +133,7 @@ sellsRoutes.post('/sells', async (c) => {
     requireCsrf(c);
     const user = await requireUser(c);
     const body = z.object({ assetId: z.string().min(1), qty: z.string().optional(), source: z.enum(['holding', 'market']).default('holding') }).parse(await c.req.json());
-    const mint = verifiedMint(body.assetId, 'solana');
+    const mint = await sellMint(user, body.assetId);
     if (!mint) throw new ApiError('FEATURE_OFF');
     const held = await heldRaw(user, body.assetId);
     if (held <= 0n) throw new ApiError('NOT_FOUND', { reason: 'nothing_held' });

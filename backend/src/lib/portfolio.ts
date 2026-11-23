@@ -74,10 +74,15 @@ async function readPortfolio(user: User) {
   ]);
   const stale = balances === null;
   const bal = balances ?? new Map<string, bigint>();
+  // D43: an asset can have several tokens (xStocks, Ondo). Buys stick to the token already held, so one per asset;
+  // shortcut: if a wallet holds two tokens of one asset, only the larger shows. Upgrade to per-token rows if that happens.
   const owns = listBuyableAssets().flatMap((a) => {
-    const m = a.mints.find((x) => x.chain === 'solana' && x.verified);
-    const raw = m ? bal.get(m.mint) ?? 0n : 0n;
-    return m && raw > 0n ? [{ a, m, raw }] : [];
+    let best: { a: typeof a; m: (typeof a.mints)[number]; raw: bigint } | null = null;
+    for (const m of a.mints) {
+      const raw = m.chain === 'solana' && m.verified ? bal.get(m.mint) ?? 0n : 0n;
+      if (raw > 0n && (!best || raw > best.raw)) best = { a, m, raw };
+    }
+    return best ? [best] : [];
   });
   const prices = await jupiterPricesUsd6(owns.map((o) => o.m.mint), { display: true });
   const held: Held[] = [];

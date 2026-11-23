@@ -294,7 +294,7 @@ export function MarketAsset({ id, trade, trades }: { id: string; trade?: "buy" |
   </section>;
 
   const about = md && <section className="mk-about">
-    <p className="sub">Tracks {name}{md.ticker ? ` (${md.ticker})` : ""}. Issued by Backed as an xStock on Solana. <a className="link-inline" href={md.links.mint} target="_blank" rel="noreferrer">Solscan <ExternalLink size={12} /></a></p>
+    <p className="sub">Tracks {name}{md.ticker ? ` (${md.ticker})` : ""}. {md.issuer === "Ondo" ? "Issued by Ondo Global Markets on Solana." : "Issued by Backed as an xStock on Solana."} <a className="link-inline" href={md.links.mint} target="_blank" rel="noreferrer">Solscan <ExternalLink size={12} /></a></p>
     {isThin(md) && <p className="callout">{copy.thinHint}</p>}
     {md.usMarket !== "open" && <p className="callout">{usMarketCopy[md.usMarket]}. {copy.closedHint}</p>}
   </section>;
