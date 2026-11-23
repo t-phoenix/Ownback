@@ -17,6 +17,7 @@ import { errorCopy, marketCopy as copy } from "../../lib/copy";
 import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6 } from "../../lib/money";
+import { ChainTag, IssuerTag, RouteTags, TagLegend, TOKENIZERS, VENUES, VenueTag } from "../venue-tags";
 import { ago, change, estQty, fmtBps, fmtCompact, fmtFee, fmtPrice, filterMarkets, isStale, isThin, loadStarred, pctOfUsd6, qtyValueUsd6, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy } from "../../lib/markets";
 import { FlowHead } from "./home";
 import { ArcPlan, dollarsToUsd6, usd6ToDollarsInput } from "./buy";
@@ -95,6 +96,8 @@ export function Markets() {
   const m = useApi("markets", api.markets);
   const [q, setQ] = useState("");
   const [chip, setChip] = useState("all");
+  const [issuer, setIssuer] = useState("all"); // D46 tokenizer filter
+  const [showAll, setShowAll] = useState(false);
   const [starred, setStarred] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<string | null>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -106,7 +109,8 @@ export function Markets() {
   }, []);
 
   const items = useMemo(() => (m.data?.items ?? []).map(i => live[i.assetId] ? { ...i, ...live[i.assetId] } : i), [m.data, live]);
-  const shown = useMemo(() => sortMarkets(filterMarkets(items, q, chip, starred), "popular"), [items, q, chip, starred]);
+  const shown = useMemo(() => sortMarkets(filterMarkets(items, q, chip, starred, issuer, showAll), "popular"), [items, q, chip, starred, issuer, showAll]);
+  const byIssuer = (k: string) => items.filter(i => (i.issuer ?? "").toLowerCase() === k.toLowerCase()).length;
   const held = items.filter(i => i.held);
   const star = (id: string) => { const s = new Set(starred); if (s.has(id)) s.delete(id); else s.add(id); setStarred(s); saveStarred(s); haptic(5); };
   const selected = shown.find(i => i.assetId === sel) ?? shown[0];
@@ -119,6 +123,15 @@ export function Markets() {
     <label className="mk-search"><Search size={16} /><input ref={search} id="mk-search" type="search" placeholder={`Search ${items.length || ""} assets: Apple, AAPL, gold…`} value={q} onChange={e => setQ(e.target.value)} aria-label="Search markets" />{wide && <kbd>/</kbd>}</label>
     <div className="mk-chips h-scroll" role="tablist" aria-label="Filter">
       {CHIPS.filter(([k]) => k !== "yours" || held.length).map(([k, label]) => <button key={k} role="tab" aria-selected={chip === k} className={`chip sm ${chip === k ? "on" : ""}`} onClick={() => setChip(k)}>{label}{k === "yours" ? ` · ${held.length}` : ""}</button>)}
+    </div>
+    {/* D46: where the token comes from. Live tokenizers filter; upcoming ones are shown, not clickable. */}
+    <div className="mk-issuers h-scroll" role="group" aria-label="Tokenized by">
+      <span className="micro">Tokenized by</span>
+      <button className={`chip sm vtag-chip ${issuer === "all" ? "on" : ""}`} aria-pressed={issuer === "all"} onClick={() => setIssuer("all")}>All</button>
+      {TOKENIZERS.map(t => t.live
+        ? <button key={t.key} className={`chip sm vtag-chip ${issuer === t.key ? "on" : ""}`} aria-pressed={issuer === t.key} title={t.note} onClick={() => setIssuer(t.key)}>{t.label}{m.data ? ` · ${byIssuer(t.key)}` : ""}</button>
+        : <span key={t.key} className="chip sm soon" title={t.note}>{t.label} · Soon</span>)}
+      {VENUES.filter(v => !v.live).map(v => <span key={v.key} className="chip sm soon" title={v.note}>{v.label} · Soon</span>)}
     </div>
   </div>;
 
@@ -138,7 +151,8 @@ export function Markets() {
       </button>; })}</div>
     </section>}
 
-    {m.data && !q && chip === "all" && <p className="fineprint mk-count">{shown.length} with a live price · search to find all {items.length}</p>}
+    {m.data && !q && chip === "all" && <p className="fineprint mk-count">{showAll ? `Showing all ${shown.length}` : `${shown.length} with a live price`} · <button className="link-button" onClick={() => setShowAll(v => !v)}>{showAll ? "Only priced" : `Show all ${issuer === "all" ? items.length : byIssuer(issuer)}`}</button></p>}
+    {m.data && <TagLegend />}
     {m.data && (wide ? <div className="mk-grid">
       <div className="card mk-table-wrap" tabIndex={0} aria-label="Markets table. Arrow keys move, Enter opens."
         onKeyDown={e => {
@@ -152,7 +166,7 @@ export function Markets() {
           <tbody>{shown.map(i => { const name = assetName(i.assetId, i.name); const stale = isStale(i.priceAt); return <tr key={i.assetId} data-id={i.assetId} ref={observe} className={selected?.assetId === i.assetId ? "sel" : ""}
             onClick={() => { setSel(i.assetId); prefetchAsset(i.assetId); }} onDoubleClick={() => navigate(open(i.assetId))} onMouseEnter={() => prefetchAsset(i.assetId)}>
             <td className="mk-star-col"><button className={`mk-star ${starred.has(i.assetId) ? "on" : ""}`} aria-label={starred.has(i.assetId) ? `Unstar ${name}` : `Star ${name}`} aria-pressed={starred.has(i.assetId)} onClick={e => { e.stopPropagation(); star(i.assetId); }}><Star size={16} /></button></td>
-            <td><span className="mk-an"><Monogram name={name} icon={i.icon} tone={toneFor(i.assetId)} size={30} /><span><b>{name}</b> <span className="muted">{i.token}{i.priceUsd6 == null ? " · No live price" : isThin(i) ? <> · <span className="mk-thin">{copy.thin}</span></> : ""}</span></span></span></td>
+            <td><span className="mk-an"><Monogram name={name} icon={i.icon} tone={toneFor(i.assetId)} size={30} /><span><b>{name}</b> <IssuerTag issuer={i.issuer} /> <span className="muted">{i.token}{i.priceUsd6 == null ? " · No live price" : isThin(i) ? <> · <span className="mk-thin">{copy.thin}</span></> : ""}</span></span></span></td>
             <td className={`r num ${stale || isThin(i) ? "muted" : ""}`}>{fmtPrice(i.priceUsd6)}</td>
             <td className="r"><Pill bps={i.change24hBps} /></td>
             <td className="r"><Spark values={i.spark} up={i.change24hBps == null ? null : i.change24hBps >= 0} /></td>
@@ -166,7 +180,7 @@ export function Markets() {
     </div> : <div className="card list mk-list">
       {shown.map(i => { const name = assetName(i.assetId, i.name); const stale = isStale(i.priceAt); return <button key={i.assetId} data-id={i.assetId} ref={observe} className="row mk-row" onClick={() => navigate(open(i.assetId))} onTouchStart={() => prefetchAsset(i.assetId)}>
         <Monogram name={name} icon={i.icon} tone={toneFor(i.assetId)} size={36} />
-        <span className="row-main"><span className="row-title">{name}</span><span className="row-sub">{i.token}{i.priceUsd6 == null ? " · No live price" : isThin(i) ? <> · <span className="mk-thin">{copy.thin}</span></> : stale ? ` · ${ago(i.priceAt)}` : ""}</span></span>
+        <span className="row-main"><span className="row-title">{name} <IssuerTag issuer={i.issuer} /></span><span className="row-sub">{i.token}{i.priceUsd6 == null ? " · No live price" : isThin(i) ? <> · <span className="mk-thin">{copy.thin}</span></> : stale ? ` · ${ago(i.priceAt)}` : ""}</span></span>
         <Spark values={i.spark} up={i.change24hBps == null ? null : i.change24hBps >= 0} />
         <span className="row-end"><span className={`row-value num ${stale || isThin(i) ? "muted" : ""}`}>{fmtPrice(i.priceUsd6)}</span><Pill bps={i.change24hBps} /></span>
       </button>; })}
@@ -184,7 +198,7 @@ function Preview({ item }: { item: MarketItem }) {
   const d = useApi(`market:${item.assetId}`, () => api.market(item.assetId));
   const pts = c.data?.candles.length ? sparkPoints(c.data.candles.map(k => k.c), 240, 70) : "";
   return <aside className="card mk-preview">
-    <div className="mk-an"><Monogram name={name} icon={item.icon} tone={toneFor(item.assetId)} size={36} /><span><b>{name}</b><br /><span className="muted">{item.token} · Solana</span></span></div>
+    <div className="mk-an"><Monogram name={name} icon={item.icon} tone={toneFor(item.assetId)} size={36} /><span><b>{name}</b><br /><span className="muted">{item.token}</span> <RouteTags issuer={item.issuer} venue={item.venue} chain={item.chain} /></span></div>
     <div><div className="mk-big num">{fmtPrice(item.priceUsd6)}</div><Pill bps={item.change24hBps} /> <span className="muted small">today</span></div>
     {pts ? <svg viewBox="0 0 240 70" className={`mk-mini ${item.change24hBps != null && item.change24hBps < 0 ? "dn" : "up"}`} aria-label="Price, last day"><polyline points={pts} /></svg> : <div className="skeleton" style={{ height: 70 }} />}
     {isThin(item) && <p className="callout small">{copy.thinHint}</p>}
@@ -287,10 +301,11 @@ export function MarketAsset({ id, trade, trades }: { id: string; trade?: "buy" |
   const stats = md && <section className="card mk-stats">
     <div><span>Liquidity</span><b className="num">{fmtCompact(md.liquidityUsd6)}</b></div>
     <div><span>24h volume</span><b className="num">{fmtCompact(md.volume24hUsd6)}</b></div>
-    <div><span>Issuer</span><b>{md.issuer === "xStocks" ? "Backed (xStocks)" : md.issuer}</b></div>
+    <div><span>Issuer</span><b><IssuerTag issuer={md.issuer} /></b></div>
+    <div><span>Trades on</span><b><VenueTag venue="jupiter" /></b></div>
     <div className="wide"><span>Mint</span><button className="mono mk-copy" onClick={() => navigator.clipboard?.writeText(md.mint).catch(() => {})} aria-label="Copy mint address">{md.mint.slice(0, 4)}…{md.mint.slice(-4)} <Copy size={13} /></button></div>
     <div><span>Decimals</span><b className="num">{md.decimals}</b></div>
-    <div><span>Chain</span><b>Solana</b></div>
+    <div><span>Chain</span><b><ChainTag chain="solana" /></b></div>
   </section>;
 
   const about = md && <section className="mk-about">

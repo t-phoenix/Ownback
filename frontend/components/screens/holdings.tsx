@@ -1,5 +1,6 @@
 "use client";
 
+import { IssuerTag } from "../venue-tags";
 import { useState } from "react";
 import { Check, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Share2 } from "lucide-react";
 import { useApp } from "../app-context";
@@ -26,7 +27,7 @@ export function HoldingRow({ h, onSolUsdc }: { h: Row; onSolUsdc?: (h: Row) => v
   const open = () => h.assetId === "usdc-sol" ? onSolUsdc?.(h) : navigate(isUsd ? "/funds" : `/holdings/${encodeURIComponent(h.assetId)}`);
   return <button className="row" onClick={open}>
     <Monogram name={isUsd ? undefined : name} icon={h.icon} tone={isUsd ? "green" : toneFor(h.assetId)}>{isUsd ? "$" : undefined}</Monogram>
-    <span className="row-main"><span className="row-title">{name}</span><span className="row-sub">{h.qty && h.token ? `${h.qty} ${h.token}` : h.subtitle}</span></span>
+    <span className="row-main"><span className="row-title">{name} <IssuerTag issuer={h.issuer} /></span><span className="row-sub">{h.qty && h.token ? `${h.qty} ${h.token}` : h.subtitle}</span></span>
     <span className="row-end"><span className="row-value">{fmtUsd6(h.valueUsd6)}</span><PriceTag token={h.token} usd6={h.price?.usd6PerUnit} /></span>
     <ChevronRight size={16} className="row-chev" />
   </button>;

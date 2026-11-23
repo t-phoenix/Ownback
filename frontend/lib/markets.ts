@@ -113,18 +113,19 @@ export const THIN_LIQ_USD6 = 10_000_000_000n;
 export const isThin = (i: { priceUsd6: Usd6 | null; liquidityUsd6: Usd6 | null }) =>
   i.priceUsd6 != null && (big(i.liquidityUsd6) ?? 0n) < THIN_LIQ_USD6;
 
-export function filterMarkets(items: MarketItem[], q: string, chip: string, starred: Set<string>): MarketItem[] {
+export function filterMarkets(items: MarketItem[], q: string, chip: string, starred: Set<string>, issuer = "all", showAll = false): MarketItem[] {
   const t = q.trim().toLowerCase();
-  // ~70% of verified xStocks have no on-chain liquidity (Jupiter returns no price). Browse shows tradable ones;
-  // search, Yours and Starred still find the rest (marked "No live price").
-  const browse = !t && chip !== "yours" && chip !== "starred";
+  // Most verified tokens have no on-chain liquidity (Jupiter returns no price). Browse shows priced ones unless
+  // "Show all" is on; search, Yours and Starred always find the rest (marked "No live price").
+  const browse = !showAll && !t && chip !== "yours" && chip !== "starred";
   return items.filter(i => {
     if (browse && i.priceUsd6 == null) return false;
+    if (issuer !== "all" && (i.issuer ?? "").toLowerCase() !== issuer.toLowerCase()) return false; // D46
     if (chip === "yours" && !i.held) return false;
     if (chip === "starred" && !starred.has(i.assetId)) return false;
     if (chip === "stock" || chip === "index" || chip === "commodity") { if (i.class !== chip) return false; }
     if (!t) return true;
-    return i.name.toLowerCase().includes(t) || i.ticker.toLowerCase().includes(t) || i.token.toLowerCase().includes(t);
+    return i.name.toLowerCase().includes(t) || i.ticker.toLowerCase().includes(t) || i.token.toLowerCase().includes(t) || (i.issuer ?? "").toLowerCase().includes(t);
   });
 }
 

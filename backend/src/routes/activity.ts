@@ -213,8 +213,11 @@ export function balanceJson(p: Awaited<ReturnType<typeof portfolio>>, inJars: bi
   };
 }
 
+/** D46: who tokenized a holding (AAPLx vs AAPLon are separate holdings). */
+const issuerField = (assetId: string) => { const i = verifiedMint(assetId, 'solana')?.issuer; return i ? { issuer: i } : {}; };
+
 export function heldRow(h: Held) {
-  return { assetId: h.assetId, name: h.name, ...iconField(h.assetId), subtitle: `${h.qty} ${h.token} · Solana`, qty: h.qty, token: h.token, chain: 'solana', valueUsd6: toUsd6(h.valueUsd6), ...(h.priceUsd6 > 0n ? { price: { usd6PerUnit: toUsd6(h.priceUsd6), at: new Date().toISOString(), source: 'jupiter' as const } } : {}) };
+  return { assetId: h.assetId, name: h.name, ...iconField(h.assetId), subtitle: `${h.qty} ${h.token} · Solana`, qty: h.qty, token: h.token, chain: 'solana', ...issuerField(h.assetId), valueUsd6: toUsd6(h.valueUsd6), ...(h.priceUsd6 > 0n ? { price: { usd6PerUnit: toUsd6(h.priceUsd6), at: new Date().toISOString(), source: 'jupiter' as const } } : {}) };
 }
 
 export async function jarsTotal(userId: string): Promise<bigint> {

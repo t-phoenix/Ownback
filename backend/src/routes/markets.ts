@@ -1,5 +1,6 @@
 /**
- * Markets (docs/12-markets.md, D34–D38): browse verified xStocks, see prices and charts, buy or sell directly.
+ * Markets (docs/12-markets.md, D34–D38, D46): browse every verified token (xStocks, Ondo…), each its own asset;
+ * see prices and charts, buy or sell directly.
  * Buys reuse the D29/D33 pipeline (POST /buys with a `market` quote); sells reuse D31 (/sells).
  * Nothing here waits more than 2.5 s on a third party; prices come from the shared batched cache.
  */
@@ -74,6 +75,8 @@ marketRoutes.get('/markets', async (c) => {
       items: sortMarkets(rows, sort).map((r) => ({
         assetId: r.a.assetId, name: r.a.name, ticker: r.a.ticker, token: r.a.token, ...(r.a.icon ? { icon: r.a.icon } : {}),
         class: r.a.class, chain: r.a.chain,
+        // D46: who tokenized it and where it trades (Markets tag bar).
+        issuer: r.a.issuer, venue: 'jupiter' as const,
         priceUsd6: r.priceUsd6 != null ? toUsd6(r.priceUsd6) : null,
         priceAt: r.at ? new Date(r.at).toISOString() : null,
         change24hBps: r.changeBps,
