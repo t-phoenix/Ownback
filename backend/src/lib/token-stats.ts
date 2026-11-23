@@ -2,9 +2,13 @@
  * Display-only market stats for suggestion rows (D43): Jupiter token data (price, market value, 24h volume,
  * liquidity) and the gap from the real share price. Never feeds money maths; any failure just hides the number.
  */
-import { usdStringToUsd6 } from './jupiter-price.js';
+import { JUP_BASE, jupFetch, usdStringToUsd6 } from './jupiter-price.js';
+import { poolIndex } from './markets/pools.js';
 
-export type TokenStats = { priceUsd6: bigint | null; mcapUsd6: bigint | null; volume24hUsd6: bigint | null; liquidityUsd6: bigint | null };
+/** Liquidity and volume are summed across every exchange (D47 pool index) when it answers in time; Jupiter's otherwise. */
+export type TokenStats = { priceUsd6: bigint | null; mcapUsd6: bigint | null; volume24hUsd6: bigint | null; liquidityUsd6: bigint | null; exchanges?: number; thin?: boolean };
+
+const within = <T>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms).unref?.())]);
 
 const TTL_MS = 10 * 60_000;
 const statsCache = new Map<string, { at: number; v: TokenStats }>();
@@ -26,7 +30,7 @@ export async function tokenStats(mints: string[]): Promise<Map<string, TokenStat
   for (let i = 0; i < need.length; i += 100) {
     const chunk = need.slice(i, i + 100);
     try {
-      const res = await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${chunk.join(',')}`, { signal: AbortSignal.timeout(6_000) });
+      const res = await jupFetch(`${JUP_BASE}/tokens/v2/search?query=${chunk.join(',')}`, { timeoutMs: 6_000, retries: 1 });
       if (!res.ok) continue;
       const rows = (await res.json()) as { id: string; usdPrice?: number; mcap?: number; liquidity?: number; stats24h?: { buyVolume?: number; sellVolume?: number } }[];
       for (const r of rows) {
@@ -38,6 +42,12 @@ export async function tokenStats(mints: string[]): Promise<Map<string, TokenStat
       }
     } catch { /* hidden */ }
   }
+  const idx = await Promise.all(mints.map((m) => within(poolIndex(m), 1_500).catch(() => null)));
+  mints.forEach((m, i) => {
+    const x = idx[i];
+    if (!x) return;
+    out.set(m, { ...(out.get(m) ?? { priceUsd6: null, mcapUsd6: null }), liquidityUsd6: x.liquidityUsd6 || null, volume24hUsd6: x.volume24hUsd6 || null, exchanges: x.exchanges.length, thin: x.thin });
+  });
   return out;
 }
 

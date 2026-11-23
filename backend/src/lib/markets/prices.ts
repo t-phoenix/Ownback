@@ -6,10 +6,15 @@ import { getSql } from '../../db/client.js';
 import { jupiterPriceCached, jupiterPriceMeta, jupiterPricesUsd6 } from '../jupiter-price.js';
 import { TICK_EVERY_MS } from '../../shared/markets.js';
 import { marketAssets, type MarketAsset } from './catalog.js';
+import { poolIndexCached } from './pools.js';
 
 export const WAIT_CAP_MS = 2_500;
 
-export type MarketPrice = { priceUsd6: bigint | null; at: number | null; changeBps: number | null; liquidityUsd6: bigint | null };
+/** Liquidity and volume are summed across every exchange (D47 pool index); Jupiter's figure until the index has the token. */
+export type MarketPrice = {
+  priceUsd6: bigint | null; at: number | null; changeBps: number | null; liquidityUsd6: bigint | null;
+  volume24hUsd6: bigint | null; exchanges: number | null; thin: boolean | null;
+};
 
 /** Resolve after `ms` with undefined: lets a request stop waiting on Jupiter without failing. */
 export const capWait = <T>(p: Promise<T>, ms = WAIT_CAP_MS): Promise<T | undefined> =>
@@ -23,7 +28,12 @@ export async function marketPrices(list: MarketAsset[]): Promise<Map<string, Mar
   for (const a of list) {
     const p = jupiterPriceCached(a.mint);
     const meta = jupiterPriceMeta(a.mint);
-    out.set(a.assetId, { priceUsd6: p?.v ?? null, at: p?.at ?? null, changeBps: meta?.changeBps ?? null, liquidityUsd6: meta?.liquidityUsd6 ?? null });
+    const idx = poolIndexCached(a.mint);
+    out.set(a.assetId, {
+      priceUsd6: p?.v ?? null, at: p?.at ?? null, changeBps: meta?.changeBps ?? null,
+      liquidityUsd6: idx ? idx.liquidityUsd6 : meta?.liquidityUsd6 ?? null,
+      volume24hUsd6: idx?.volume24hUsd6 ?? null, exchanges: idx?.exchanges.length ?? null, thin: idx?.thin ?? null,
+    });
   }
   return out;
 }
@@ -38,7 +48,8 @@ export function markViewed(assetId: string) { viewed.set(assetId, Date.now()); }
 export async function hotSet(limit = 150): Promise<MarketAsset[]> {
   const all = marketAssets();
   const byLiq = [...all].sort((x, y) => {
-    const a = jupiterPriceMeta(x.mint)?.liquidityUsd6 ?? 0n, b = jupiterPriceMeta(y.mint)?.liquidityUsd6 ?? 0n;
+    const liq = (m: string) => poolIndexCached(m)?.liquidityUsd6 ?? jupiterPriceMeta(m)?.liquidityUsd6 ?? 0n;
+    const a = liq(x.mint), b = liq(y.mint);
     return a === b ? 0 : b > a ? 1 : -1;
   }).slice(0, limit);
   const ids = new Set(byLiq.map((a) => a.assetId));

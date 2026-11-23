@@ -16,6 +16,7 @@ import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
 import { companyOf, iconField, tokenAssetsOf, verifiedMint } from '../shared/assets.js';
 import { getCatalogCompany } from '../lib/registry/catalog.js';
 import { gapBps, refPrices, tokenStats } from '../lib/token-stats.js';
+import { routeExchanges } from '../lib/markets/pools.js';
 import { buySwapCostUsd6, jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
 import { buildUserSwap, relayConfigured, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import {
@@ -221,6 +222,9 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
       ...(st?.volume24hUsd6 ? { volume24hUsd6: toUsd6(st.volume24hUsd6) } : {}),
       ...(st?.liquidityUsd6 ? { liquidityUsd6: toUsd6(st.liquidityUsd6) } : {}),
       ...(gap != null ? { gapBps: gap } : {}),
+      // D47: which exchanges the best route uses, and the token's market across all exchanges.
+      route: quote ? routeExchanges(quote.routePlan) : [],
+      ...(st?.exchanges != null ? { exchanges: st.exchanges, thin: !!st.thin } : {}),
     };
   };
 

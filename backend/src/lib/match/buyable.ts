@@ -21,6 +21,9 @@ export type VenueStat = {
   liquidityUsd6?: Usd6;
   /** Token price vs the real share price, bps. */
   gapBps?: number;
+  /** D47: how many exchanges it trades on, and whether total liquidity is under $10k. */
+  exchanges?: number;
+  thin?: boolean;
 };
 
 export type Buyable = {
@@ -82,6 +85,7 @@ export async function checkBuyable(companyId: string): Promise<Buyable> {
       ...(s?.volume24hUsd6 ? { volume24hUsd6: toUsd6(s.volume24hUsd6) } : {}),
       ...(s?.liquidityUsd6 ? { liquidityUsd6: toUsd6(s.liquidityUsd6) } : {}),
       ...(gap != null ? { gapBps: gap } : {}),
+      ...(s?.exchanges != null ? { exchanges: s.exchanges, thin: !!s.thin } : {}),
     };
     return { m, v };
   });

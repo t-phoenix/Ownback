@@ -21,6 +21,7 @@ import { qtyToRaw } from '../lib/qty.js';
 import { marketAsset, marketAssets, type MarketAsset } from '../lib/markets/catalog.js';
 import { marketPrices, markViewed, sparklines, capWait } from '../lib/markets/prices.js';
 import { getCandles, topPool } from '../lib/markets/candles.js';
+import { poolIndex } from '../lib/markets/pools.js';
 import { usMarketState } from '../lib/markets/market-hours.js';
 import { marketsEnabled } from '../lib/markets/jobs.js';
 import { buildBuyReview, MIN_BUY_USD6 } from './jars-buys.js';
@@ -81,6 +82,9 @@ marketRoutes.get('/markets', async (c) => {
         priceAt: r.at ? new Date(r.at).toISOString() : null,
         change24hBps: r.changeBps,
         liquidityUsd6: r.liquidityUsd6 != null ? toUsd6(r.liquidityUsd6) : null,
+        // D47: summed across every Solana exchange once the pool index has the token.
+        ...(r.volume24hUsd6 != null ? { volume24hUsd6: toUsd6(r.volume24hUsd6) } : {}),
+        ...(r.exchanges != null ? { exchanges: r.exchanges, thin: !!r.thin } : {}),
         spark: (sparks.get(r.a.assetId) ?? []).map((v) => v.toString()),
         held: held.has(r.a.assetId),
         ...(held.has(r.a.assetId) ? { positionUsd6: toUsd6(held.get(r.a.assetId)!.valueUsd6) } : {}),
@@ -135,11 +139,12 @@ marketRoutes.get('/markets/:assetId', async (c) => {
     if (!a) throw new ApiError('NOT_FOUND', { reason: 'not_listed' });
     markViewed(a.assetId);
     const sql = getSql();
-    const [prices, p, routeOk, pool, buys, sells] = await Promise.all([
+    const [prices, p, routeOk, pool, idx, buys, sells] = await Promise.all([
       marketPrices([a]),
       capWait(portfolio(user, { fresh: c.req.header('cache-control') === 'no-cache' }).catch(() => null)),
       canRoute(a.mint),
       capWait(topPool(a.mint).catch(() => null), 1_500),
+      capWait(poolIndex(a.mint), 1_500),
       sql<{ batch_id: string; trigger: string; started_at: Date | null; finished_at: Date | null; qty: string | null; spent: string | null; fill: string | null; arc_tx: string | null; venue_tx: string | null }[]>`
         SELECT e.batch_id, b.trigger, b.started_at, b.finished_at, e.qty::text AS qty, e.spent_usd6::text AS spent,
           e.fill_price_usd6::text AS fill, b.arc_tx, e.venue_tx
@@ -177,8 +182,15 @@ marketRoutes.get('/markets/:assetId', async (c) => {
       priceUsd6: price.priceUsd6 != null ? toUsd6(price.priceUsd6) : null,
       priceAt: price.at ? new Date(price.at).toISOString() : null,
       change24hBps: price.changeBps,
-      liquidityUsd6: price.liquidityUsd6 != null ? toUsd6(price.liquidityUsd6) : pool?.liquidity_usd6 ?? null,
-      volume24hUsd6: pool?.volume24h_usd6 ?? null,
+      liquidityUsd6: idx ? toUsd6(idx.liquidityUsd6) : price.liquidityUsd6 != null ? toUsd6(price.liquidityUsd6) : pool?.liquidity_usd6 ?? null,
+      volume24hUsd6: idx ? toUsd6(idx.volume24hUsd6) : pool?.volume24h_usd6 ?? null,
+      // D47: every exchange this token trades on (pools of USDC, USDT or SOL with at least $1k).
+      exchanges: (idx?.exchanges ?? []).map((e) => ({
+        key: e.key, label: e.label, pools: e.pools, liquidityUsd6: toUsd6(e.liquidityUsd6), volume24hUsd6: toUsd6(e.volume24hUsd6),
+        ...(e.priceUsd6 ? { priceUsd6: toUsd6(e.priceUsd6) } : {}), quotable: e.quotable,
+      })),
+      thin: idx?.thin ?? null,
+      ...(pool?.dex ? { chartPool: { dex: pool.dex, url: `https://www.geckoterminal.com/solana/pools/${pool.pool_address}` } } : {}),
       usMarket: usMarketState(),
       position: h ? { qty: h.qty, valueUsd6: toUsd6(h.valueUsd6), avgCostUsd6: toUsd6(avg), ...(pnl != null ? { pnlUsd6: pnl.toString(), pnlBps: cost > 0n ? Number((pnl * 10_000n) / cost) : 0 } : {}) } : null,
       tradable: { buy: !reason, sell: !!h && relayOk, ...(reason ? { reason } : !h ? { reason: 'nothing_held' as const } : {}) },

@@ -47,12 +47,12 @@ const f6 = (n: number) => (Number.isFinite(n) && n > 0 ? usdStringToUsd6(n.toFix
 
 // ─── Pool resolver ───────────────────────────────────────────────────────────────
 
-type PoolRow = { pool_address: string; volume24h_usd6: string | null; liquidity_usd6: string | null; checked_at: Date };
+type PoolRow = { pool_address: string; dex: string | null; volume24h_usd6: string | null; liquidity_usd6: string | null; checked_at: Date };
 type GtPools = { data: { attributes: { address: string; reserve_in_usd?: string; volume_usd?: { h24?: string } }; relationships: { base_token: { data: { id: string } }; quote_token: { data: { id: string } }; dex: { data: { id: string } } } }[] };
 
 export async function topPool(mint: string): Promise<PoolRow | null> {
   const sql = getSql();
-  const [hit] = await sql<PoolRow[]>`SELECT pool_address, volume24h_usd6::text, liquidity_usd6::text, checked_at FROM market_pools WHERE mint = ${mint}`.catch(() => [] as PoolRow[]);
+  const [hit] = await sql<PoolRow[]>`SELECT pool_address, dex, volume24h_usd6::text, liquidity_usd6::text, checked_at FROM market_pools WHERE mint = ${mint}`.catch(() => [] as PoolRow[]);
   if (hit && Date.now() - hit.checked_at.getTime() < 24 * 3_600_000) return hit;
   const body = await gt<GtPools>(`/tokens/${mint}/pools?page=1`);
   const pools = (body?.data ?? []).filter((p) => {
@@ -65,6 +65,7 @@ export async function topPool(mint: string): Promise<PoolRow | null> {
   if (!best) return hit ?? null; // keep an old pool rather than nothing
   const row = {
     pool_address: best.attributes.address,
+    dex: best.relationships.dex.data.id,
     liquidity_usd6: f6(Number(best.attributes.reserve_in_usd ?? 0)),
     volume24h_usd6: f6(Number(best.attributes.volume_usd?.h24 ?? 0)),
     checked_at: new Date(),
