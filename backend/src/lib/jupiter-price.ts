@@ -161,6 +161,8 @@ export async function jupiterQuote(opts: {
   slippageBps?: number;
   /** 429 retries (default 4, waits 1-2-4-8 s). Fee measurements use 1 so a review never waits long. */
   retries?: number;
+  /** Ownback platform fee (D44); only on the quote a swap is built from. */
+  platformFeeBps?: number;
 }): Promise<JupiterQuote | null> {
   if (opts.amountRaw <= 0n) return null;
   try {
@@ -168,7 +170,8 @@ export async function jupiterQuote(opts: {
       `${JUP_QUOTE}?inputMint=${encodeURIComponent(opts.inputMint)}` +
       `&outputMint=${encodeURIComponent(opts.outputMint)}` +
       `&amount=${opts.amountRaw.toString()}` +
-      `&slippageBps=${opts.slippageBps ?? 100}`;
+      `&slippageBps=${opts.slippageBps ?? 100}` +
+      (opts.platformFeeBps ? `&platformFeeBps=${opts.platformFeeBps}` : '');
     const res = await jupFetch(url, { retries: opts.retries });
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
@@ -196,19 +199,6 @@ export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippage
     slippageBps,
     retries,
   });
-}
-
-/** $1 USDC→mint route probe: true = route, false = Jupiter says NO_ROUTES_FOUND, null = couldn't ask (429, timeout, 5xx). */
-export async function jupiterRouteOk(mint: string): Promise<boolean | null> {
-  try {
-    const res = await jupFetch(`${JUP_QUOTE}?inputMint=${SOL_USDC}&outputMint=${encodeURIComponent(mint)}&amount=1000000&slippageBps=100`);
-    if (res.ok) return !!((await res.json()) as { outAmount?: string }).outAmount;
-    if (res.status !== 400) return null;
-    const body = (await res.json().catch(() => ({}))) as { errorCode?: string };
-    return /NO_ROUTES|COULD_NOT_FIND|TOKEN_NOT_TRADABLE/.test(body.errorCode ?? '') ? false : null;
-  } catch {
-    return null;
-  }
 }
 
 export async function jupiterSellQuote(mint: string, amountRaw: bigint, slippageBps = 100, retries?: number) {
@@ -315,6 +305,8 @@ export async function jupiterBuildSwap(opts: {
   userPublicKey: string;
   payer: string;
   destinationTokenAccount?: string;
+  /** USDC token account that receives the platform fee; required when the quote has platformFeeBps. */
+  feeAccount?: string;
 }): Promise<string | null> {
   try {
     const res = await jupFetch(JUP_SWAP, {
@@ -325,6 +317,7 @@ export async function jupiterBuildSwap(opts: {
         userPublicKey: opts.userPublicKey,
         payer: opts.payer,
         ...(opts.destinationTokenAccount ? { destinationTokenAccount: opts.destinationTokenAccount } : {}),
+        ...(opts.feeAccount ? { feeAccount: opts.feeAccount } : {}),
         wrapAndUnwrapSol: false,
         dynamicComputeUnitLimit: true,
         prioritizationFeeLamports: 'auto',

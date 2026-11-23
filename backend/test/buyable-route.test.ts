@@ -1,35 +1,65 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { _resetRouteCache, checkBuyable } from '../src/lib/match/buyable.js';
+import { verifiedMints } from '../src/shared/assets.js';
 
 afterEach(() => { vi.unstubAllGlobals(); _resetRouteCache(); });
 
 const res = (status: number, body: object) => new Response(JSON.stringify(body), { status });
+const PRICE = 100; // every token priced at $100 by the price API
 
-describe('checkBuyable route probe', () => {
-  it('probes one at a time, so a 9-row read does not trip the 429 limit', async () => {
+/** Routes Jupiter quote / price calls; `lossPct(mint)` = how much a $5 quote loses vs the price (null = no answer). */
+function stubJupiter(lossPct: (mint: string) => number | null, onQuote?: () => Promise<void>) {
+  const decimals = new Map(['co:apple', 'co:tsmc', 'co:skhy'].flatMap((id) => verifiedMints(id, 'solana').map((m) => [m.mint, m.decimals] as const)));
+  const fetch = vi.fn(async (url: string) => {
+    const u = new URL(url);
+    if (u.pathname.endsWith('/quote')) {
+      await onQuote?.();
+      const mint = u.searchParams.get('outputMint')!;
+      const loss = lossPct(mint);
+      if (loss == null) return res(500, {});
+      const raw = (BigInt(Math.round(5 / PRICE * (1 - loss / 100) * 1e6)) * 10n ** BigInt(decimals.get(mint) ?? 8)) / 1_000_000n;
+      return res(200, { outAmount: raw.toString(), inAmount: '5000000' });
+    }
+    if (u.pathname.includes('/price/')) {
+      return res(200, Object.fromEntries((u.searchParams.get('ids') ?? '').split(',').map((m) => [m, { usdPrice: PRICE }])));
+    }
+    return res(404, {}); // token stats / reference prices: display only, hidden on failure
+  });
+  vi.stubGlobal('fetch', fetch);
+  return fetch;
+}
+
+describe('checkBuyable (D43: jar-sized quote within the fee cap, every venue)', () => {
+  it('quotes one at a time, so a 9-row read does not trip the 429 limit', async () => {
     let live = 0, peak = 0;
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      peak = Math.max(peak, ++live);
-      await new Promise((r) => setTimeout(r, 5));
-      live--;
-      return res(200, { outAmount: '1', inAmount: '1' });
-    }));
-    const out = await Promise.all(['co:tsmc', 'co:skhy', 'co:apple'].map(checkBuyable));
+    stubJupiter(() => 0.3, async () => { peak = Math.max(peak, ++live); await new Promise((r) => setTimeout(r, 5)); live--; });
+    const out = await Promise.all(['co:tsmc', 'co:skhy'].map(checkBuyable));
     expect(out.every((b) => b.buyable)).toBe(true);
     expect(peak).toBe(1);
   });
 
-  it('does not cache a failed request as "no route"; caches a real NO_ROUTES_FOUND', async () => {
-    const fetch = vi.fn()
-      .mockResolvedValueOnce(res(500, {})).mockResolvedValueOnce(res(500, {})) // first check: both tries fail
-      .mockResolvedValueOnce(res(200, { outAmount: '5', inAmount: '1' })); // next check asks again
-    vi.stubGlobal('fetch', fetch);
-    expect((await checkBuyable('co:tsmc')).buyable).toBe(false);
-    expect((await checkBuyable('co:tsmc')).buyable).toBe(true);
+  it('a route that loses more than the 5% cap is not tradable', async () => {
+    stubJupiter(() => 72);
+    const b = await checkBuyable('co:tsmc');
+    expect(b.buyable).toBe(false);
+    expect(b.venues?.[0]?.feeBps).toBeGreaterThan(500);
+  });
 
-    vi.stubGlobal('fetch', vi.fn(async () => res(400, { errorCode: 'NO_ROUTES_FOUND' })));
-    expect((await checkBuyable('co:qualcomm')).buyable).toBe(false);
-    expect((await checkBuyable('co:qualcomm')).buyable).toBe(false);
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3);
+  it('picks the cheaper venue when an asset has two tokens', async () => {
+    const [x, on] = verifiedMints('co:apple', 'solana');
+    expect(on).toBeDefined();
+    stubJupiter((m) => (m === x!.mint ? 40 : 0.2));
+    const b = await checkBuyable('co:apple');
+    expect(b.buyable).toBe(true);
+    expect(b.symbol).toBe(on!.symbol);
+    expect(b.venues?.map((v) => v.tradable)).toEqual([true, false]);
+  });
+
+  it('does not cache an unanswered quote', async () => {
+    let answer = false;
+    stubJupiter(() => (answer ? 0.2 : null));
+    expect((await checkBuyable('co:skhy')).buyable).toBe(false);
+    answer = true;
+    expect((await checkBuyable('co:skhy')).buyable).toBe(true);
   });
 });

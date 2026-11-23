@@ -1,11 +1,11 @@
 /**
  * Deterministic resolver (D30): jury names/tickers → catalog-companies.json / catalog-tokens.json,
  * then a status per row. No AI here. Buyability comes only from assets-curated.json (verifiedMint)
- * plus a live Jupiter route (checkBuyable). Never invents an id, mint or symbol.
+ * plus a live jar-sized quote within the fee cap, across every venue (checkBuyable, D43). Never invents an id, mint or symbol.
  */
 import type { JuryRowStatus } from '../../shared/states.js';
 import { listCatalogCompanies, listCatalogTokens, type CatalogCompany } from '../registry/catalog.js';
-import { checkBuyable, type Buyable } from './buyable.js';
+import { checkBuyable, type Buyable, type VenueStat } from './buyable.js';
 import { verifiedMint } from '../../shared/assets.js';
 
 export type JuryRow = {
@@ -18,6 +18,8 @@ export type JuryRow = {
   status: JuryRowStatus;
   assetId?: string;
   symbol?: string;
+  /** D43: every verified token of the asset, best first, with display stats. */
+  venues?: VenueStat[];
 };
 
 const SUFFIXES = new Set([
@@ -152,7 +154,7 @@ export function rowKey(kind: 'company' | 'commodity', name: string, ticker?: str
   return hit?.assetId ?? `name:${normName(name)}`;
 }
 
-/** Status for one row. `check` is injectable for tests (default: verified mint + live Jupiter route). */
+/** Status for one row. `check` is injectable for tests (default: verified mints + live quote within the fee cap). */
 export async function resolveRow(
   kind: 'company' | 'commodity',
   row: { name: string; ticker?: string; role?: string; why: string; agree: number },
@@ -168,8 +170,9 @@ export async function resolveRow(
   }
   const named = { ...base, name: kind === 'company' ? hit.name : row.name, assetId: hit.assetId, ...(hit.ticker ? { ticker: hit.ticker } : {}) };
   const b = await check(hit.assetId);
-  if (b.buyable && b.symbol) return { ...named, status: 'buyable', symbol: b.symbol };
-  return { ...named, status: hit.tokenized || b.mint ? 'tokenized_unverified' : 'not_onchain' };
+  const venues = b.venues?.length ? { venues: b.venues } : {};
+  if (b.buyable && b.symbol) return { ...named, status: 'buyable', symbol: b.symbol, ...venues };
+  return { ...named, status: hit.tokenized || b.mint ? 'tokenized_unverified' : 'not_onchain', ...venues };
 }
 
 /** Test hook: drop the cached catalog index. */

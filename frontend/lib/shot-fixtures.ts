@@ -90,7 +90,12 @@ export const purchase: Purchase = {
   analysis: {
     productType: "physical", category: "phone", cached: false,
     jurors: [{ model: "glm-5.3", persona: "supply chain", ok: true }, { model: "0gm-1.0", persona: "materials", ok: true }, { model: "glm-5.3", persona: "finance", ok: true }],
-    parent: { name: "Apple", ticker: "AAPL", why: "Designs the iPhone and sells it.", agree: 3, of: 3, status: "buyable", assetId: "co:apple", symbol: "AAPLx" },
+    parent: { name: "Apple", ticker: "AAPL", why: "Designs the iPhone and sells it.", agree: 3, of: 3, status: "buyable", assetId: "co:apple", symbol: "AAPLx",
+      // Live Jupiter numbers, 23 Nov 2026 (D43).
+      venues: [
+        { symbol: "AAPLx", issuer: "xStocks", tradable: true, feeBps: 47, priceUsd6: "345885930", mcapUsd6: "53385770208673", volume24hUsd6: "381223985755", liquidityUsd6: "583668588142", gapBps: 97 },
+        { symbol: "AAPLon", issuer: "Ondo", tradable: false, feeBps: 980, priceUsd6: "348645649", mcapUsd6: "524618581159", volume24hUsd6: "251157564", liquidityUsd6: "1246519338", gapBps: 177 },
+      ] },
     enablers: [
       { name: "TSMC", ticker: "TSM", why: "Fabricates the A18 Pro chip on its 3 nm line.", agree: 3, of: 3, status: "buyable", assetId: "co:tsmc", symbol: "TSMx" },
       { name: "Qualcomm", ticker: "QCOM", why: "Supplies the 5G modem and RF front end.", agree: 2, of: 3, status: "buyable", assetId: "co:qualcomm", symbol: "QCOMx" },

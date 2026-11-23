@@ -177,7 +177,16 @@ type JuryRow = {
   name: string; ticker?: string; why: string;   // why: 1–2 lines, "how they bring this product to you"
   agree: number; of: number;                     // jurors that named it, e.g. 3 of 3
   status: 'buyable' | 'tokenized_unverified' | 'not_onchain' | 'private';
-  assetId?: AssetId; symbol?: string;            // symbol only when buyable ("Buy on Solana · AAPLx")
+  assetId?: AssetId; symbol?: string;            // symbol only when buyable ("Buy on Solana · AAPLx"): the best venue's token
+  venues?: VenueStat[];                          // D43: every verified token of the asset, best first
+};
+
+type VenueStat = {                               // display only; never used for money maths
+  symbol: string; issuer: string;                // "AAPLon", "Ondo"
+  tradable: boolean;                             // a live $5 quote fits the default 5% fee cap
+  feeBps: number | null;                         // cost of that $5 buy, bps; null when it couldn't be measured
+  priceUsd6?: Usd6; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6;
+  gapBps?: number;                               // token price vs the real share price
 };
 
 type PurchaseDetails = {

@@ -5,13 +5,14 @@ import { ArrowRight, Camera, Check, ChevronDown, FileText, Lock, LockOpen, Mail,
 import { useApp } from "../app-context";
 import { ConfirmAction, Creative, GlassJar, Money, Monogram, Spinner, Tilt, haptic, useCoarse } from "../ui";
 import { ErrorState, Skeleton } from "../states";
-import { api, ApiError, type Allocation, type DetailField, type JuryRow, type Purchase, type PurchaseDetails, type ReadStep } from "../../lib/api";
+import { api, ApiError, type Allocation, type DetailField, type JuryRow, type Purchase, type VenueStat, type PurchaseDetails, type ReadStep } from "../../lib/api";
 import { useApi, refreshAll } from "../../lib/use-api";
 import { errorCopy, readErrorCopy, readErrorText, readTips } from "../../lib/copy";
 import { lastRead, setLastRead, setPending, takePending, type PendingRead } from "../../lib/pending";
 import { signAction } from "../../lib/sign-action";
 import { assetName, toneFor } from "../../lib/assets";
 import { centsOf, fmtLocal, fmtUsd, fmtUsd6, pct1 } from "../../lib/money";
+import { fmtBps, fmtCompact, fmtPrice } from "../../lib/markets";
 import { parseDollars, roundNice, spread, stepFor, sumOf, type Cents } from "../../lib/amounts";
 import { FlowHead } from "./home";
 
@@ -262,7 +263,7 @@ export function ReadError() {
 
 const roleLabel: Record<string, string> = { maker: "Maker", supplier: "Behind it", material: "Material", fallback: "Fallback" };
 
-/** D40 right column: the why for rows you can buy; everything not on-chain folds into one card. */
+/** D43 right column: the why for rows you can buy; everything not on-chain folds into one card. */
 const WhyThese = memo(function WhyThese({ a, allocs }: { a: NonNullable<Purchase["analysis"]>; allocs: Allocation[] }) {
   const ids = new Set(allocs.map(x => x.assetId));
   const rows: (JuryRow & { group: string })[] = [
@@ -280,6 +281,7 @@ const WhyThese = memo(function WhyThese({ a, allocs }: { a: NonNullable<Purchase
         <span className="row-main">
           <span className="row-title clip">{r.name}{r.symbol && <span className="ticker"> {r.symbol}</span>}</span>
           <span className="jury-why">{r.why}</span>
+          <Venues venues={r.venues} />
           <span className="jury-meta"><span className="jury-badge on">{r.group}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
         </span>
       </div>)}</div></section>}
@@ -298,6 +300,7 @@ const WhyThese = memo(function WhyThese({ a, allocs }: { a: NonNullable<Purchase
           </summary>
           <div className="off-more">
             <p>{r.why}</p>
+            <Venues venues={r.venues} />
             <span className="jury-meta"><span className="jury-badge">{r.status === "private" ? "Private company" : r.status === "tokenized_unverified" ? "Token not verified yet" : "Not on-chain yet"}</span><span className="agree" title="AI jurors that named it">{r.agree}/{r.of} agree</span></span>
           </div>
         </details>)}
@@ -305,6 +308,26 @@ const WhyThese = memo(function WhyThese({ a, allocs }: { a: NonNullable<Purchase
     </section>}
   </>;
 });
+
+/** "+0.12% vs the share" — token price against the real share price. */
+const gapText = (bps: number) => `${bps > 0 ? "+" : bps < 0 ? "−" : ""}${fmtBps(bps)} vs the share`;
+
+/** D43: every token of this company across venues, best first, with its market numbers. Display only. */
+function Venues({ venues }: { venues?: VenueStat[] }) {
+  if (!venues?.length) return null;
+  return <span className="venues">{venues.map(v =>
+    <span key={v.symbol} className={`venue${v.tradable ? "" : " off"}`}>
+      <b>{v.symbol}</b>
+      <span>{v.issuer}</span>
+      {v.priceUsd6 && <span>{fmtPrice(v.priceUsd6)}</span>}
+      {v.mcapUsd6 && <span>Market cap {fmtCompact(v.mcapUsd6)}</span>}
+      {v.volume24hUsd6 && <span>24h vol {fmtCompact(v.volume24hUsd6)}</span>}
+      {v.liquidityUsd6 && <span>Liquidity {fmtCompact(v.liquidityUsd6)}</span>}
+      {v.gapBps != null && <span>{gapText(v.gapBps)}</span>}
+      {!v.tradable && <span className="venue-why">{v.feeBps != null ? `Too thin: a $5 buy costs ${fmtBps(v.feeBps)}` : "No price right now"}</span>}
+    </span>)}
+  </span>;
+}
 
 type Mix = "suggested" | "even" | "maker";
 /** "$50" for whole dollars, "$8.04" otherwise: chips read faster without ".00". */
@@ -360,7 +383,7 @@ export function Confirm({ id }: { id: string }) {
     if (inFlight.current) return; // a double tap must not send a second save
     inFlight.current = true; setBusy(true); setErr(null);
     try {
-      // Rows you'd unticked before are back in play: $0 now means "not this time" (D40).
+      // Rows you'd unticked before are back in play: $0 now means "not this time" (D43).
       if (allocs.some(a => !a.selected)) await api.deselect(id, []);
       const amounts = ids.map(x => ({ assetId: x, amountUsd6: ((amt[x] ?? 0n) * 10_000n).toString() }));
       const { action } = await api.confirm(id, amounts);
@@ -497,8 +520,8 @@ export function Confirm({ id }: { id: string }) {
         </div></section>}
         <button className="disclose" aria-expanded={why} onClick={() => setWhy(!why)}>How we chose these <ChevronDown size={16} /></button>
         {why && <div className="why">
-          {data.analysis ? <p>{data.analysis.cached ? "Answered earlier by the jury for this product: " : "Three private AI jurors on 0G answered on their own, then a judge merged them: "}{data.analysis.jurors.map(j => `${j.model}${j.ok ? "" : " (no answer)"}`).join(", ") || "seed list"}. Code checked every name against the token registry; only verified tokens with a live Jupiter route can be bought.</p>
-            : <p>Matched from the company registry. Only verified tokens with a live Jupiter route can be bought.</p>}
+          {data.analysis ? <p>{data.analysis.cached ? "Answered earlier by the jury for this product: " : "Three private AI jurors on 0G answered on their own, then a judge merged them: "}{data.analysis.jurors.map(j => `${j.model}${j.ok ? "" : " (no answer)"}`).join(", ") || "seed list"}. Code checked every name against the token registry; Ownback checks every venue's token and only offers ones a $5 buy can get at a fair price.</p>
+            : <p>Matched from the company registry. Ownback checks every venue's token and only offers ones a $5 buy can get at a fair price.</p>}
           {!!data.ogRequestIds.length && <p className="mono">AI request ID: {data.ogRequestIds.map(x => `${x.slice(0, 4)}…${x.slice(-3)}`).join(", ")}</p>}
           {!data.ogRequestIds.length && data.source === "typed" && <p className="sub">Typed entry — matched from the company registry (no receipt AI read).</p>}
         </div>}

@@ -38,6 +38,16 @@ export function verifiedMint(assetId: string, chain: string) {
   return m;
 }
 
+/** Every verified mint of an asset on a chain (several issuers/venues), primary first. */
+export function verifiedMints(assetId: string, chain: string) {
+  return getAsset(assetId)?.mints.filter((x) => x.chain === chain && x.verified) ?? [];
+}
+
+/** The verified mint with this address, if it belongs to the asset. */
+export function verifiedMintByAddress(assetId: string, chain: string, mint: string) {
+  return verifiedMints(assetId, chain).find((m) => m.mint === mint);
+}
+
 /** `{ icon }` for an asset's verified Solana token logo, or `{}` (spread into API rows). Display only. */
 export function iconField(assetId: string): { icon?: string } {
   const icon = verifiedMint(assetId, 'solana')?.icon;

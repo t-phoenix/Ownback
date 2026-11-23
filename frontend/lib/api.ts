@@ -112,7 +112,9 @@ export type DetailItem = { name: string; brand?: string | null; model?: string |
 export type PurchaseDetails = { merchant?: string | null; date?: string | null; currency: string; subtotal?: string | null; tax?: string | null; total: string; items: DetailItem[] };
 export type DetailField = "merchant" | "date" | "currency" | "total" | "items";
 /** D30 jury row: only `buyable` rows can get money. */
-export type JuryRow = { name: string; ticker?: string; role?: string; why: string; agree: number; of: number; status: "buyable" | "tokenized_unverified" | "not_onchain" | "private"; assetId?: string; symbol?: string };
+/** D43: one token of an asset (xStocks, Ondo…). Stats are display only. */
+export type VenueStat = { symbol: string; issuer: string; tradable: boolean; feeBps: number | null; priceUsd6?: Usd6; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6; gapBps?: number };
+export type JuryRow = { name: string; ticker?: string; role?: string; why: string; agree: number; of: number; status: "buyable" | "tokenized_unverified" | "not_onchain" | "private"; assetId?: string; symbol?: string; venues?: VenueStat[] };
 export type Analysis = { productType: "physical" | "digital" | "service" | "cpg" | null; category: string | null; parent: JuryRow | null; enablers: JuryRow[]; commodities: JuryRow[]; jurors: { model: string; persona: string; ok: boolean }[]; cached: boolean };
 export type Purchase = { id: string; status: PurchaseStatus; source: string; steps: ReadStep[]; receipt?: { shop: string; place?: string; date: string; items: string[]; local: { amount: string; currency: string }; fxRate: string; amountUsd6: Usd6 }; details?: Partial<PurchaseDetails> & { missing?: DetailField[] }; analysis?: Analysis; investUsd6?: Usd6; rateBps?: number; split?: { maker: number; behind: number; materials: number }; allocations: Allocation[]; ogRequestIds: string[]; readError?: ReadError; limit?: { usedUsd6: Usd6; capUsd6: Usd6; leftUsd6: Usd6 } };
 export type Receipts = { stats: { count: number; spentUsd6: Usd6; putToWorkUsd6: Usd6 }; groups: { month: string; rows: ReceiptRow[] }[]; nextCursor: string | null };

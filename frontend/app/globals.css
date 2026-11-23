@@ -954,6 +954,11 @@ svg.spin { animation: spin .8s linear infinite; }
 .ticker { font-weight: 500; color: var(--muted); font-size: 13px; }
 .jury-why { display: block; margin-top: 3px; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
 .jury-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.venues { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.venue { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; line-height: 1.35; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.venue b { color: var(--ink); font-weight: 600; }
+.venue.off { opacity: .7; }
+.venue-why { color: var(--ink-2); font-style: italic; }
 .jury-badge { padding: 2px 8px; border-radius: 99px; background: var(--paper-2); color: var(--muted); font-size: 12px; font-weight: 600; }
 .jury-badge.on { background: var(--soft); color: var(--on-soft); }
 .agree { padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 600; }
