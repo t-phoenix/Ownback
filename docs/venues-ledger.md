@@ -1,6 +1,6 @@
 # Venues ledger
 
-Living list of **buy venues** Ownback may use. AI (match / buy-review) must re-check every quote against this ledger + live chain data. **Never invent mints.** A row is usable only when `verified = ✓` (A1: issuer + index + on-chain).
+Living list of **buy venues** Ownback may use. AI (match / buy-review) must re-check every quote against this ledger + live chain data. **Never invent mints.** A row is usable only when `verified = ✓` (D43: the issuer's list names the mint and it reads on-chain; tradable = a live $5 quote within the fee cap). Each token is its own asset (D45).
 
 ## How we pick a venue (runtime)
 

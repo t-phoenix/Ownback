@@ -1,6 +1,6 @@
 # Asset expansion plan: more issuers on the same Jupiter venue
 
-Status: **proposal** (11 Nov). Nothing here is built. Open questions are O9–O10 in [docs/03](03-decisions-and-open-questions.md#still-open).
+Status: **partly built** (23 Nov): Ondo on Solana is live, each token as its own asset (D43, D45 in docs/03); Backpack and other issuers are still proposals. Originally a proposal (11 Nov). Open questions are O9–O10 in [docs/03](03-decisions-and-open-questions.md#still-open).
 
 ## Why TSMC and SK hynix showed "not on-chain yet" (fixed 11 Nov)
 
