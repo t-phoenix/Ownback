@@ -8,6 +8,7 @@ import { createPublicClient, decodeEventLog, encodeFunctionData, http, parseAbi,
 import { getSql } from '../db/client.js';
 import { CCTP, USDC } from '../shared/chains.js';
 import { ApiError } from '../shared/errors.js';
+import { jarIdsOf } from '../shared/assets.js';
 import { arcChain, getKeeperWalletClient } from './keeper.js';
 import { fetchAttestation, receiveOnSolana } from './cctp.js';
 import { usdcAtaBytes32 } from './solana-ata.js';
@@ -144,12 +145,16 @@ export async function advanceBatch(id: string): Promise<void> {
   }
 }
 
-/** Book a filled swap against the user's jars, oldest first. Never touches more than was spent. */
+/**
+ * Book a filled swap against the user's jars, oldest first. Never touches more than was spent.
+ * D46: jars belong to the company, so a buy of any of its tokens (AAPLx or AAPLon) fills from the company's jar.
+ */
 export async function debitJars(userId: string, assetId: string, spent: bigint): Promise<void> {
   const sql = getSql();
+  const ids = jarIdsOf(assetId);
   const rows = await sql<{ id: string; left: bigint }[]>`
     SELECT a.id, (a.saved_usd6 - a.bought_usd6) AS left FROM allocations a JOIN purchases p ON p.id = a.purchase_id
-    WHERE p.user_id = ${userId}::uuid AND p.status = 'saved' AND a.asset_id = ${assetId} AND a.selected = true
+    WHERE p.user_id = ${userId}::uuid AND p.status = 'saved' AND a.asset_id = ANY(${ids}) AND a.selected = true
       AND a.saved_usd6 > a.bought_usd6
     ORDER BY p.created_at ASC
   `;

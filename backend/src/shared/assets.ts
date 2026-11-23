@@ -48,6 +48,12 @@ export function tokenAssetsOf(companyId: string, chain: string): AssetDef[] {
   return assetsOfCompany(companyId).filter((a) => a.mints.some((m) => m.chain === chain && m.verified));
 }
 
+/** D46: every asset id a company's jar money can sit under (the company id, plus any token id saved before D46). */
+export function jarIdsOf(assetId: string): string[] {
+  const company = companyOf(assetId);
+  return [...new Set([company, ...assetsOfCompany(company).map((a) => a.assetId)])];
+}
+
 /** `{ icon }` for an asset's verified Solana token logo, or `{}` (spread into API rows). Display only. */
 export function iconField(assetId: string): { icon?: string } {
   const icon = verifiedMint(assetId, 'solana')?.icon;

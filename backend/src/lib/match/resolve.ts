@@ -171,8 +171,9 @@ export async function resolveRow(
   const named = { ...base, name: kind === 'company' ? hit.name : row.name, assetId: hit.assetId, ...(hit.ticker ? { ticker: hit.ticker } : {}) };
   const b = await check(hit.assetId);
   const venues = b.venues?.length ? { venues: b.venues } : {};
-  // D45: a buyable row points at the best token's own asset (the jar's default); the user can pick another on Confirm.
-  if (b.buyable && b.symbol) return { ...named, assetId: b.assetId, status: 'buyable', symbol: b.symbol, ...venues };
+  // D46: a company is buyable when at least one of its tokens is; its jar is the company (`co:apple`), and the
+  // token is chosen at buy time. `symbol` is the best token today, for display.
+  if (b.buyable && b.symbol) return { ...named, status: 'buyable', symbol: b.symbol, ...venues };
   return { ...named, status: hit.tokenized || b.mint ? 'tokenized_unverified' : 'not_onchain', ...venues };
 }
 

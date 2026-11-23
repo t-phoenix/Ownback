@@ -13,7 +13,9 @@ import { mockChain } from '../lib/env.js';
 import { assertIdempotencyKey, jsonError, mockEvmAction, requireCsrf, requireUser, withIdempotency } from '../lib/http.js';
 import { newId } from '../lib/ids.js';
 import { readAssetFromArkiv } from '../lib/arkiv/read-asset.js';
-import { iconField, verifiedMint } from '../shared/assets.js';
+import { companyOf, iconField, tokenAssetsOf, verifiedMint } from '../shared/assets.js';
+import { getCatalogCompany } from '../lib/registry/catalog.js';
+import { gapBps, refPrices, tokenStats } from '../lib/token-stats.js';
 import { buySwapCostUsd6, jupiterBuyQuote, jupiterPriceUsd6, priceUsd6FromBuyQuote, rawToQty, routeFeeUsd6, valueUsd6 } from '../lib/jupiter-price.js';
 import { buildUserSwap, relayConfigured, submitSigned, tokenBalanceRaw, tokenDeltaInTx } from '../lib/jupiter-swap.js';
 import {
@@ -70,7 +72,14 @@ jarsBuysRoutes.get('/jars', async (c) => {
       GROUP BY a.asset_id, a.role
       HAVING COALESCE(SUM(a.saved_usd6 - a.bought_usd6), 0) > 0
     `;
-    const jars = await Promise.all(rows.map(async (r) => {
+    // D46: one jar per company and role; money saved to a token id before D46 joins its company's jar.
+    const folded = new Map<string, { asset_id: string; role: string; amt: bigint }>();
+    for (const r of rows) {
+      const id = companyOf(r.asset_id);
+      const cur = folded.get(`${id}|${r.role}`);
+      folded.set(`${id}|${r.role}`, { asset_id: id, role: r.role, amt: (cur?.amt ?? 0n) + BigInt(r.amt) });
+    }
+    const jars = await Promise.all([...folded.values()].map(async (r) => {
       const amt = BigInt(r.amt);
       // Price of one token (one share for xStocks); only for verified mints, never invented.
       const mint = verifiedMint(r.asset_id, 'solana');
@@ -149,58 +158,92 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
   if (!rules[0]) throw new ApiError('VALIDATION', { reason: 'no_rules' });
   const readyMin = BigInt(rules[0].ready_min_usd6);
   const maxFeeBps = Number(rules[0].max_fee_bps);
-  const jars = new Map(jarRows.map((r) => [r.asset_id, BigInt(r.amt)]));
+  const jars = new Map<string, bigint>();
+  for (const r of jarRows) jars.set(companyOf(r.asset_id), (jars.get(companyOf(r.asset_id)) ?? 0n) + BigInt(r.amt)); // D46
   // Typed amounts scope the review to those assets only (one jar tap → one row). Empty amounts = all ready / all jars.
   const ids =
     amounts.size > 0
       ? [...new Set([...amounts.keys()].filter((k) => jars.has(k) || Boolean(verifiedMint(k, 'solana'))))]
-      : jarRows
-          .filter((r) => include === 'all' || jarState(BigInt(r.amt), readyMin) === 'ready')
-          .map((r) => r.asset_id);
+      : [...jars].filter(([, amt]) => include === 'all' || jarState(amt, readyMin) === 'ready').map(([id]) => id);
   if (!ids.length) throw new ApiError('NO_READY_JARS');
 
   const now = new Date().toISOString();
+  // D46: a company jar can buy any of the company's tokens; a Markets buy (or a tapped token) buys that token only.
+  const tokensFor = (id: string) => {
+    if (source === 'market' || id !== companyOf(id)) return [id];
+    const all = tokenAssetsOf(id, 'solana').map((a) => a.assetId);
+    return all.length ? all : [id];
+  };
+  const allTokens = [...new Set(ids.flatMap(tokensFor))];
+  const mintsAll = allTokens.map((t) => verifiedMint(t, 'solana')?.mint).filter((m): m is string => !!m);
+  const tickers = [...new Set(allTokens.map((t) => getCatalogCompany(companyOf(t))?.ticker).filter((t): t is string => !!t))];
+  // Display stats for every token in one batched call each (no per-row requests).
+  const statsP = Promise.all([tokenStats(mintsAll), refPrices(tickers)]).catch(() => [new Map(), new Map()] as const);
+  const fee = ownbackFee();
+
+  /** Exact quote for one token at this size (D44 fee included), its measured cost, and its market numbers. */
+  const option = async (token: string, spend: bigint) => {
+    const mint = verifiedMint(token, 'solana');
+    const own = ownbackFeeUsd6(spend);
+    const [quote, oracle, arkiv, [stats, refs]] = await Promise.all([
+      mint ? jupiterBuyQuote(mint.mint, spend, 100, undefined, fee?.bps) : null,
+      mint ? jupiterPriceUsd6(mint.mint) : null,
+      readAssetFromArkiv(token, 'solana').catch(() => null),
+      statsP,
+    ]);
+    const outRaw = quote ? BigInt(quote.outAmount) : 0n;
+    const priceUsd6 = mint && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
+    // Measured round trip on what actually reaches the pool (docs/05); the reference-price gap only as a fallback.
+    const swapped = spend - own;
+    const measured = mint && outRaw > 0n ? await buySwapCostUsd6(mint.mint, swapped, outRaw) : null;
+    const routeFee = measured ?? (mint && oracle ? routeFeeUsd6(swapped, valueUsd6(outRaw, mint.decimals, asUsd6(oracle))) : 0n);
+    const fees = buildFees([{ label: 'Jupiter route', usd6: routeFee }, ...(own > 0n ? [{ label: 'Ownback fee', usd6: own }] : [])], spend, maxFeeBps, false);
+    const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(routeFee + own, spend, maxFeeBps);
+    const st = mint ? stats.get(mint.mint) : undefined;
+    const ticker = getCatalogCompany(companyOf(token))?.ticker;
+    const gap = gapBps(st?.priceUsd6 ?? null, ticker ? refs.get(ticker) : undefined);
+    return {
+      assetId: token,
+      ...(mint ? { token: mint.symbol, mint: mint.mint, decimals: mint.decimals, issuer: mint.issuer } : {}),
+      ...iconField(token),
+      chain: 'solana' as const,
+      venue: 'jupiter' as const,
+      price: { usd6PerUnit: toUsd6(priceUsd6), at: now, source: 'jupiter' as const },
+      refPriceUsd6: toUsd6(oracle ?? 0n),
+      estQty: mint && outRaw > 0n ? rawToQty(outRaw, mint.decimals) : '0',
+      // Worst case after slippage protection: the swap fails rather than give less.
+      minQty: mint && quote ? rawToQty(BigInt(quote.otherAmountThreshold), mint.decimals) : '0',
+      fees,
+      selectable,
+      ...(selectable ? {} : { reason: (mint ? 'fees_high' : 'no_venue') as 'fees_high' | 'no_venue' }),
+      ...(arkiv ? { arkiv } : {}),
+      ...(st?.mcapUsd6 ? { mcapUsd6: toUsd6(st.mcapUsd6) } : {}),
+      ...(st?.volume24hUsd6 ? { volume24hUsd6: toUsd6(st.volume24hUsd6) } : {}),
+      ...(st?.liquidityUsd6 ? { liquidityUsd6: toUsd6(st.liquidityUsd6) } : {}),
+      ...(gap != null ? { gapBps: gap } : {}),
+    };
+  };
+
   const rows = await Promise.all(
     ids.map(async (assetId) => {
       const jarAmt = asUsd6(jars.get(assetId) ?? 0n);
       const spend = asUsd6(amounts.get(assetId) ?? jarAmt);
-      // D45: one token per asset. Everything a row needs starts at once (speed); only the round-trip cost waits.
-      const mint = verifiedMint(assetId, 'solana');
-      const fee = ownbackFee();
-      const own = ownbackFeeUsd6(spend);
-      const [quote, oracle, arkiv] = await Promise.all([
-        // Quoted with our fee (D44) so tokens out and the minimum are exactly what the swap gives.
-        mint ? jupiterBuyQuote(mint.mint, spend, 100, undefined, fee?.bps) : null,
-        mint ? jupiterPriceUsd6(mint.mint) : null,
-        readAssetFromArkiv(assetId, 'solana').catch(() => null),
-      ]);
-      const outRaw = quote ? BigInt(quote.outAmount) : 0n;
-      const priceUsd6 = mint && outRaw > 0n ? priceUsd6FromBuyQuote(spend, outRaw, mint.decimals) : 0n;
-      // Measured round trip on what actually reaches the pool (docs/05); the reference-price gap only as a fallback.
-      const swapped = spend - own;
-      const measured = mint && outRaw > 0n ? await buySwapCostUsd6(mint.mint, swapped, outRaw) : null;
-      const routeFee = measured ?? (mint && oracle ? routeFeeUsd6(swapped, valueUsd6(outRaw, mint.decimals, asUsd6(oracle))) : 0n);
-      const fees = buildFees([{ label: 'Jupiter route', usd6: routeFee }, ...(own > 0n ? [{ label: 'Ownback fee', usd6: own }] : [])], spend, maxFeeBps, false);
-      const selectable = Boolean(mint) && outRaw > 0n && feeWithinCap(routeFee + own, spend, maxFeeBps);
+      const options = await Promise.all(tokensFor(assetId).map((t) => option(t, spend)));
+      const recommended = pickRecommended(options);
+      // A token the user named (Markets, a holding's Buy more) stays chosen when it can be bought.
+      const named = assetId !== companyOf(assetId) || source === 'market' ? options.find((o) => o.assetId === assetId && o.selectable) : undefined;
+      const chosen = named ?? options.find((o) => o.assetId === recommended) ?? options[0]!;
       return {
+        ...chosen,
         assetId,
-        name: assetDisplayName(assetId),
-        ...iconField(assetId),
+        name: assetDisplayName(companyOf(assetId)),
+        ...iconField(chosen.assetId),
         amountUsd6: toUsd6(spend),
         jarAmountUsd6: toUsd6(jarAmt),
         suggestedUsd6: toUsd6(jarAmt),
-        ...(mint ? { token: mint.symbol, mint: mint.mint, decimals: mint.decimals, issuer: mint.issuer } : {}),
-        chain: 'solana' as const,
-        venue: 'jupiter' as const,
-        price: { usd6PerUnit: toUsd6(priceUsd6), at: now, source: 'jupiter' as const },
-        refPriceUsd6: toUsd6(oracle ?? 0n),
-        estQty: mint && outRaw > 0n ? rawToQty(outRaw, mint.decimals) : '0',
-        // Worst case after slippage protection: the swap fails rather than give less.
-        minQty: mint && quote ? rawToQty(BigInt(quote.otherAmountThreshold), mint.decimals) : '0',
-        fees,
-        selectable,
-        ...(selectable ? {} : { reason: (mint ? 'fees_high' : 'no_venue') as 'fees_high' | 'no_venue' }),
-        ...(arkiv ? { arkiv } : {}),
+        tokenAssetId: chosen.assetId,
+        ...(recommended ? { recommended } : {}),
+        options: options.map((o) => ({ ...o, recommended: o.assetId === recommended })),
       };
     }),
   );
@@ -217,7 +260,12 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
   const expiresAt = new Date(Date.now() + QUOTE_REFRESH_MS).toISOString();
   await sql`
     INSERT INTO quotes (id, user_id, payload, expires_at)
-    VALUES (${quoteId}::uuid, ${user.id}::uuid, ${sql.json({ rows: picked.map((r) => ({ assetId: r.assetId, amountUsd6: r.amountUsd6 })), totalUsd6: total.toString(), source } as never)}, ${new Date(expiresAt)})
+    VALUES (${quoteId}::uuid, ${user.id}::uuid, ${sql.json({
+      // D46: `token` is the default token for this jar; `choices` are the tokens the buyer may switch to.
+      rows: picked.map((r) => ({ assetId: r.assetId, amountUsd6: r.amountUsd6, token: r.tokenAssetId, choices: r.options.filter((o) => o.selectable).map((o) => o.assetId) })),
+      totalUsd6: total.toString(),
+      source,
+    } as never)}, ${new Date(expiresAt)})
   `;
   return {
     quoteId,
@@ -230,6 +278,34 @@ export async function buildBuyReview(user: User, include: 'all' | 'ready', amoun
     network: { ...(arcGas != null ? { arcUsd6: toUsd6(arcGas) } : {}), solanaPaidBy: 'ownback' as const },
     destination: user.solAddress ?? '',
   };
+}
+
+/** D46: cheapest all-in (route + Ownback fee) buyable token; more liquidity breaks a tie. Pure; exported for tests. */
+export function pickRecommended(options: { assetId: string; selectable: boolean; fees: { totalUsd6: string }; liquidityUsd6?: string }[]): string | undefined {
+  const ok = options.filter((o) => o.selectable);
+  const liq = (o: (typeof ok)[number]) => BigInt(o.liquidityUsd6 ?? '0');
+  ok.sort((a, b) => {
+    const d = BigInt(a.fees.totalUsd6) - BigInt(b.fees.totalUsd6);
+    return d < 0n ? -1 : d > 0n ? 1 : liq(b) > liq(a) ? 1 : liq(b) < liq(a) ? -1 : 0;
+  });
+  return ok[0]?.assetId;
+}
+
+/**
+ * D46: the token each jar buys. The buyer's pick wins only when it was one of that jar's buyable choices in the
+ * signed-off review; otherwise the default. Returns rows keyed by the token bought. Pure; exported for tests.
+ */
+export function pickTokens(
+  rows: { assetId: string; amountUsd6: string; token?: string; choices?: string[] }[],
+  tokens: Record<string, string> = {},
+): { assetId: string; jarId: string; amountUsd6: string }[] {
+  const out = rows.map((r) => {
+    const want = tokens[r.assetId];
+    if (want && !(r.choices ?? []).includes(want)) throw new ApiError('VALIDATION', { reason: 'token_not_offered', assetId: r.assetId });
+    return { assetId: want ?? r.token ?? r.assetId, jarId: r.assetId, amountUsd6: r.amountUsd6 };
+  });
+  if (new Set(out.map((r) => r.assetId)).size !== out.length) throw new ApiError('VALIDATION', { reason: 'same_token_twice' });
+  return out;
 }
 
 function parseAmountMap(obj: Record<string, string> | undefined): Map<string, bigint> {
@@ -274,16 +350,17 @@ jarsBuysRoutes.post('/buys', async (c) => {
     requireCsrf(c);
     const user = await requireUser(c);
     const key = assertIdempotencyKey(c);
-    const body = z.object({ quoteId: z.string().uuid() }).parse(await c.req.json());
+    // D46: `tokens` = { jarId: tokenAssetId } for jars where the buyer picked another token than the default.
+    const body = z.object({ quoteId: z.string().uuid(), tokens: z.record(z.string()).optional() }).parse(await c.req.json());
     const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
     const out = await withIdempotency(user.id, key, hash, async () => {
       const sql = getSql();
-      const q = await sql<{ payload: { rows: { assetId: string; amountUsd6: string }[]; totalUsd6: string; source?: 'jar' | 'market' }; expires_at: Date }[]>`
+      const q = await sql<{ payload: { rows: { assetId: string; amountUsd6: string; token?: string; choices?: string[] }[]; totalUsd6: string; source?: 'jar' | 'market' }; expires_at: Date }[]>`
         SELECT payload, expires_at FROM quotes WHERE id = ${body.quoteId}::uuid AND user_id = ${user.id}::uuid
       `;
       if (!q[0]) throw new ApiError('NOT_FOUND');
       if (q[0].expires_at.getTime() < Date.now()) throw new ApiError('QUOTE_EXPIRED');
-      const rows = q[0].payload.rows.filter((r) => BigInt(r.amountUsd6) > 0n);
+      const rows = pickTokens(q[0].payload.rows.filter((r) => BigInt(r.amountUsd6) > 0n), body.tokens);
       if (!rows.length) throw new ApiError('NOTHING_TO_BUY');
       const total = rows.reduce((s, r) => s + BigInt(r.amountUsd6), 0n);
       const batchId = newId();
