@@ -330,6 +330,8 @@ function Venues({ venues }: { venues?: VenueStat[] }) {
       {v.mcapUsd6 && <span>Market cap {fmtCompact(v.mcapUsd6)}</span>}
       {v.volume24hUsd6 && <span>24h vol {fmtCompact(v.volume24hUsd6)}</span>}
       {v.liquidityUsd6 && <span>Liquidity {fmtCompact(v.liquidityUsd6)}</span>}
+      {v.exchanges != null && v.exchanges > 0 && <span>{v.exchanges} exchange{v.exchanges === 1 ? "" : "s"}</span>}
+      {v.thin && <span className="venue-why">Thin market</span>}
       {v.gapBps != null && <span>{gapText(v.gapBps)}</span>}
       {v.tradable && v.feeBps != null && <span>Cost {fmtBps(v.feeBps)} on $5</span>}
       {!v.tradable && <span className="venue-why">{v.feeBps != null ? `Too thin: a $5 buy costs ${fmtBps(v.feeBps)}` : "No price right now"}</span>}

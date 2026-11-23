@@ -108,7 +108,7 @@ export function sparkPoints(values: Usd6[], w = 48, h = 20): string {
   return nums.map((n, i) => `${((i / (nums.length - 1)) * w).toFixed(1)},${(h - 2 - ((n - min) / span) * (h - 4)).toFixed(1)}`).join(" ");
 }
 
-/** D39: a priced asset whose top pool holds under $10K (or reports none) is a thin market. */
+/** D39/D47: a priced asset holding under $10K across all exchanges (or reporting none) is a thin market. */
 export const THIN_LIQ_USD6 = 10_000_000_000n;
 export const isThin = (i: { priceUsd6: Usd6 | null; liquidityUsd6: Usd6 | null }) =>
   i.priceUsd6 != null && (big(i.liquidityUsd6) ?? 0n) < THIN_LIQ_USD6;

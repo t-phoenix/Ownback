@@ -18,6 +18,7 @@ import { isNoopAction, signAction, type StepUpdate } from "../../lib/sign-action
 import { assetName, toneFor } from "../../lib/assets";
 import { fmtUsd6 } from "../../lib/money";
 import { ChainTag, IssuerTag, RouteTags, TagLegend, TOKENIZERS, VENUES, VenueTag } from "../venue-tags";
+import { BEST, CompareExchanges, ExchangeLine, type ExchangePick } from "../compare-exchanges";
 import { ago, change, estQty, fmtBps, fmtCompact, fmtFee, fmtPrice, filterMarkets, isStale, isThin, loadStarred, pctOfUsd6, qtyValueUsd6, saveStarred, signedUsd, sortMarkets, sparkPoints, usMarketCopy } from "../../lib/markets";
 import { FlowHead } from "./home";
 import { ArcPlan, dollarsToUsd6, usd6ToDollarsInput } from "./buy";
@@ -162,7 +163,7 @@ export function Markets() {
           if (e.key === "Enter" && selected) navigate(open(selected.assetId));
         }}>
         <table className="mk-table">
-          <thead><tr><th className="mk-star-col"><span className="sr-only">Star</span></th><th>Asset</th><th className="r">Price</th><th className="r">24h</th><th className="r">24h trend</th><th className="r">Liquidity</th><th className="r">Your position</th></tr></thead>
+          <thead><tr><th className="mk-star-col"><span className="sr-only">Star</span></th><th>Asset</th><th className="r">Price</th><th className="r">24h</th><th className="r">24h trend</th><th className="r">Liquidity</th><th className="r">24h volume</th><th className="r">Your position</th></tr></thead>
           <tbody>{shown.map(i => { const name = assetName(i.assetId, i.name); const stale = isStale(i.priceAt); return <tr key={i.assetId} data-id={i.assetId} ref={observe} className={selected?.assetId === i.assetId ? "sel" : ""}
             onClick={() => { setSel(i.assetId); prefetchAsset(i.assetId); }} onDoubleClick={() => navigate(open(i.assetId))} onMouseEnter={() => prefetchAsset(i.assetId)}>
             <td className="mk-star-col"><button className={`mk-star ${starred.has(i.assetId) ? "on" : ""}`} aria-label={starred.has(i.assetId) ? `Unstar ${name}` : `Star ${name}`} aria-pressed={starred.has(i.assetId)} onClick={e => { e.stopPropagation(); star(i.assetId); }}><Star size={16} /></button></td>
@@ -170,7 +171,8 @@ export function Markets() {
             <td className={`r num ${stale || isThin(i) ? "muted" : ""}`}>{fmtPrice(i.priceUsd6)}</td>
             <td className="r"><Pill bps={i.change24hBps} /></td>
             <td className="r"><Spark values={i.spark} up={i.change24hBps == null ? null : i.change24hBps >= 0} /></td>
-            <td className="r num">{fmtCompact(i.liquidityUsd6)}</td>
+            <td className="r num" title={i.exchanges != null ? `Across ${i.exchanges} exchange${i.exchanges === 1 ? "" : "s"}` : undefined}>{fmtCompact(i.liquidityUsd6)}</td>
+            <td className="r num">{i.volume24hUsd6 ? fmtCompact(i.volume24hUsd6) : <span className="muted">—</span>}</td>
             <td className="r num">{i.positionUsd6 ? fmtUsd6(i.positionUsd6) : <span className="muted">—</span>}</td>
           </tr>; })}</tbody>
         </table>
@@ -180,7 +182,7 @@ export function Markets() {
     </div> : <div className="card list mk-list">
       {shown.map(i => { const name = assetName(i.assetId, i.name); const stale = isStale(i.priceAt); return <button key={i.assetId} data-id={i.assetId} ref={observe} className="row mk-row" onClick={() => navigate(open(i.assetId))} onTouchStart={() => prefetchAsset(i.assetId)}>
         <Monogram name={name} icon={i.icon} tone={toneFor(i.assetId)} size={36} />
-        <span className="row-main"><span className="row-title">{name} <IssuerTag issuer={i.issuer} /></span><span className="row-sub">{i.token}{i.priceUsd6 == null ? " · No live price" : isThin(i) ? <> · <span className="mk-thin">{copy.thin}</span></> : stale ? ` · ${ago(i.priceAt)}` : ""}</span></span>
+        <span className="row-main"><span className="row-title">{name} <IssuerTag issuer={i.issuer} /></span><span className="row-sub">{i.token}{i.priceUsd6 == null ? " · No live price" : isThin(i) ? <> · <span className="mk-thin">{copy.thin}</span></> : stale ? ` · ${ago(i.priceAt)}` : i.exchanges ? ` · ${i.exchanges} exchange${i.exchanges === 1 ? "" : "s"}` : ""}</span></span>
         <Spark values={i.spark} up={i.change24hBps == null ? null : i.change24hBps >= 0} />
         <span className="row-end"><span className={`row-value num ${stale || isThin(i) ? "muted" : ""}`}>{fmtPrice(i.priceUsd6)}</span><Pill bps={i.change24hBps} /></span>
       </button>; })}
@@ -206,6 +208,8 @@ function Preview({ item }: { item: MarketItem }) {
       {d.data?.position && <><div><dt>You own</dt><dd className="num">{d.data.position.qty} · {fmtUsd6(d.data.position.valueUsd6)}</dd></div>
         {d.data.position.pnlUsd6 != null && (() => { const s = signedUsd(d.data.position.pnlUsd6); return s ? <div><dt>Return</dt><dd className={`num ${s.cls}`}>{s.text}</dd></div> : null; })()}</>}
       <div><dt>Liquidity</dt><dd className="num">{fmtCompact(item.liquidityUsd6)}</dd></div>
+      {item.volume24hUsd6 && <div><dt>24h volume</dt><dd className="num">{fmtCompact(item.volume24hUsd6)}</dd></div>}
+      {item.exchanges != null && <div><dt>Exchanges</dt><dd className="num">{item.exchanges}</dd></div>}
     </dl>
     <div className="dock-row">
       {item.held && <button className="button secondary" onClick={() => navigate(`${open(item.assetId)}?trade=sell`)}>Sell</button>}
@@ -302,10 +306,21 @@ export function MarketAsset({ id, trade, trades }: { id: string; trade?: "buy" |
     <div><span>Liquidity</span><b className="num">{fmtCompact(md.liquidityUsd6)}</b></div>
     <div><span>24h volume</span><b className="num">{fmtCompact(md.volume24hUsd6)}</b></div>
     <div><span>Issuer</span><b><IssuerTag issuer={md.issuer} /></b></div>
-    <div><span>Trades on</span><b><VenueTag venue="jupiter" /></b></div>
+    <div><span>Routed by</span><b><VenueTag venue="jupiter" /></b></div>
     <div className="wide"><span>Mint</span><button className="mono mk-copy" onClick={() => navigator.clipboard?.writeText(md.mint).catch(() => {})} aria-label="Copy mint address">{md.mint.slice(0, 4)}…{md.mint.slice(-4)} <Copy size={13} /></button></div>
     <div><span>Decimals</span><b className="num">{md.decimals}</b></div>
     <div><span>Chain</span><b><ChainTag chain="solana" /></b></div>
+  </section>;
+
+  // D47: every exchange this token trades on; liquidity and volume above are their sum.
+  const exchanges = md && (md.exchanges?.length ?? 0) > 0 && <section className="block">
+    <div className="block-head"><h2 className="h-section">Exchanges</h2></div>
+    <div className="card exch-table">{md.exchanges!.map(e => <div key={e.key} className="exch-row">
+      <span><VenueTag venue={e.key} /> <span className="muted">{e.pools} pool{e.pools === 1 ? "" : "s"}</span></span>
+      <b className="num">{e.priceUsd6 ? fmtPrice(e.priceUsd6) : "—"}</b>
+      <span className="sub">Liquidity {fmtCompact(e.liquidityUsd6)} · 24h vol {fmtCompact(e.volume24hUsd6)}{e.quotable ? "" : " · best route only"}</span>
+    </div>)}</div>
+    <p className="fineprint">Liquidity and volume count pools paired with USDC, USDT or SOL holding at least $1,000. Buys use the best price across all of them unless you pick one.{md.chartPool ? <> Chart: deepest pool on <a className="link-inline" href={md.chartPool.url} target="_blank" rel="noreferrer">{md.chartPool.dex} <ExternalLink size={12} /></a>.</> : null}</p>
   </section>;
 
   const about = md && <section className="mk-about">
@@ -319,7 +334,7 @@ export function MarketAsset({ id, trade, trades }: { id: string; trade?: "buy" |
       {md.recent.length > RECENT_SHOWN && <button className="link" onClick={() => setAllTrades(true)}>View all {md.recent.length} <ChevronRight size={15} /></button>}</div>
     <div className="card list">{md.recent.slice(0, RECENT_SHOWN).map((t, i) => <button key={i} className="row" onClick={() => navigate(t.link)}>
       <span className="row-main"><span className="row-title">{tradeTitle(t, md.token)}</span>
-        <span className="row-sub">{tradeWhen(t.at)} · {sourceWord[t.source]}{t.priceUsd6 ? ` · at ${fmtPrice(t.priceUsd6)}` : ""}</span></span>
+        <span className="row-sub">{tradeWhen(t.at)} · {sourceWord[t.source]}{t.priceUsd6 ? ` · at ${fmtPrice(t.priceUsd6)}` : ""}{t.exchange ? ` · on ${t.exchange}` : ""}</span></span>
       <span className="row-end"><span className="row-value num">{fmtUsd6(t.amountUsd6)}</span></span><ChevronRight size={16} className="row-chev" />
     </button>)}</div>
     {md.recent.length <= RECENT_SHOWN && <button className="link center" onClick={() => setAllTrades(true)}>Details and explorer links <ChevronRight size={15} /></button>}
@@ -343,6 +358,7 @@ export function MarketAsset({ id, trade, trades }: { id: string; trade?: "buy" |
         <SectionBoundary>{chart}</SectionBoundary>
         {!wide && <SectionBoundary>{position}</SectionBoundary>}
         <SectionBoundary>{stats}</SectionBoundary>
+        <SectionBoundary>{exchanges}</SectionBoundary>
         <SectionBoundary>{about}</SectionBoundary>
         <SectionBoundary>{recent}</SectionBoundary>
         {!md && d.loading && <Skeleton h={160} />}
@@ -375,6 +391,7 @@ function TradeLog({ trades, token, onOpen }: { trades: MarketTrade[]; token: str
       {t.doneAt && <div><dt>Settled</dt><dd>{new Date(t.doneAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</dd></div>}
       {t.priceUsd6 && <div><dt>Price</dt><dd className="num">{fmtPrice(t.priceUsd6)} per {token}</dd></div>}
       <div><dt>Source</dt><dd>{sourceWord[t.source]}</dd></div>
+      <div><dt>Exchange</dt><dd>{t.exchange ?? "Best price (any exchange)"}</dd></div>
     </dl>
     <div className="trade-links">
       {t.txs?.arc && <a className="fineprint" href={t.txs.arc} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Arc explorer</a>}
@@ -456,6 +473,8 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
   const [steps, setSteps] = useState<StepUpdate[]>([]);
   const [err, setErr] = useState<ReactNode>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [ex, setEx] = useState<ExchangePick>(BEST);
+  const [comparing, setComparing] = useState(false);
   const usd6 = dollarsToUsd6(amt);
   const max = bi(d.funds.maxBuyUsd6);
   const local: ReactNode = !amt.trim() ? null
@@ -488,6 +507,7 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
     const code = codeOf(e);
     setPhase("idle"); setArcPlan(null);
     if (code === "QUOTE_EXPIRED" || code === "PRICE_MOVED") { setNote(copy.priceMoved); void quote(); return; }
+    if (code === "VALIDATION" && (e as ApiError).details && ((e as ApiError).details as { reason?: string }).reason === "exchange_not_offered") setEx(BEST);
     setErr(code === "CHALLENGE_FAILED" ? copy.cancelled : code === "KEEPER_DISABLED" ? copy.relayOff : errorCopy(code));
   };
   const go = (batchId: string) => { navigate(`/buy/${batchId}`); refreshAll(); };
@@ -495,7 +515,7 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
     if (!review) return;
     setErr(null); setNote(null); setSteps([]); setPhase("starting");
     try {
-      const start = await api.buy(review.quoteId);
+      const start = await api.buy(review.quoteId, undefined, ex.key !== "best" ? { [review.row.assetId]: ex.key } : undefined);
       if (start.action?.kind === "evm_calls" && !isNoopAction(start.action)) { setArcPlan({ batchId: start.batchId, action: start.action }); setPhase("review"); return; }
       if (start.action) { setPhase("arc"); const s = await signAction(start.action); setPhase("submitting"); await api.buyArcSubmitted(start.batchId, s.txHash!); }
       go(start.batchId);
@@ -534,6 +554,8 @@ function BuyForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null }
         ? `${fmtUsd6((bi(review!.totalUsd6) - bi(review!.funding.bridgeUsd6)).toString())} Solana + ${fmtUsd6(review!.funding.bridgeUsd6)} from Arc` : "Your Solana USDC"}</dd></div>
       <div><dt>Lands in</dt><dd>Your Solana wallet</dd></div>
     </dl>}
+    {!local && row && fresh && row.selectable && <ExchangeLine pick={ex} route={row.route} unit={row.token ?? d.token} disabled={!idle} onOpen={() => setComparing(true)} />}
+    {usd6 && <CompareExchanges open={comparing} onClose={() => setComparing(false)} assetId={d.assetId} side="buy" amount={usd6} token={d.token} value={ex.key} onPick={p => { haptic(5); setEx(p); }} />}
     {feesHigh && <p className="error left" role="alert">{copy.feesOver(fmtBps(row!.fees.pctBps))} <button className="link-inline" onClick={() => navigate("/settings")}>Change fee limit</button></p>}
     {noVenue && <p className="error left" role="alert">{copy.noRoute}</p>}
     {err && <p className="error left" role="alert">{err}</p>}
@@ -575,6 +597,9 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
   const [quoting, setQuoting] = useState(false);
   const [phase, setPhase] = useState<"idle" | "building" | "signing" | "submitting">("idle");
   const [err, setErr] = useState<string | null>(null);
+  const [ex, setEx] = useState<ExchangePick>(BEST);
+  const [comparing, setComparing] = useState(false);
+  const [routeChanged, setRouteChanged] = useState(false);
   const held = d.position?.qty ?? "0";
   const heldUsd6 = d.position?.valueUsd6 ?? "0";
   const typedUsd6 = by === "usd" ? dollarsToUsd6(input) : null;
@@ -606,14 +631,19 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
     : typedUsd6 ? (estQty(typedUsd6, livePrice) ? `≈ ${estQty(typedUsd6, livePrice)} ${d.token}` : null)
     : typedQty ? (qtyValueUsd6(typedQty, livePrice) ? `≈ ${fmtUsd6(qtyValueUsd6(typedQty, livePrice))}` : null) : null;
   const capped = fresh && review && typedUsd6 && review.qty === review.heldQty && BigInt(typedUsd6) > BigInt(review.estUsdcUsd6);
-  const sell = async () => {
+  const sell = async (pick = ex) => {
     if (!review || !fresh) return;
     setErr(null); setPhase("building");
     try {
-      const start = await api.sell(d.assetId, review.qty, "market");
+      const start = await api.sell(d.assetId, review.qty, "market", pick.key);
       if (start.action) { setPhase("signing"); const s = await signAction(start.action); setPhase("submitting"); await api.sellSubmit(start.sellId, s.signedTx!); }
       refreshAll(); navigate(`/sell/${start.sellId}`);
-    } catch (e) { const code = codeOf(e); setErr(code === "CHALLENGE_FAILED" ? copy.cancelled : errorCopy(code)); setPhase("idle"); void quote(); }
+    } catch (e) {
+      const code = codeOf(e); setPhase("idle");
+      if (code === "ROUTE_CHANGED") { setRouteChanged(true); return; }
+      if (code === "VALIDATION") setEx(BEST);
+      setErr(code === "CHALLENGE_FAILED" ? copy.cancelled : errorCopy(code)); void quote();
+    }
   };
   const label = phase === "building" ? "Getting the best route…" : phase === "signing" ? "Approve in wallet…" : phase === "submitting" ? "Confirming on Solana…" : null;
   const pnl = signedUsd(review?.pnlUsd6);
@@ -648,12 +678,21 @@ function SellForm({ d, livePrice }: { d: MarketDetail; livePrice: string | null 
       <CostLines fee={review.fees.totalUsd6} amountUsd6={review.estUsdcUsd6} network={review.network} />
       {pnl && <div><dt>Return on this part</dt><dd className={`num ${pnl.cls}`}>{pnl.text}</dd></div>}
     </dl>}
+    {review && fresh && <ExchangeLine pick={ex} unit="USDC" disabled={phase !== "idle"} onOpen={() => setComparing(true)} />}
+    {review && <CompareExchanges open={comparing} onClose={() => setComparing(false)} assetId={d.assetId} side="sell" amount={review.amountRaw} token={d.token} value={ex.key} onPick={p => { haptic(5); setEx(p.key === "best" ? BEST : { ...p, out: p.out ? fmtUsd6(p.out).replace(/^\$/, "") : undefined }); }} />}
+    <Sheet open={routeChanged} onClose={() => setRouteChanged(false)} title="Route changed">
+      <p className="sub">{ex.label} can't fill this sell at a fair price any more. Nothing was sold.</p>
+      <div className="dock">
+        <button className="button primary full lg" onClick={() => { setRouteChanged(false); setEx(BEST); void sell(BEST); }}>Sell at the best price <ArrowRight size={18} /></button>
+        <button className="button quiet full" onClick={() => setRouteChanged(false)}>Not now</button>
+      </div>
+    </Sheet>
     {err && <p className="error left" role="alert">{err}</p>}
     {review && fresh && phase === "idle" && <div className="live small"><Ring value={(left / QUOTE_EVERY_S) * 100} size={22} stroke={3} /><span>New price in <b className="num">{left} s</b></span></div>}
     <p className="fineprint">{copy.sellNote}</p>
     <div className="dock">
       {label ? <button className="button primary full lg" disabled><Spinner /> {label}</button>
-        : review && fresh ? <ConfirmAction label={`Sell ${review.qty} ${d.token} · ${fmtUsd6(review.estUsdcUsd6)}`} onConfirm={sell} />
+        : review && fresh ? <ConfirmAction label={`Sell ${review.qty} ${d.token} · ${fmtUsd6(review.estUsdcUsd6)}`} onConfirm={() => sell()} />
         : <button className="button primary full lg" disabled>{quoting || (size && !fresh) ? <><Spinner /> Getting a price…</> : "Sell"}</button>}
     </div>
   </div>;

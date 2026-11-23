@@ -14,6 +14,11 @@ export const VENUES: TagDef[] = [
   { key: "jupiter", label: "Jupiter", kind: "venue", note: "Trading venue · aggregator (routes across Solana DEXs)", live: true },
   { key: "hyperliquid", label: "Hyperliquid", kind: "venue", note: "Trading venue · DEX (perps)", live: false },
 ];
+/** D47: Solana exchanges a token's pools sit on (pool index keys). Jupiter routes across all of them. */
+export const EXCHANGES: TagDef[] = [
+  ["raydium", "Raydium"], ["orca", "Orca"], ["meteora", "Meteora"], ["pumpswap", "PumpSwap"], ["pancakeswap", "PancakeSwap"],
+  ["fluxbeam", "FluxBeam"], ["phoenix", "Phoenix"], ["saros", "Saros"], ["stabble", "Stabble"],
+].map(([key, label]) => ({ key, label, kind: "venue" as const, note: "Exchange · DEX on Solana", live: true }));
 export const CHAINS: TagDef[] = [
   { key: "solana", label: "Solana", kind: "chain", note: "Chain", live: true },
 ];
@@ -27,7 +32,7 @@ export function Tag({ kind, label, note }: { kind: TagKind; label: string; note?
 }
 
 export const IssuerTag = ({ issuer }: { issuer?: string }) => issuer ? <Tag kind="tokenizer" label={find(TOKENIZERS, issuer)?.label ?? issuer} note={find(TOKENIZERS, issuer)?.note} /> : null;
-export const VenueTag = ({ venue }: { venue?: string }) => venue ? <Tag kind="venue" label={find(VENUES, venue)?.label ?? venue} note={find(VENUES, venue)?.note} /> : null;
+export const VenueTag = ({ venue }: { venue?: string }) => { const t = find(VENUES, venue) ?? find(EXCHANGES, venue); return venue ? <Tag kind="venue" label={t?.label ?? venue} note={t?.note} /> : null; };
 export const ChainTag = ({ chain }: { chain?: string }) => chain ? <Tag kind="chain" label={find(CHAINS, chain)?.label ?? chain} note={find(CHAINS, chain)?.note} /> : null;
 
 /** Issuer · venue · chain, in that order. */
