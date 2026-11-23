@@ -2,7 +2,8 @@
  * Markets background work (runs in the API process, like the buy worker):
  * - keep every listed price warm in the shared Jupiter cache (one batch of 50 at a time),
  * - write a price tick per hot-set asset every 5 min (idempotent across instances),
- * - drop ticks older than 8 days.
+ * - drop ticks older than 8 days,
+ * - keep the D47 pool index (every exchange each token trades on) fresh, oldest first, in its own loop.
  */
 import { getSql } from '../../db/client.js';
 import { envFlag } from '../env.js';
@@ -10,6 +11,7 @@ import { jupiterPricesUsd6 } from '../jupiter-price.js';
 import { TICK_EVERY_MS, TICK_KEEP_MS } from '../../shared/markets.js';
 import { marketAssets } from './catalog.js';
 import { hotSet, writeTicks } from './prices.js';
+import { warmPoolIndex } from './pools.js';
 
 export const marketsEnabled = () => envFlag('MARKETS_ENABLED', process.env.NODE_ENV !== 'production');
 
@@ -44,4 +46,12 @@ export function startMarketsWorker(): void {
   };
   void loop();
   setInterval(loop, WARM_EVERY_MS).unref();
+  let pooling = false;
+  const pools = async () => {
+    if (pooling) return;
+    pooling = true;
+    try { await warmPoolIndex(marketAssets().map((a) => a.mint)); } catch { /* next minute */ } finally { pooling = false; }
+  };
+  void pools();
+  setInterval(pools, WARM_EVERY_MS).unref();
 }
