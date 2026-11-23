@@ -142,7 +142,6 @@ type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStat
 | PUT | `/api/purchases/:id/details` | `PurchaseDetails` (the "Check the details" form) | `Purchase` (status `reading`; the jury re-runs, no image re-read) | `VALIDATION` (also when status is `confirming` / `saved`) |
 | PUT | `/api/purchases/:id/split` | `{ maker, behind, materials, makerOnly?: boolean, saveForFuture: boolean }` | `Purchase` | `VALIDATION` |
 | PUT | `/api/purchases/:id/assets` | `{ deselect: AssetId[] }` (tick boxes on Confirm; `[]` re-selects every row) | `Purchase` | — |
-| PUT | `/api/purchases/:id/token` | `{ from: AssetId; to: AssetId }` (D45: put a jar in another token of the same company; amount, role and reason kept) | `Purchase` | `VALIDATION` (`not_selected`, `not_same_company`, `already_listed`, `already_saved`) |
 | GET | `/api/makers/search?q=` | — | `{ items: { companyId; name; ticker; listed; tokenized; token?; chain? }[] }` (Fix the match) | — |
 | PUT | `/api/purchases/:id/match` | `{ companyId } \| { privateBrand: true }` | `Purchase` | — |
 | PUT | `/api/purchases/:id/fallback` | `{ choice: 'fallback' \| 'skip' }` | `Purchase` | — |
@@ -178,7 +177,7 @@ type JuryRow = {
   name: string; ticker?: string; why: string;   // why: 1–2 lines, "how they bring this product to you"
   agree: number; of: number;                     // jurors that named it, e.g. 3 of 3
   status: 'buyable' | 'tokenized_unverified' | 'not_onchain' | 'private';
-  assetId?: AssetId; symbol?: string;            // symbol only when buyable ("Buy on Solana · AAPLx"): the best venue's token
+  assetId?: AssetId; symbol?: string;            // D46: assetId is the company (its jar); symbol = the best token today
   venues?: VenueStat[];                          // D43/D45: every token asset of the company, best first; venues[0] is Recommended when tradable
 };
 
@@ -189,6 +188,14 @@ type VenueStat = {                               // display only; never used for
   feeBps: number | null;                         // cost of that $5 buy, bps; null when it couldn't be measured
   priceUsd6?: Usd6; mcapUsd6?: Usd6; volume24hUsd6?: Usd6; liquidityUsd6?: Usd6;
   gapBps?: number;                               // token price vs the real share price
+};
+
+type BuyOption = {                               // D46: one token a jar can buy, quoted at the row's amount
+  assetId: AssetId; token?; mint?; decimals?; issuer?; icon?; chain; venue;
+  price: Price; refPriceUsd6; estQty; minQty;    // exact: the quote includes the Ownback fee (D44)
+  fees: Fees; selectable; reason?: 'fees_high' | 'no_venue'; arkiv?;
+  recommended: boolean;                          // cheapest all-in buyable token; liquidity breaks a tie
+  mcapUsd6?; volume24hUsd6?; liquidityUsd6?; gapBps?;   // display only
 };
 
 type PurchaseDetails = {
@@ -215,8 +222,8 @@ type PurchaseDetails = {
 |---|---|---|---|---|
 | GET | `/api/jars` | — | `{ jars: { assetId; name; role; amountUsd6; readyMinUsd6; state: JarState /* docs/04 §4: filling, ready, approved, buying, returning, paused, fees_high, no_venue */; token?: string; price?: Price /* one token, verified mints only */; note? }[]; nextReminderAt; estFeesUsd6 }` | — |
 | POST | `/api/jars/:assetId/cancel` | — | `{ action: SignableAction }` | — |
-| GET/POST | `/api/buys/review` | GET `?include=ready\|all&amounts={json}` or POST `{ include?, amounts?: { [assetId]: Usd6 } }` (whole cents, min $0.10; an amount for a verified asset without a jar is allowed) | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; jarAmountUsd6; suggestedUsd6; token?; mint?; decimals?; issuer?; chain; venue; price: Price; refPriceUsd6 /* Jupiter market price */; estQty; minQty /* least after slippage protection */; fees: Fees /* measured round-trip cost, docs/05 D42 */; selectable; reason?: 'fees_high' \| 'no_venue'; arkiv? }[]; totalUsd6; fees; funding: { solanaUsdc6; arcUsdc6; bridgeUsd6 }; network: { arcUsd6? /* approx. Arc gas when bridging */; solanaPaidBy: 'ownback' }; destination }` | `NO_READY_JARS`, `VALIDATION` |
-| POST | `/api/buys` | `{ quoteId }` + Idempotency-Key | `{ batchId; batchIds; action?: SignableAction /* evm_calls on Arc with labels[], only when bridgeUsd6 > 0 */ }` | `QUOTE_EXPIRED`, `NOTHING_TO_BUY`, `NO_SOLANA_RECIPIENT`, `INSUFFICIENT_FREE`, `KEEPER_DISABLED` |
+| GET/POST | `/api/buys/review` | GET `?include=ready\|all&amounts={json}` or POST `{ include?, amounts?: { [assetId]: Usd6 } }` (whole cents, min $0.10; an amount for a verified asset without a jar is allowed) | `{ quoteId; expiresAt /* +30 s */; rows: { assetId; name; amountUsd6; jarAmountUsd6; suggestedUsd6; token?; mint?; decimals?; issuer?; chain; venue; price: Price; refPriceUsd6 /* Jupiter market price */; estQty; minQty /* least after slippage protection */; fees: Fees /* measured round-trip cost, docs/05 D42 */; selectable; reason?: 'fees_high' \| 'no_venue'; arkiv?; tokenAssetId? /* D46: the default token for this row */; recommended? /* cheapest buyable token */; options?: BuyOption[] /* D46: every token a company jar can buy, each quoted exactly at this amount */ }[]; totalUsd6; fees; funding: { solanaUsdc6; arcUsdc6; bridgeUsd6 }; network: { arcUsd6? /* approx. Arc gas when bridging */; solanaPaidBy: 'ownback' }; destination }` | `NO_READY_JARS`, `VALIDATION` |
+| POST | `/api/buys` | `{ quoteId; tokens?: { [jarId]: tokenAssetId } }` + Idempotency-Key. D46: `tokens` picks another of the jar's buyable `options` than the default; anything else is `VALIDATION token_not_offered` | `{ batchId; batchIds; action?: SignableAction /* evm_calls on Arc with labels[], only when bridgeUsd6 > 0 */ }` | `QUOTE_EXPIRED`, `NOTHING_TO_BUY`, `NO_SOLANA_RECIPIENT`, `INSUFFICIENT_FREE`, `KEEPER_DISABLED` |
 | POST | `/api/buys/:batchId/arc-submitted` | `{ txHash }` | `{ status }` (server reads the receipt for `Withdrawn(user, bridge, 5)`) | `TX_NOT_FOUND`, `TX_REVERTED` |
 | POST | `/api/buys/:batchId/swaps/:assetId` | — | `{ action: sol_tx /* relay-signed, user signs */; estQty; token }` | `DEPOSIT_NOT_READY` (USDC not on Solana yet), `INSUFFICIENT_FREE`, `UPSTREAM` |
 | POST | `/api/buys/:batchId/swaps/:assetId/submit` | `{ signedTx }` (base64) | `{ status: 'bought'; venueTx; explorerUrl; qty; spentUsd6 }` | `BAD_SIGNATURE` (message changed), `TX_REVERTED` |
@@ -285,7 +292,7 @@ Behind `MARKETS_ENABLED` (`FEATURE_OFF` when off). Session required. Verified So
 
 | Method | Path | Body / query | Result | Errors |
 |---|---|---|---|---|
-| GET | `/api/markets` | `?sort=popular\|gainers\|losers\|az` | `{ pricesAt, usMarket, items: { assetId; name; ticker; token; icon?; class; chain; priceUsd6 \| null; priceAt \| null; change24hBps \| null; liquidityUsd6 \| null; spark: Usd6[]; held; positionUsd6? }[] }`. Whole list; the PWA filters locally. `Cache-Control: private, max-age=15, stale-while-revalidate=120` | `FEATURE_OFF` |
+| GET | `/api/markets` | `?sort=popular\|gainers\|losers\|az` | `{ pricesAt, usMarket, items: { assetId; name; ticker; token; icon?; class; chain; issuer /* D46 tokenizer: 'xStocks' \| 'Ondo' */; venue /* 'jupiter' */; priceUsd6 \| null; priceAt \| null; change24hBps \| null; liquidityUsd6 \| null; spark: Usd6[]; held; positionUsd6? }[] }`. Whole list; the PWA filters locally. `Cache-Control: private, max-age=15, stale-while-revalidate=120` | `FEATURE_OFF` |
 | GET | `/api/markets/prices` | `?ids=a,b` (≤ 50) | `{ at, prices: { [assetId]: { priceUsd6, priceAt, change24hBps } } }` (30/min/user) | `RATE_LIMITED` |
 | GET | `/api/markets/:assetId` | — | Detail: price, 24h change, liquidity, 24h volume, `usMarket`, `position` (qty, value, avg cost, signed `pnlUsd6`, `pnlBps`), `tradable { buy, sell, reason? }`, `funds { solanaUsdcUsd6, arcUsdcUsd6, maxBuyUsd6 }` (Arc minus the $0.10 gas buffer), `recent` (up to 50 buys/sells, newest first: `kind`, `source`, `at`, `doneAt?`, `qty`, `amountUsd6`, `priceUsd6?`, `link`, `txs { arc?, solana? }` explorer URLs; the page shows 5) | `NOT_FOUND` (`not_listed`) |
 | GET | `/api/markets/:assetId/candles` | `?range=1D\|1W\|1M\|3M\|1Y\|ALL` | `{ range, interval, source, stale, candles: { t; o; h; l; c }[], reason? }`. Display only | `NOT_FOUND` |

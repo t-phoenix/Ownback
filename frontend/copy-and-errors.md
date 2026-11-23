@@ -92,7 +92,7 @@ The UI never shows the code itself.
 | Check the details | title "Check the details" · needs_details "We couldn't read everything. Fix or fill in what's highlighted, then we'll find the companies." · edit "Change anything that's wrong. We'll look for the companies again." · missing field hint "We couldn't read this" · "Add an item" · button "Find the companies" · "Keep the current match" · Confirm link "Wrong details? Edit them" |
 | Confirm sections (D30) | "Parent company" · "Top 5 companies that help build it" · "Top 3 commodities" · "Your fallback" ("Gets the share we can't buy on-chain yet.") · row badge "Buy on Solana · {symbol}" / "Not on-chain yet" / "Private company" · "{n}/{of} agree" · disclosure "How we chose these" |
 | Confirm button | "Put {total} in {n} jars" (n = rows above $0) · "Wrong product? Fix it" |
-| Confirm amounts (D40) | heading "Your jars" · total sub "{pct}% of it" · chips "1%" "2%" "Suggested" "Round {x}" "Free {free}" · mix "Suggested" "Even" "Maker only" · lock hint "Typed amounts lock. The total moves the rest." · balance "You can buy all of this today." / "{free} is ready to buy. Add {short} when you want the rest." · folded rows "Also behind it · not on-chain yet" · "Tap to read why" (each row opens to the full reason, "Not on-chain yet" / "Private company" / "Token not verified yet" and "{n}/{of} agree") · venue lines (D43/D45), one per token, best first, tappable on Confirm to choose the jar's token (radio): "{symbol} · {issuer} · Recommended (best tradable only) · {price} · Market cap {x} · 24h vol {x} · Liquidity {x} · {±gap} vs the share · Cost {pct} on $5"; a token that fails the check adds "Too thin: a $5 buy costs {pct}" or "No price right now" · footnote "Ownback checks every venue's token and only offers ones a $5 buy can get at a fair price." · fee line "Ownback fee" (D44) · a failed step that still saved goes straight to Saved, no error |
+| Confirm amounts (D40) | heading "Your jars" · total sub "{pct}% of it" · chips "1%" "2%" "Suggested" "Round {x}" "Free {free}" · mix "Suggested" "Even" "Maker only" · lock hint "Typed amounts lock. The total moves the rest." · balance "You can buy all of this today." / "{free} is ready to buy. Add {short} when you want the rest." · folded rows "Also behind it · not on-chain yet" · "Tap to read why" (each row opens to the full reason, "Not on-chain yet" / "Private company" / "Token not verified yet" and "{n}/{of} agree") · venue lines (D43/D46), one per token, best first, information only: "{symbol} · {issuer tag} · Best today (when 2+) · {price} · Market cap {x} · 24h vol {x} · Liquidity {x} · {±gap} vs the share · Cost {pct} on $5"; a token that fails the check adds "Too thin: a $5 buy costs {pct}" or "No price right now" · footnote "Ownback checks every venue's token and only offers ones a $5 buy can get at a fair price." · fee line "Ownback fee" (D44) · a failed step that still saved goes straight to Saved, no error |
 | Jars shortfall (D40) | "{free} free. Add {short} to buy all ready jars" · button "Add funds" |
 | Confirm approval (Privy / seed) | "Move {invest} into {n} jars on Arc" |
 | Confirm fee (Q2) | "Network fee $0.00 · we cover it" (or "< $0.01") |
@@ -181,3 +181,13 @@ Strings live in `frontend/lib/copy.ts` → `marketCopy`. Up/down always carries 
 - Issuer note: "{token} is issued by a third party; it tracks {company} stock but is not a share registered in your name."
 - Withdraw: "The vault can only pay you. To send to someone else, withdraw first and send from your own wallet app."
 - Sign in footer: "By continuing you accept the Terms · Risks"
+
+### Token choice and tags (D46)
+
+| Where | Copy |
+|---|---|
+| Buy screen, per company jar with 2+ tokens | radio cards "{token} · {issuer tag} {venue tag} {chain tag} · Recommended (the default) · {estQty} {token}" and "Cost {usd} ({pct}) · {price} each · Liquidity {x} · 24h vol {x} · Market cap {x} · {±gap} vs the share"; a token that can't be bought: "Fees too high ({pct})" / "No route right now" (disabled) |
+| Buy screen quote grid | "Your price" · "You get" · "At least" · "Route cost" |
+| Markets | issuer bar "Tokenized by" · "All" · "xStocks · {n}" · "Ondo · {n}" · "Robinhood · Soon" · "Hyperliquid · Soon"; count line "{n} with a live price · Show all {total}" / "Showing all {n} · Only priced" |
+| Tag legend | "Tokenizer" (violet) · "Trading venue" (teal) · "Chain" (blue) |
+| Errors | `VALIDATION token_not_offered` (stale pick): the existing VALIDATION copy; the screen reloads quotes |
