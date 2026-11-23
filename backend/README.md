@@ -50,6 +50,8 @@ VAULT_ADDRESS VAULT_OWNER ARC_STUDIO_URL
 VAPID_PUBLIC VAPID_PRIVATE
 # D44 Ownback buy fee: off unless both are set. BPS 1–100; ACCOUNT = an Ownback-owned Solana USDC token account
 OWNBACK_FEE_BPS OWNBACK_FEE_ACCOUNT
+# D47 Jupiter server key (not the publishable one). Unset = keyless lite-api.jup.ag; set = api.jup.ag with x-api-key
+JUPITER_API_KEY
 SESSION_SECRET TOKEN_ENC_KEY CRON_SECRET
 KEEPER_ENABLED GMAIL_ENABLED AUTO_ADD_EVM VENUE_BASE VENUE_ETHEREUM VENUE_ARBITRUM VENUE_BNB OG_SIGNIN MOCK_CHAIN MARKETS_ENABLED
 # optional Circle Console (Q9 — not required)

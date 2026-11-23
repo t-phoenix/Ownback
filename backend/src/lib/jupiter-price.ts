@@ -1,14 +1,18 @@
 import { USDC } from '../shared/chains.js';
 
 const SOL_USDC = USDC.solana.value;
-const JUP_QUOTE = 'https://lite-api.jup.ag/swap/v1/quote';
-const JUP_SWAP = 'https://lite-api.jup.ag/swap/v1/swap';
-const JUP_PRICE = 'https://lite-api.jup.ag/price/v3';
+/** With JUPITER_API_KEY (server key) calls go to api.jup.ag with higher limits; without it, the keyless lite-api. */
+export const JUP_BASE = process.env.JUPITER_API_KEY ? 'https://api.jup.ag' : 'https://lite-api.jup.ag';
+const JUP_QUOTE = `${JUP_BASE}/swap/v1/quote`;
+const JUP_SWAP = `${JUP_BASE}/swap/v1/swap`;
+const JUP_PRICE = `${JUP_BASE}/price/v3`;
 
-/** lite-api is rate limited (429). Back off and retry a few times instead of reporting "no route". */
-async function jupFetch(url: string, init: RequestInit & { timeoutMs?: number; retries?: number } = {}): Promise<Response> {
+/** Jupiter is rate limited (429). Back off and retry a few times instead of reporting "no route". */
+export async function jupFetch(url: string, init: RequestInit & { timeoutMs?: number; retries?: number } = {}): Promise<Response> {
+  const key = process.env.JUPITER_API_KEY;
+  const headers = { ...(init.headers as Record<string, string> | undefined), ...(key ? { 'x-api-key': key } : {}) };
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, { ...init, signal: AbortSignal.timeout(init.timeoutMs ?? 8_000) });
+    const res = await fetch(url, { ...init, headers, signal: AbortSignal.timeout(init.timeoutMs ?? 8_000) });
     if (res.status !== 429 || attempt >= (init.retries ?? 4)) return res;
     await new Promise((r) => setTimeout(r, 1_000 * 2 ** attempt)); // 1, 2, 4, 8 s
   }
@@ -163,6 +167,8 @@ export async function jupiterQuote(opts: {
   retries?: number;
   /** Ownback platform fee (D44); only on the quote a swap is built from. */
   platformFeeBps?: number;
+  /** D47: only these Jupiter DEX labels (comma-separated), e.g. one exchange the user picked. Omitted = every exchange. */
+  dexes?: string;
 }): Promise<JupiterQuote | null> {
   if (opts.amountRaw <= 0n) return null;
   try {
@@ -171,7 +177,8 @@ export async function jupiterQuote(opts: {
       `&outputMint=${encodeURIComponent(opts.outputMint)}` +
       `&amount=${opts.amountRaw.toString()}` +
       `&slippageBps=${opts.slippageBps ?? 100}` +
-      (opts.platformFeeBps ? `&platformFeeBps=${opts.platformFeeBps}` : '');
+      (opts.platformFeeBps ? `&platformFeeBps=${opts.platformFeeBps}` : '') +
+      (opts.dexes ? `&dexes=${encodeURIComponent(opts.dexes)}` : '');
     const res = await jupFetch(url, { retries: opts.retries });
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
@@ -192,7 +199,7 @@ export async function jupiterQuote(opts: {
 }
 
 /** `platformFeeBps` (D44) makes outAmount the exact tokens out after the Ownback fee. */
-export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippageBps = 100, retries?: number, platformFeeBps?: number) {
+export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippageBps = 100, retries?: number, platformFeeBps?: number, dexes?: string) {
   return jupiterQuote({
     inputMint: SOL_USDC,
     outputMint: mint,
@@ -200,16 +207,18 @@ export async function jupiterBuyQuote(mint: string, amountUsd6: bigint, slippage
     slippageBps,
     retries,
     ...(platformFeeBps ? { platformFeeBps } : {}),
+    ...(dexes ? { dexes } : {}),
   });
 }
 
-export async function jupiterSellQuote(mint: string, amountRaw: bigint, slippageBps = 100, retries?: number) {
+export async function jupiterSellQuote(mint: string, amountRaw: bigint, slippageBps = 100, retries?: number, dexes?: string) {
   return jupiterQuote({
     inputMint: mint,
     outputMint: SOL_USDC,
     amountRaw,
     slippageBps,
     retries,
+    ...(dexes ? { dexes } : {}),
   });
 }
 
