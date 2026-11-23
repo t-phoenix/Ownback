@@ -19,7 +19,7 @@ import { mockChain } from '../lib/env.js';
 import { analysePurchase, freshSteps, readPurchase, type ReadInput, type Rules } from '../lib/og/read.js';
 import { PurchaseDetails } from '../lib/og/schemas.js';
 import { getCatalogCompany } from '../lib/registry/catalog.js';
-import { getAsset, iconField, verifiedMint } from '../shared/assets.js';
+import { companyOf, getAsset, iconField, verifiedMint } from '../shared/assets.js';
 
 export const purchaseRoutes = new Hono();
 
@@ -91,7 +91,7 @@ function purchaseJson(
     ...(p.rate_bps != null ? { rateBps: p.rate_bps as number } : {}),
     ...(p.split ? { split: p.split } : {}),
     allocations: allocs.map((a) => {
-      const cat = getCatalogCompany(a.asset_id);
+      const cat = getCatalogCompany(companyOf(a.asset_id));
       const buyable = Boolean(verifiedMint(a.asset_id, 'solana'));
       return {
         assetId: a.asset_id,
@@ -272,6 +272,43 @@ purchaseRoutes.put('/purchases/:id/assets', async (c) => {
       WHERE purchase_id = ${c.req.param('id')}::uuid
     `;
     const loaded = await loadPurchase(user.id, c.req.param('id'));
+    return c.json(purchaseJson(loaded.p, loaded.allocs));
+  } catch (e) {
+    return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);
+  }
+});
+
+/**
+ * D45: switch one jar to another token of the same company (AAPLx ↔ AAPLon). Keeps the amount, role and reason;
+ * the jury row follows so Confirm shows the choice. Only before the save.
+ */
+purchaseRoutes.put('/purchases/:id/token', async (c) => {
+  try {
+    requireCsrf(c);
+    const user = await requireUser(c);
+    const body = z.object({ from: z.string().min(1), to: z.string().min(1) }).parse(await c.req.json());
+    const id = c.req.param('id');
+    const { p, allocs } = await loadPurchase(user.id, id);
+    if (p.status === 'saved') throw new ApiError('VALIDATION', { reason: 'already_saved' });
+    const to = verifiedMint(body.to, 'solana');
+    if (!allocs.some((a) => a.asset_id === body.from)) throw new ApiError('VALIDATION', { reason: 'not_selected' });
+    if (!to || companyOf(body.to) !== companyOf(body.from)) throw new ApiError('VALIDATION', { reason: 'not_same_company' });
+    if (body.to === body.from) {
+      const loaded = await loadPurchase(user.id, id);
+      return c.json(purchaseJson(loaded.p, loaded.allocs));
+    }
+    if (allocs.some((a) => a.asset_id === body.to)) throw new ApiError('VALIDATION', { reason: 'already_listed' });
+    const sql = getSql();
+    await sql`UPDATE allocations SET asset_id = ${body.to} WHERE purchase_id = ${id}::uuid AND asset_id = ${body.from}`;
+    type Row = { assetId?: string; symbol?: string };
+    const a = p.analysis as { parent?: Row | null; enablers?: Row[]; commodities?: Row[] } | null;
+    if (a) {
+      for (const r of [a.parent, ...(a.enablers ?? []), ...(a.commodities ?? [])]) {
+        if (r?.assetId === body.from) { r.assetId = body.to; r.symbol = to.symbol; }
+      }
+      await sql`UPDATE purchases SET analysis = ${sql.json(a as never)}::jsonb, updated_at = now() WHERE id = ${id}::uuid`;
+    }
+    const loaded = await loadPurchase(user.id, id);
     return c.json(purchaseJson(loaded.p, loaded.allocs));
   } catch (e) {
     return jsonError(c, e instanceof z.ZodError ? new ApiError('VALIDATION', { issues: e.issues }) : e);

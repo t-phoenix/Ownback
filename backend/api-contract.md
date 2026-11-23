@@ -142,6 +142,7 @@ type Deposit = { id; chain; amountUsd6; fromAddress; txHash; status: DepositStat
 | PUT | `/api/purchases/:id/details` | `PurchaseDetails` (the "Check the details" form) | `Purchase` (status `reading`; the jury re-runs, no image re-read) | `VALIDATION` (also when status is `confirming` / `saved`) |
 | PUT | `/api/purchases/:id/split` | `{ maker, behind, materials, makerOnly?: boolean, saveForFuture: boolean }` | `Purchase` | `VALIDATION` |
 | PUT | `/api/purchases/:id/assets` | `{ deselect: AssetId[] }` (tick boxes on Confirm; `[]` re-selects every row) | `Purchase` | — |
+| PUT | `/api/purchases/:id/token` | `{ from: AssetId; to: AssetId }` (D45: put a jar in another token of the same company; amount, role and reason kept) | `Purchase` | `VALIDATION` (`not_selected`, `not_same_company`, `already_listed`, `already_saved`) |
 | GET | `/api/makers/search?q=` | — | `{ items: { companyId; name; ticker; listed; tokenized; token?; chain? }[] }` (Fix the match) | — |
 | PUT | `/api/purchases/:id/match` | `{ companyId } \| { privateBrand: true }` | `Purchase` | — |
 | PUT | `/api/purchases/:id/fallback` | `{ choice: 'fallback' \| 'skip' }` | `Purchase` | — |
@@ -178,10 +179,11 @@ type JuryRow = {
   agree: number; of: number;                     // jurors that named it, e.g. 3 of 3
   status: 'buyable' | 'tokenized_unverified' | 'not_onchain' | 'private';
   assetId?: AssetId; symbol?: string;            // symbol only when buyable ("Buy on Solana · AAPLx"): the best venue's token
-  venues?: VenueStat[];                          // D43: every verified token of the asset, best first
+  venues?: VenueStat[];                          // D43/D45: every token asset of the company, best first; venues[0] is Recommended when tradable
 };
 
 type VenueStat = {                               // display only; never used for money maths
+  assetId: AssetId;                              // D45: each token is its own asset (`co:apple`, `tok:aaplon`)
   symbol: string; issuer: string;                // "AAPLon", "Ondo"
   tradable: boolean;                             // a live $5 quote fits the default 5% fee cap
   feeBps: number | null;                         // cost of that $5 buy, bps; null when it couldn't be measured
